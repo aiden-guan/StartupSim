@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Source Serif 4", "Times New Roman", serif;
+  --font-ui: "Sora", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --color-paper: #efe8dc;
+  --color-plaster: #e7dfd1;
+  --color-ink: #1b2230;
+  --color-muted: #5d6573;
+  --color-line: #cfc5b6;
+  --color-copper: #c4622d;
+  --color-ledger: #1f6b4a;
+  --color-alert: #9b2f2f;
+  --color-panel: #243044;
+  --color-panel-2: #1b2433;
+  --color-fog: #d8d1c4;
+  --color-gold: #c9a227;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: #d9d0c2;
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+}
+
+body {
+  overflow: hidden;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-copper);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.hud-number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #6d7788 transparent;
+}
