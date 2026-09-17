@@ -19,6 +19,7 @@ export function managementRelief(state: GameState): number {
 export function developTask(state: GameState, task: Task): boolean {
   const workers = workersFor(task, state);
   const n = workers.length;
+  if (!n && task.type !== "crisis") return false;
   const mult = communicationMultiplier(n, managementRelief(state));
   const productivity = companySkill(state, "productivity", workers) * DAILY * mult;
   const scale = (skill: SkillName, prodScale = true) => {
@@ -92,4 +93,14 @@ export function makeTask(
     repeat: partial.repeat ?? false,
     ...partial,
   };
+}
+
+/** Uses the same skill/overhead formula as development. No visual state enters the estimate. */
+export function taskEstimate(state: GameState, task: Task) {
+  const workers = workersFor(task,state);
+  const efficiency = communicationMultiplier(workers.length,managementRelief(state));
+  const skill = (name:SkillName,scale=false)=>companySkill(state,name,workers,scale);
+  const raw = task.type==='research' ? skill('engineering')+skill('research')+skill('product')/3 : task.type==='lobby'||task.type==='hiring' ? skill('growth',task.type==='lobby') : task.type==='special'||task.type==='training' ? (skill('research',true)+skill('engineering',true)+skill('product',true))/3 : skill('productivity');
+  const daily = workers.length ? raw * DAILY * efficiency : 0;
+  return {workers,efficiency,daily,days:daily>0?Math.ceil(Math.max(0,task.requiredProgress-task.progress)/daily):null};
 }

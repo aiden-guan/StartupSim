@@ -12,6 +12,8 @@ import { FeelLayer } from "./feel/FeelLayer";
 import { HUD } from "./HUD";
 import { SettingsOverlay, CreditsOverlay } from "./SettingsOverlays";
 import { VisualGallery } from "./VisualGallery";
+import { MarketResults } from "./market/MarketResults";
+import { EmployeeInspector } from "./team/panels";
 import { MarketView } from "./market/MarketView";
 import { MentorCard, Spotlight } from "./onboarding/MentorCard";
 import { RevealCaption } from "./onboarding/RevealCaption";
@@ -76,6 +78,12 @@ export function App() {
   useSimClock();
   useTutorialCamera();
   useAmbient();
+  const drawer = useGame(s=>s.drawer);
+  const slide = game ? currentTutorialSlide(game) : null;
+  useEffect(()=>{
+    if (screen !== 'playing' || revealPlaying || !slide || slide.workspace === undefined) return;
+    if (drawer !== slide.workspace) useGame.getState().setDrawer(slide.workspace);
+  },[screen,revealPlaying,slide?.id,slide?.workspace,drawer]);
   const uiScale = game?.settings.uiScale ?? 1;
 
   useEffect(() => {
@@ -94,10 +102,14 @@ export function App() {
   if (galleryOpen) return <VisualGallery />;
   if (screen === "ended" && game) return <EndScreen game={game} />;
 
+  if (screen === "market" && game?.marketResult) return <MarketResults game={game} />;
+
   if (screen === "market" && game?.marketBattle) {
     return (
       <div className="relative h-full bg-[#1b2230]">
         <MarketView game={game} />
+        <MentorCard />
+        <Spotlight />
         <DebugPanel />
         <SettingsOverlay />
       </div>
@@ -119,6 +131,7 @@ export function App() {
             <>
               <HUD game={game} />
               <Drawers game={game} />
+              <EmployeeInspector game={game} />
             </>
           ) : null}
           <MentorCard />

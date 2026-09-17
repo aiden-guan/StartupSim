@@ -12,7 +12,7 @@ import type {
 } from "./types";
 import { Rng } from "./rng";
 
-export const SKIN_TONES = ["#f6e0c8", "#f3d1b0", "#e0b184", "#c68642", "#8d5524", "#5c3317", "#3b2216", "#f0d5b8"];
+export const SKIN_TONES = ["#f6e0c8", "#f3d1b0", "#f2c8a2", "#e0b184", "#c68642", "#8d5524", "#5c3317", "#3b2216", "#f0d5b8"];
 export const HAIR_COLORS = ["#1a1a1a", "#4a3728", "#6b3a2a", "#c45c26", "#d4b483", "#e8e1d6", "#2c1a12", "#6b2d5b"];
 export const TOP_COLORS = ["#1d4e3a", "#2b3a55", "#c4622d", "#5b4b8a", "#3d5a4c", "#1b2230", "#8a3b2f", "#4a6fa5", "#d8d1c4"];
 export const PANTS_COLORS = ["#2c2c34", "#3a3a44", "#1b2230", "#4a4038", "#243024", "#6a5a4a"];
@@ -31,10 +31,12 @@ export const HAIR_STYLES: HairStyle[] = [
   "swept",
   "bald",
   "textured",
+  "beanie",
+  "balding",
 ];
 export const BODIES: BodyType[] = ["slim", "average", "broad"];
 export const HEIGHTS: HeightId[] = ["short", "avg", "tall"];
-export const TOP_IDS: TopId[] = ["tee", "hoodie", "sweater", "overshirt", "blazer", "vest", "jacket", "labcoat", "techjacket"];
+export const TOP_IDS: TopId[] = ["tee", "turtleneck", "hoodie", "sweater", "overshirt", "blazer", "vest", "jacket", "labcoat", "techjacket"];
 export const PANTS_IDS: PantsId[] = ["jeans", "chinos", "joggers", "trousers"];
 export const SHOES_IDS: ShoesId[] = ["sneakers", "dress", "boots", "runners"];
 export const GLASSES_IDS: GlassesId[] = ["none", "round", "rect"];
@@ -70,6 +72,8 @@ export function normalizeLook(raw: Partial<CharacterLook> | null | undefined): C
   const glassesId: GlassesId = raw?.glassesId && raw.glassesId !== "none" ? raw.glassesId : glasses ? "rect" : "none";
   const accessory = (ACCESSORIES.includes(raw?.accessory as AccessoryId) ? raw?.accessory : "none") as AccessoryId;
   return {
+    beard: raw?.beard ?? false,
+    beardColor: raw?.beardColor,
     skin: raw?.skin ?? SKIN_TONES[0]!,
     hair: raw?.hair ?? HAIR_COLORS[0]!,
     hairStyle,
@@ -123,12 +127,12 @@ export function founderLook(rng: Rng): CharacterLook {
 }
 
 export const DEFAULT_FOUNDER_LOOK: CharacterLook = normalizeLook({
-  skin: "#e0b184",
-  hair: "#1a1a1a",
-  hairStyle: "short",
-  top: "#1b2230",
-  pants: "#2c2c34",
-  shoes: "#111111",
+  skin: "#f3d1b0",
+  hair: "#4a3728",
+  hairStyle: "swept",
+  top: "#2b3a55",
+  pants: "#3a3a44",
+  shoes: "#ffffff",
   glasses: false,
   accessory: "none",
   body: "average",

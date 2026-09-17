@@ -43,17 +43,15 @@ export function manhattan(a: Axial, b: Axial): number {
 }
 
 export function pixelFor(pos: Axial, size: number): { x: number; y: number } {
-  const w = size * 2;
-  const h = Math.sqrt(3) * size;
-  const x = pos.col * (w * 0.75) + (pos.row % 2 === 0 ? 0 : w * 0.375);
-  const y = pos.row * h;
+  const x = Math.sqrt(3) * size * (pos.col + (pos.row % 2) * 0.5);
+  const y = pos.row * size * 1.5;
   return { x, y };
 }
 
 export function hexPoints(cx: number, cy: number, size: number): string {
   const pts: string[] = [];
   for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 180) * (60 * i);
+    const angle = (Math.PI / 180) * (60 * i + 30);
     pts.push(`${cx + size * Math.cos(angle)},${cy + size * Math.sin(angle)}`);
   }
   return pts.join(" ");

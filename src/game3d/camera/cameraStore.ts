@@ -21,14 +21,14 @@ interface CameraState {
 }
 
 export function overviewShot(level: number): CameraGoal {
-  if (level >= 5) return { position: [-22, 24, 22], target: [0, 0.6, 0], duration: 0.9, mode: "PLAYER" };
-  if (level >= 3) return { position: [-16, 18, 18], target: [0, 0.5, 0], duration: 0.9, mode: "PLAYER" };
-  if (level >= 1) return { position: [-12, 13, 13], target: [0, 0.5, 0], duration: 0.9, mode: "PLAYER" };
-  return { position: [-4.2, 7.4, 5.6], target: [0.2, 0.4, -0.5], duration: 0.9, mode: "PLAYER" };
+  if (level >= 5) return { position: [22, 24, 22], target: [0, 0.6, 0], duration: 0.9, mode: "PLAYER" };
+  if (level >= 3) return { position: [16, 18, 18], target: [0, 0.5, 0], duration: 0.9, mode: "PLAYER" };
+  if (level >= 1) return { position: [12, 13, 13], target: [0, 0.5, 0], duration: 0.9, mode: "PLAYER" };
+  return { position: [10, 11, 13], target: [0.2, 0.4, -0.5], duration: 0.9, mode: "PLAYER" };
 }
 
 export const TITLE_SHOT: CameraGoal = {
-  position: [-3.6, 6.4, 4.1],
+  position: [9, 9, 11],
   target: [0.2, 0.25, -0.7],
   duration: 1.2,
   mode: "CINEMATIC",

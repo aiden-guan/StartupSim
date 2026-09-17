@@ -1,4 +1,5 @@
-import type { ExpressionId, FaceId } from "../../simulation/types";
+import type { ExpressionId, FaceId } from '../../simulation/types';
+import { Bevel } from '../geometry/Bevel';
 
 export function FaceMesh({
   skin,
@@ -9,63 +10,45 @@ export function FaceMesh({
   expression: ExpressionId;
   faceId: FaceId;
 }) {
-  const browY = expression === "surprised" || expression === "happy" ? 0.08 : expression === "angry" ? 0.02 : 0.05;
-  const browRot = expression === "angry" ? 0.35 : expression === "stressed" ? -0.25 : expression === "confident" ? 0.15 : 0;
-  const lid = expression === "tired" ? 0.035 : 0.02;
-  const mouthY = expression === "happy" || expression === "confident" ? -0.07 : expression === "surprised" ? -0.06 : -0.08;
-  const mouthW = expression === "surprised" ? 0.05 : expression === "happy" ? 0.1 : 0.08;
-  const mouthH = expression === "surprised" ? 0.06 : expression === "angry" ? 0.02 : 0.025;
-  const headScale = faceId === "round" ? 1.06 : faceId === "angular" ? 0.94 : 1;
+  const width = faceId === 'round' ? 0.46 : faceId === 'angular' ? 0.42 : 0.44;
+  const eyeHeight = expression === 'tired' ? 0.024 : expression === 'surprised' ? 0.068 : 0.056;
+  const browY = expression === 'surprised' ? 0.058 : expression === 'tired' ? 0.038 : 0.046;
+  const browAngle = expression === 'angry' ? 0.22 : expression === 'stressed' ? -0.18 : expression === 'confident' ? 0.1 : 0;
+
   return (
-    <group scale={headScale}>
-      <mesh castShadow>
-        <sphereGeometry args={[0.24, 16, 14]} />
-        <meshStandardMaterial color={skin} roughness={0.58} />
-      </mesh>
-      <mesh position={[0, -0.12, 0.06]} scale={[0.78, 0.55, 0.7]}>
-        <sphereGeometry args={[0.2, 12, 10]} />
-        <meshStandardMaterial color={skin} roughness={0.58} />
-      </mesh>
-      <mesh position={[-0.08, 0.04, 0.18]}>
-        <sphereGeometry args={[0.045, 10, 8]} />
-        <meshStandardMaterial color="#f7f4ef" />
-      </mesh>
-      <mesh position={[0.08, 0.04, 0.18]}>
-        <sphereGeometry args={[0.045, 10, 8]} />
-        <meshStandardMaterial color="#f7f4ef" />
-      </mesh>
-      <mesh position={[-0.08, 0.04, 0.215]}>
-        <sphereGeometry args={[0.022, 8, 8]} />
-        <meshStandardMaterial color="#1b2230" />
-      </mesh>
-      <mesh position={[0.08, 0.04, 0.215]}>
-        <sphereGeometry args={[0.022, 8, 8]} />
-        <meshStandardMaterial color="#1b2230" />
-      </mesh>
-      <mesh position={[-0.08, 0.055 + lid, 0.2]} scale={[1, expression === "tired" ? 0.45 : 0.25, 1]}>
-        <sphereGeometry args={[0.04, 8, 6]} />
-        <meshStandardMaterial color={skin} roughness={0.58} />
-      </mesh>
-      <mesh position={[0.08, 0.055 + lid, 0.2]} scale={[1, expression === "tired" ? 0.45 : 0.25, 1]}>
-        <sphereGeometry args={[0.04, 8, 6]} />
-        <meshStandardMaterial color={skin} roughness={0.58} />
-      </mesh>
-      <mesh position={[-0.08, browY, 0.2]} rotation={[0, 0, browRot]} scale={[1, 0.22, 0.4]}>
-        <boxGeometry args={[0.09, 0.04, 0.04]} />
-        <meshStandardMaterial color="#1b2230" />
-      </mesh>
-      <mesh position={[0.08, browY, 0.2]} rotation={[0, 0, -browRot]} scale={[1, 0.22, 0.4]}>
-        <boxGeometry args={[0.09, 0.04, 0.04]} />
-        <meshStandardMaterial color="#1b2230" />
-      </mesh>
-      <mesh position={[0, -0.01, 0.23]} rotation={[0.4, 0, 0]}>
-        <coneGeometry args={[0.035, 0.08, 6]} />
-        <meshStandardMaterial color={skin} roughness={0.6} />
-      </mesh>
-      <mesh position={[0, mouthY, 0.22]}>
-        <boxGeometry args={[mouthW, mouthH, 0.03]} />
-        <meshStandardMaterial color={expression === "angry" ? "#7a2f2f" : "#5a3030"} />
-      </mesh>
+    <group>
+      {/* Clean rounded-cube head */}
+      <Bevel size={[width, 0.45, 0.39]} color={skin} radius={faceId === 'angular' ? 0.085 : 0.105} />
+
+      {/* Symmetrical ears, vertical capsule eyes, subtle brows */}
+      {[-1, 1].map((side) => (
+        <group key={side}>
+          {/* Ear */}
+          <Bevel position={[side * (width / 2 + 0.005), -0.04, -0.005]} size={[0.074, 0.11, 0.085]} radius={0.032} color={skin} />
+
+          {/* Two vertical capsule eyes - no nose, flat-planed face */}
+          <Bevel position={[side * 0.083, -0.008, 0.2]} size={[0.028, eyeHeight, 0.014]} radius={0.012} color="#23272e" />
+
+          {/* Subtle brow line */}
+          <Bevel
+            position={[side * 0.083, browY, 0.201]}
+            rotation={[0, 0, side * browAngle]}
+            size={[0.052, 0.011, 0.01]}
+            color="#38302a"
+            radius={0.003}
+          />
+        </group>
+      ))}
+
+      {/* Subtle mouth line: small clean horizontal mark, slightly curved when happy */}
+      {expression === 'happy' ? (
+        <mesh position={[0, -0.114, 0.198]} rotation={[0, 0, Math.PI]}>
+          <torusGeometry args={[0.035, 0.006, 4, 10, Math.PI]} />
+          <meshStandardMaterial color="#8a5a48" roughness={1} />
+        </mesh>
+      ) : (
+        <Bevel position={[0, -0.112, 0.2]} size={[0.065, 0.01, 0.01]} color="#8a5a48" radius={0.003} />
+      )}
     </group>
   );
 }

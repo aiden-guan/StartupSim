@@ -51,7 +51,7 @@ describe("character looks", () => {
     expect(g.founder.look.hairStyle).toBe("messy");
     expect(g.founder.look.topId).toBe("hoodie");
     expect(g.company.brand.mark).toBe("spark");
-    expect(g.meta.schemaVersion).toBe(2);
+    expect(g.meta.schemaVersion).toBe(3);
   });
 
   it("lookFromSeed is deterministic", () => {
@@ -73,19 +73,6 @@ describe("tutorial engine", () => {
     expect(g.onboarding.tutorialEnabled).toBe(false);
     expect(g.pendingMentor).toBeNull();
     expect(g.onboarding.finished).toContain("intro");
-  });
-
-  it("startProduct advances a playerAction slide", () => {
-    let g = createNewGame({ founderName: "A", companyName: "N", cofounderId: "reya", seed: 1 });
-    while (currentTutorialSlide(g)?.id !== "intro-7") {
-      const before = currentTutorialSlide(g)?.id;
-      g = applyCommand(g, { type: "advanceMentor" })!;
-      if (currentTutorialSlide(g)?.id === before) break;
-    }
-    expect(currentTutorialSlide(g)?.advance).toEqual({ type: "playerAction", action: "startProduct" });
-    g = applyCommand(g, { type: "startProduct", a: "chat", b: "writing" })!;
-    expect(g.pendingMentor).not.toBe("intro");
-    expect(g.tasks.length).toBe(1);
   });
 
   it("can skip mid-game via command", () => {

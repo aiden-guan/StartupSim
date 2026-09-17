@@ -1,198 +1,81 @@
-import { useState } from "react";
-import { BALANCE } from "../../config/balance";
-import { models } from "../../data/models";
-import { primitives } from "../../data/primitives";
-import { findRecipe } from "../../data/recipes";
-import { currentTutorialSlide } from "../../simulation/tutorial";
-import { canAffordStat, launchCosts } from "../../simulation/products";
-import { workersFor } from "../../simulation/tasks";
-import type { BusinessModel, GameState, LaunchStat } from "../../simulation/types";
-import { useGame } from "../../state/store";
-import { money, pct } from "../format";
-import { GameButton } from "../shared/controls";
-
-const STATS: LaunchStat[] = ["deployment", "capability", "distribution"];
-const MODELS: BusinessModel[] = ["free", "freemium", "subscription", "usage", "enterprise", "api", "ads"];
-
-export function TasksPanel({ game }: { game: GameState }) {
-  const dispatch = useGame((s) => s.dispatch);
-  const owned = primitives.filter((p) => game.company.primitives.includes(p.id));
-  const [a, setA] = useState(owned[0]?.id ?? "chat");
-  const [b, setB] = useState(owned[1]?.id ?? owned[0]?.id ?? "writing");
-  const recipe = findRecipe(a, b);
-  const highlight = currentTutorialSlide(game)?.highlightUI;
-
-  return (
-    <div className="space-y-5">
-      <section className="border border-white/10 p-3">
-        <h3 className="font-mono text-[10px] uppercase tracking-widest text-gold">Workbench</h3>
-        <p className="mt-1 text-[#9aa3b2]">Two primitives. Unknown pairs still ship, as junk with a name.</p>
-        <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-          <select
-            data-tutorial="primitive-a"
-            className={`bg-[#243044] px-2 py-3 ${highlight === "primitive-a" ? "tutorial-pulse" : ""}`}
-            value={a}
-            onChange={(e) => setA(e.target.value)}
-          >
-            {owned.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <div className="font-display text-2xl text-copper">+</div>
-          <select className="bg-[#243044] px-2 py-3" value={b} onChange={(e) => setB(e.target.value)}>
-            {owned.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="mt-3 border border-dashed border-white/15 p-3 text-center">
-          <div className="font-display text-xl">{recipe?.name ?? "Unnamed combination"}</div>
-          <div className="font-mono text-[10px] uppercase text-[#9aa3b2]">{recipe ? "Known recipe" : "Unknown — it will still ship"}</div>
-        </div>
-        <GameButton
-          tone="primary"
-          data-tutorial="start-product"
-          className={`mt-3 w-full ${highlight === "start-product" || highlight === "new-product" ? "tutorial-pulse" : ""}`}
-          disabled={!a || !b}
-          onClick={() => dispatch({ type: "startProduct", a, b })}
-        >
-          Start development
-        </GameButton>
-      </section>
-      {game.tasks.length === 0 ? <p className="text-[#9aa3b2]">No active work. Combine two ideas.</p> : null}
-      {game.tasks.map((task) => {
-        const crew = workersFor(task, game);
-        const idle = game.employees.filter((w) => !w.taskId && w.burnoutDays <= 0);
-        return (
-          <section key={task.id} data-tutorial="assign-crew" className="border border-white/10 p-3">
-            <div className="flex justify-between gap-2">
-              <div>
-                <div className="font-medium">{task.name}</div>
-                <div className="font-mono text-[10px] uppercase text-[#9aa3b2]">{task.type}</div>
-              </div>
-              <div className="font-mono text-xs">
-                {task.progress.toFixed(0)}/{task.requiredProgress.toFixed(0)}
-              </div>
-            </div>
-            <div className="mt-2 h-1.5 bg-white/10">
-              <div className="h-full bg-copper" style={{ width: `${Math.min(100, (task.progress / Math.max(1, task.requiredProgress)) * 100)}%` }} />
-            </div>
-            <div className="mt-2 text-xs text-[#d8d1c4]">Assigned: {crew.length ? crew.map((w) => w.name.split(" ")[0]).join(", ") : "nobody"}</div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {idle.map((w) => (
-                <button key={w.id} type="button" className="border border-white/15 px-2 py-1 text-[11px]" onClick={() => dispatch({ type: "assign", taskId: task.id, workerId: w.id })}>
-                  + {w.name.split(" ")[0]}
-                </button>
-              ))}
-              {crew.map((w) => (
-                <button key={w.id} type="button" className="border border-copper/50 px-2 py-1 text-[11px]" onClick={() => dispatch({ type: "unassign", workerId: w.id })}>
-                  − {w.name.split(" ")[0]}
-                </button>
-              ))}
-            </div>
-          </section>
-        );
-      })}
-    </div>
-  );
+import { useState } from 'react';
+import { BALANCE } from '../../config/balance';
+import { models } from '../../data/models';
+import { primitives, primitiveById } from '../../data/primitives';
+import { findRecipe } from '../../data/recipes';
+import { currentTutorialSlide } from '../../simulation/tutorial';
+import { canAffordStat, launchCosts, requiredFor } from '../../simulation/products';
+import { taskEstimate } from '../../simulation/tasks';
+import type { BusinessModel, GameState, LaunchStat, Product } from '../../simulation/types';
+import { useGame } from '../../state/store';
+import { money, pct } from '../format';
+import { GameButton } from '../shared/controls';
+import { CharacterPortrait } from '../shared/CharacterPortrait';
+import { GameIcon } from '../shared/Icons';
+const STATS:LaunchStat[]=['deployment','capability','distribution'];
+const MODELS:BusinessModel[]=['free','freemium','subscription','usage','enterprise','api','ads'];
+export function TasksPanel({game}:{game:GameState}) {
+  const dispatch=useGame(s=>s.dispatch);
+  const [showLab,setShowLab]=useState(game.tasks.length===0);
+  const [slot,setSlot]=useState<'a'|'b'>('a');
+  const a=game.onboarding.primitiveA,b=game.onboarding.primitiveB;
+  const recipe=a&&b?findRecipe(a,b):null;
+  const intro=game.pendingMentor==='intro';
+  const slide=currentTutorialSlide(game)?.id;
+  const choosingSlot=slide==='choose-writing'?'b':slide==='choose-chat'?'a':slot;
+  const difficulty=a&&b?(primitiveById[a]?.difficulty??0)+(primitiveById[b]?.difficulty??0)+(recipe?.difficultyMod??0):0;
+  return <div className="product-workspace">
+    <div className="workspace-intro"><div><span className="eyebrow">Build / Launch / Grow</span><h3>{game.tasks.length?'Work in progress':'Two ideas. One product.'}</h3></div>{!intro&&<GameButton onClick={()=>setShowLab(!showLab)}>{showLab?'View projects':'+ New product'}</GameButton>}</div>
+    {(intro||showLab)&&<section className="product-lab">
+      <div className="lab-ingredients"><div className="eyebrow">01 · Choose your ingredients</div>
+        <div className="combo-slots">{(['a','b'] as const).map((s,i)=><div key={s} className="combo-slot-wrap">{i===1&&<span className="combine-plus">+</span>}<button className={`combo-slot ${choosingSlot===s?'selected':''}`} onClick={()=>setSlot(s)} aria-label={`Select technology slot ${i+1}`}><span>{i+1}</span><GameIcon name={(s==='a'?a:b)??'products'}/><strong>{primitiveById[(s==='a'?a:b)??'']?.name??'Choose technology'}</strong></button></div>)}</div>
+        <div className="primitive-grid" data-tutorial="primitives">{primitives.filter(p=>game.company.primitives.includes(p.id)).map(p=>{
+          const blocked=intro&&(choosingSlot==='a'?p.id!=='chat':p.id!=='writing');
+          return <button key={p.id} data-tutorial={`primitive-${p.id}`} className={`primitive-tile ${a===p.id||b===p.id?'selected':''}`} disabled={blocked} title={blocked?'Try Chat + Writing for your first product':`Add ${p.name} to slot ${choosingSlot.toUpperCase()}`} onClick={()=>{dispatch({type:'selectPrimitive',slot:choosingSlot,primitive:p.id});setSlot(choosingSlot==='a'?'b':'a');}}><GameIcon name={p.id}/><span>{p.name}</span></button>;
+        })}</div>
+      </div>
+      <div className="recipe-preview"><span className="eyebrow">02 · The combination</span><div className="product-emblem"><GameIcon name={a??'products'}/></div><h3>{recipe?.name??(a&&b?'An untested combination':'Something worth building')}</h3><p>{recipe?.description??'Combine two technologies to discover your next product.'}</p>{a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}<GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{dispatch({type:'startProduct',a:a!,b:b!});setShowLab(false);}}>Start development →</GameButton></div>
+    </section>}
+    <div className="project-list">{game.tasks.map(task=>{
+      const estimate=taskEstimate(game,task);
+      const p=game.products.find(p=>p.id===task.productId);
+      return <section key={task.id} className="project-sheet"><div className="project-heading"><div><span className="eyebrow">{task.type} · {p?`Difficulty ${p.difficulty.toFixed(1)}`:'Team project'}</span><h3>{task.name}</h3></div><div className="project-time"><strong>{estimate.days===null?'No team assigned':`~${estimate.days} days`}</strong><small>{estimate.days===null?'Assign people below to begin':'At the current team’s pace'}</small></div></div>
+        <div data-tutorial="task-progress"><div className="progress-label"><span>{Math.min(100,task.progress/task.requiredProgress*100).toFixed(0)}% complete</span><span>{estimate.daily.toFixed(1)} progress / day</span></div><div className="progress-track"><i style={{width:`${Math.min(100,task.progress/task.requiredProgress*100)}%`}}/></div></div>
+        <div className="team-efficiency"><span>Team efficiency <strong>{pct(estimate.efficiency*100)}</strong></span><span>Coordination overhead −{Math.round((1-estimate.efficiency)*100)}%</span></div>
+        {estimate.workers.length===0?<div className="no-team-alert" role="alert"><strong>⚠ NO TEAM ASSIGNED</strong><span>Progress is halted. Assign available teammates below to begin development.</span></div>:<div className="team-active-note"><span>Assigned team: <strong>{estimate.workers.length} active</strong> · ~{estimate.days} days remaining</span></div>}
+        <div className="assignment-grid" data-tutorial="assign-crew">{game.employees.map(w=>{
+          const assigned=w.taskId===task.id;
+          const other=game.tasks.find(t=>t.id===w.taskId);
+          return <button key={w.id} className={`worker-assignment ${assigned?'assigned':''}`} data-tutorial={task.productId===game.onboarding.firstProductId?`assign-${w.role}`:undefined} aria-pressed={assigned} disabled={w.burnoutDays>0} title={w.burnoutDays>0?`Resting for ${w.burnoutDays} days`:other&&!assigned?`Reassign from ${other.name}`:assigned?'Unassign from this project':'Assign to this project'} onClick={()=>dispatch(assigned?{type:'unassign',workerId:w.id}:{type:'assign',workerId:w.id,taskId:task.id})}>
+            <CharacterPortrait look={w.look} robot={w.role==='robot'}/><div><strong>{w.name}</strong><small>{w.role==='founder'?'Founder':w.role==='cofounder'?'Cofounder':w.title}</small><span>ENG {w.skills.engineering.toFixed(0)} · R&D {w.skills.research.toFixed(0)} · SPEED {w.skills.productivity.toFixed(0)}</span><em>{w.burnoutDays>0?`Resting · ${w.burnoutDays}d`:assigned?'✓ Working on this':other?`On ${other.name}`:'Available · click to assign'}</em></div>
+          </button>;
+        })}</div>
+        {estimate.workers.length>0&&<div className="skill-contributions">{(['engineering','product','growth','research'] as const).map(skill=><span key={skill}>{skill}<b>{estimate.workers.reduce((s,w)=>s+(w.burnoutDays?0:w.skills[skill]),0).toFixed(1)}</b></span>)}</div>}
+      </section>;
+    })}</div>
+    {!game.tasks.length&&!showLab&&!intro&&<div className="empty-state"><h3>The studio is clear.</h3><p>Ready products are waiting in Products & launches.</p><GameButton onClick={()=>useGame.getState().setDrawer('products')}>View products →</GameButton></div>}
+  </div>;
 }
-
-export function ProductsPanel({ game }: { game: GameState }) {
-  const dispatch = useGame((s) => s.dispatch);
-  const highlight = currentTutorialSlide(game)?.highlightUI;
-  return (
-    <div className="space-y-4">
-      {game.products.length === 0 ? <p className="text-[#9aa3b2]">Nothing in the catalog yet.</p> : null}
-      {game.products.map((p) => (
-        <section key={p.id} className="border border-white/10 p-3">
-          <div className="flex justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-8 w-8 items-center justify-center bg-copper/20 font-mono text-[10px] uppercase">
-                  {p.combo[0]!.slice(0, 2)}+{p.combo[1]!.slice(0, 2)}
-                </span>
-                <div>
-                  <div className="font-medium">{p.name}</div>
-                  <div className="font-mono text-[10px] uppercase text-[#9aa3b2]">
-                    {p.status} · {p.vertical} · {p.recipeId === "generic" ? "generic" : "named"}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="text-right font-mono text-xs">
-              <div>{money(p.weeklyRevenue)}/wk</div>
-              <div className="text-[#9aa3b2]">inf {money(p.weeklyInference)}</div>
-            </div>
-          </div>
-          <p className="mt-2 text-xs leading-relaxed text-[#d8d1c4]">{p.description}</p>
-          {(p.status === "ready" || p.status === "development") && (
-            <div data-tutorial="designer" className={`mt-3 space-y-2 ${highlight === "designer" ? "tutorial-pulse" : ""}`}>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-gold">Designer</div>
-              {STATS.map((stat) => {
-                const cost = launchCosts(p)[stat];
-                return (
-                  <div key={stat} className="flex items-center justify-between gap-2">
-                    <span className="capitalize">
-                      {stat} {p.levels[stat]}
-                    </span>
-                    <span className="text-[11px] text-[#9aa3b2]">cost {cost.toFixed(0)}</span>
-                    <div className="flex gap-1">
-                      <button type="button" className="border border-white/20 px-2 py-0.5 disabled:opacity-30" disabled={!canAffordStat(p, stat) || p.levels[stat] >= BALANCE.MAX_LAUNCH_LEVEL} onClick={() => dispatch({ type: "buyStat", productId: p.id, stat })}>
-                        +
-                      </button>
-                      <button type="button" className="border border-white/20 px-2 py-0.5" disabled={p.levels[stat] <= 0} onClick={() => dispatch({ type: "refundStat", productId: p.id, stat })}>
-                        −
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              <label className="block text-xs">
-                Business model
-                <select className="mt-1 w-full bg-[#243044] px-2 py-1" value={p.businessModel} onChange={(e) => dispatch({ type: "setBusinessModel", productId: p.id, model: e.target.value as BusinessModel })}>
-                  {MODELS.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-xs">
-                Model
-                <select className="mt-1 w-full bg-[#243044] px-2 py-1" value={p.modelId} onChange={(e) => dispatch({ type: "setModel", productId: p.id, modelId: e.target.value })}>
-                  {game.ownedModels.map((id) => (
-                    <option key={id} value={id}>
-                      {models.find((m) => m.id === id)?.name ?? id}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {p.status === "ready" ? (
-                <div className="flex gap-2">
-                  <GameButton tone="primary" data-tutorial="enter-market" className={highlight === "enter-market" ? "tutorial-pulse" : ""} onClick={() => dispatch({ type: "enterMarket", productId: p.id })}>
-                    Enter market
-                  </GameButton>
-                  {game.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE ? (
-                    <GameButton onClick={() => dispatch({ type: "delegateMarket", productId: p.id })}>Delegate</GameButton>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          )}
-          {(p.status === "active" || p.status === "mature" || p.status === "declining") && (
-            <div className="mt-2 font-mono text-[11px] text-[#9aa3b2]">
-              Share {pct(p.marketShare)} · users {Math.round(p.users).toLocaleString()} · earned {money(p.earnedRevenue)}
-              <button type="button" className="ml-2 underline" onClick={() => dispatch({ type: "killProduct", productId: p.id })}>
-                sunset
-              </button>
-            </div>
-          )}
-        </section>
-      ))}
-    </div>
-  );
+function ProductEconomics({product:p}:{product:Product}) {
+  return <div className="economics-grid" data-tutorial="product-economics">{[['Revenue / week',money(p.weeklyRevenue)],['Inference / week',money(p.weeklyInference)],['Gross profit / week',money(p.weeklyRevenue-p.weeklyInference)],['Customers',Math.round(p.users).toLocaleString()],['Market share',pct(p.marketShare)],['Lifetime revenue',money(p.earnedRevenue)]].map(([label,value])=><div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>;
+}
+export function ProductsPanel({game}:{game:GameState}) {
+  const dispatch=useGame(s=>s.dispatch);
+  const ordered=[...game.products].sort((a,b)=>Number(b.status==='ready')-Number(a.status==='ready'));
+  return <div className="catalog-workspace">{!ordered.length&&<div className="empty-state"><GameIcon name="products"/><h3>Every company starts with an idea.</h3><GameButton tone="primary" onClick={()=>useGame.getState().setDrawer('tasks')}>Open product lab →</GameButton></div>}{ordered.map(p=>{
+    const costs=launchCosts(p), ready=p.status==='ready';
+    const state=ready?(Object.values(p.levels).some(n=>n>0)?'Ready to launch':'Ready to configure'):p.status==='deprecated'?'Sunset':p.status;
+    return <article key={p.id} className="product-sheet"><header data-tutorial={ready?'product-ready':undefined}><div className="product-emblem"><GameIcon name={p.combo[0]}/></div><div><span className="eyebrow">{state}</span><h3>{p.name}</h3><p>{p.combo.map(id=>primitiveById[id]?.name??id).join(' + ')} · {p.vertical}</p></div>{ready&&<span className="ready-stamp">PRODUCT READY</span>}</header>
+      {p.status==='development'?<div className="development-notice"><p>Your team is developing this product. Configure it when development finishes.</p><GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>View development →</GameButton></div>:ready?<>
+        <div className="launch-points"><span>Launch points</span>{(['engineering','product','growth'] as const).map(k=><div key={k}><small>{k}</small><strong>{Math.floor(p.points[k])}</strong></div>)}</div>
+        <div className="designer-grid" data-tutorial="designer">{STATS.map(stat=>{
+          const reason=p.levels[stat]>=BALANCE.MAX_LAUNCH_LEVEL?'Maximum level':!canAffordStat(p,stat)?`Need ${Math.ceil(costs[stat])} ${requiredFor(stat).join(' + ')} points`:'';
+          const amount=p.levels[stat]+(stat==='capability'?2:1);
+          return <section key={stat} className="launch-stat" data-tutorial={`stat-${stat}`}><span className="eyebrow">{stat}</span><strong>{amount}<small>{stat==='deployment'?'pieces':stat==='capability'?'strength':'moves / turn'}</small></strong><p>{stat==='deployment'?'Cover more ground.':stat==='capability'?'Capture faster. Survive combat.':'Reach the valuable customers.'}</p><div className="stat-controls"><GameButton aria-label={`Refund ${stat}`} disabled={!p.levels[stat]} title={!p.levels[stat]?'No points invested':'Refund last upgrade'} onClick={()=>dispatch({type:'refundStat',productId:p.id,stat})}>−</GameButton><GameButton aria-label={`Increase ${stat}`} disabled={!!reason} title={reason||'Buy one upgrade'} onClick={()=>dispatch({type:'buyStat',productId:p.id,stat})}>+</GameButton></div><small className="stat-cost">{reason||`${Math.ceil(costs[stat])} ${requiredFor(stat).join(' + ')}`}</small></section>;
+        })}</div>
+        <div className="launch-options"><div><span className="eyebrow">Business model</span><div className="choice-row">{MODELS.map(model=><button key={model} aria-pressed={p.businessModel===model} onClick={()=>dispatch({type:'setBusinessModel',productId:p.id,model})}>{model}</button>)}</div></div><div><span className="eyebrow">Powered by</span><div className="choice-row">{models.filter(m=>game.ownedModels.includes(m.id)).map(m=><button key={m.id} aria-pressed={p.modelId===m.id} onClick={()=>dispatch({type:'setModel',productId:p.id,modelId:m.id})}>{m.name}</button>)}</div></div></div>
+        <footer className="launch-footer"><span>Company time pauses in the market.</span><GameButton tone="primary" data-tutorial="enter-market" disabled={game.onboarding.tutorialEnabled&&!game.company.seenMarket&&currentTutorialSlide(game)?.id!=='enter-market'} title={game.pendingMentor==='designer'&&currentTutorialSlide(game)?.id!=='enter-market'?'Finish configuring your first launch with the mentor':'Launch this product'} onClick={()=>dispatch({type:'enterMarket',productId:p.id})}>Enter market →</GameButton>{game.company.productsLaunched>=BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE&&<GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id})}>Delegate launch</GameButton>}</footer>
+      </>:<><ProductEconomics product={p}/><footer className="launch-footer"><p>{p.description}</p>{p.status!=='deprecated'&&<GameButton tone="danger" onClick={()=>dispatch({type:'killProduct',productId:p.id})}>Sunset product</GameButton>}</footer></>}
+    </article>;
+  })}</div>;
 }

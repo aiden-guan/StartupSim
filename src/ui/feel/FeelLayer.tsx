@@ -29,13 +29,19 @@ export function FeelLayer() {
 
   return (
     <>
-      <div className="pointer-events-none absolute left-1/2 top-28 z-30 flex -translate-x-1/2 flex-col items-center gap-1">
+      <div className="pointer-events-none absolute left-1/2 top-16 z-40 flex -translate-x-1/2 flex-col items-center gap-1.5">
         {floaters.map((f) => (
           <div
             key={f.id}
-            className={`font-mono text-sm ${f.tone === "warn" ? "text-[#e07a7a]" : f.tone === "ok" ? "text-ledger" : "text-gold"}`}
+            className="flex items-center gap-2 rounded-full border border-white/15 bg-[#1b2230]/95 px-4 py-1.5 text-xs text-[#efe8dc] shadow-2xl backdrop-blur-md"
           >
-            {f.text}
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{
+                background: f.tone === "warn" ? "#e07a7a" : f.tone === "ok" ? "#48bb78" : "#e59154",
+              }}
+            />
+            <span className="font-sans font-medium tracking-wide">{f.text}</span>
           </div>
         ))}
       </div>

@@ -1,4 +1,4 @@
-export type CharacterActivity = "idle" | "walking" | "working" | "talking" | "coffee" | "celebrate" | "tired" | "sit";
+export type CharacterActivity = "idle" | "walking" | "working" | "talking" | "coffee" | "celebrate" | "tired" | "sit" | "whiteboard" | "meeting";
 
 /** Clip names match kit activities so a future GLB can swap in without changing callers. */
 export const ACTIVITY_CLIPS: Record<CharacterActivity, string> = {
@@ -6,7 +6,9 @@ export const ACTIVITY_CLIPS: Record<CharacterActivity, string> = {
   walking: "walk",
   working: "work",
   talking: "talk",
-  coffee: "idle",
+  coffee: "coffee",
+  whiteboard: "whiteboard",
+  meeting: "meeting",
   celebrate: "celebrate",
   tired: "tired-idle",
   sit: "sit",

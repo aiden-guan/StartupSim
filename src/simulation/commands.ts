@@ -1,3 +1,5 @@
+import { setPause } from "./pause";
+import type { TutorialAction } from "../data/onboarding";
 import { produce } from "immer";
 import { BALANCE } from "../config/balance";
 import { recruitingChannels } from "../data/recruiting";
@@ -24,11 +26,16 @@ import { tickDay, checkOnboarding } from "./tick";
 import { employeeScore, minSalaryFor } from "./workers";
 import { valuationOf } from "./derived";
 import { detectEnding } from "./endings";
-import { applyAdvanceMentor, applyBackMentor, finishMentorStep, skipTutorial, slideWantsAction } from "./tutorial";
+import { applyAdvanceMentor, applyBackMentor, finishMentorStep, skipTutorial, recordTutorialEvent, currentTutorialSlide } from "./tutorial";
 
 export type GameCommand =
   | { type: "newGame"; input: NewGameInput }
   | { type: "tickDay" }
+  | { type: "tutorialEvent"; action: TutorialAction }
+  | { type: "selectPrimitive"; slot: "a" | "b"; primitive: string }
+  | { type: "continueMarketResults" }
+  | { type: "passCandidate"; candidateId: string }
+  | { type: "pauseLock"; reason: "settings"; enabled: boolean }
   | { type: "setSpeed"; speed: 0 | 1 | 2 | 4 | 8 }
   | { type: "setPaused"; paused: boolean; reason?: string | null }
   | { type: "dismissMentor" }
@@ -86,24 +93,39 @@ function commit(state: GameState, r: Rng): void {
 export function applyCommand(state: GameState | null, command: GameCommand): GameState | null {
   if (command.type === "newGame") return createNewGame(command.input);
   if (!state) return state;
-  if (command.type === "tickDay") return tickDay(state);
+  if (command.type === "tickDay") return state.clock.paused ? state : tickDay(state);
 
   const next = produce(state, (draft) => {
     const r = rng(draft);
     switch (command.type) {
+      case "pauseLock":
+        setPause(draft, command.reason, command.enabled);
+        break;
+      case "tutorialEvent":
+        recordTutorialEvent(draft, command.action);
+        break;
+      case "selectPrimitive": {
+        if (!draft.company.primitives.includes(command.primitive)) break;
+        if (draft.pendingMentor === "intro" && command.primitive !== (command.slot === "a" ? "chat" : "writing")) break;
+        if (command.slot === "a") draft.onboarding.primitiveA = command.primitive;
+        else draft.onboarding.primitiveB = command.primitive;
+        recordTutorialEvent(draft, command.slot === "a" ? "selectedPrimitiveA" : "selectedPrimitiveB");
+        break;
+      }
       case "setSpeed":
         draft.clock.speed = command.speed;
-        if (command.speed > 0) {
-          draft.clock.paused = false;
-          draft.clock.reasonPaused = null;
-        } else {
-          draft.clock.paused = true;
-          draft.clock.reasonPaused = draft.clock.reasonPaused ?? "Paused";
-        }
+        setPause(draft, "manual", command.speed === 0);
+        if (command.speed > 0 && currentTutorialSlide(draft)?.id === "start-clock") recordTutorialEvent(draft, "startedClock");
         break;
       case "setPaused":
-        draft.clock.paused = command.paused;
-        draft.clock.reasonPaused = command.reason ?? null;
+        setPause(draft, command.reason === "Inbox" ? "event" : "manual", command.paused);
+        break;
+      case "continueMarketResults":
+        if (!draft.marketResult) break;
+        draft.marketResult = null;
+        setPause(draft, "results", false);
+        setPause(draft, "manual", true);
+        recordTutorialEvent(draft, "continuedMarketResults");
         break;
       case "dismissMentor":
         finishMentorStep(draft);
@@ -134,8 +156,12 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         const b = primitiveById[command.b];
         if (!a || !b) break;
         if (!draft.company.primitives.includes(a.id) || !draft.company.primitives.includes(b.id)) break;
+        if (draft.onboarding.tutorialEnabled && !draft.company.seenMarket) {
+          if (draft.products.length || command.a !== "chat" || command.b !== "writing" || currentTutorialSlide(draft)?.id !== "start-first") break;
+        }
         const product = createProduct(draft, a.id, b.id, r);
         draft.products.push(product);
+        if (!draft.onboarding.firstProductId) draft.onboarding.firstProductId = product.id;
         draft.tasks.push(
           makeTask(r, {
             type: "product",
@@ -149,7 +175,13 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       case "assign": {
         const task = draft.tasks.find((t) => t.id === command.taskId);
         const worker = draft.employees.find((w) => w.id === command.workerId);
-        if (task && worker && worker.burnoutDays <= 0) assign(task, worker);
+        if (task && worker && worker.burnoutDays <= 0) {
+          assign(task, worker);
+          if (task.productId === draft.onboarding.firstProductId) {
+            if (worker.role === "founder") recordTutorialEvent(draft, "assignedFounder");
+            if (worker.role === "cofounder") recordTutorialEvent(draft, "assignedCofounder");
+          }
+        }
         break;
       }
       case "unassign": {
@@ -159,62 +191,69 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       }
       case "buyStat": {
         const p = draft.products.find((x) => x.id === command.productId);
-        if (p) buyLaunchStat(p, command.stat);
+        if (p?.status === "ready" && !draft.marketBattle && buyLaunchStat(p, command.stat)) recordTutorialEvent(draft, "spentLaunchPoint");
         break;
       }
       case "refundStat": {
         const p = draft.products.find((x) => x.id === command.productId);
-        if (p) refundLaunchStat(p, command.stat);
+        if (p?.status === "ready" && !draft.marketBattle) refundLaunchStat(p, command.stat);
         break;
       }
       case "setModel": {
         const p = draft.products.find((x) => x.id === command.productId);
-        if (p && draft.ownedModels.includes(command.modelId)) p.modelId = command.modelId;
+        if (p?.status === "ready" && !draft.marketBattle && draft.ownedModels.includes(command.modelId)) p.modelId = command.modelId;
         break;
       }
       case "setBusinessModel": {
         const p = draft.products.find((x) => x.id === command.productId);
-        if (p) p.businessModel = command.model;
+        if (p?.status === "ready" && !draft.marketBattle) p.businessModel = command.model;
         break;
       }
       case "enterMarket": {
         const p = draft.products.find((x) => x.id === command.productId);
-        if (!p || p.status !== "ready") break;
+        if (!p || p.status !== "ready" || draft.marketBattle || draft.marketResult) break;
+        if (draft.onboarding.tutorialEnabled && !draft.company.seenMarket && currentTutorialSlide(draft)?.id !== "enter-market") break;
         draft.marketBattle = startBattle(draft, p, r);
-        draft.clock.paused = true;
-        draft.clock.reasonPaused = "Market";
+        setPause(draft, "productReady", false);
+        setPause(draft, "market", true);
+        recordTutorialEvent(draft, "enteredFirstMarket");
         break;
       }
       case "selectPiece":
-        if (draft.marketBattle) draft.marketBattle.selectedPieceId = command.pieceId;
+        if (draft.marketBattle && !draft.pendingMentor && draft.marketBattle.pieces.some(p => p.id === command.pieceId && p.owner === "player")) {
+          draft.marketBattle.selectedPieceId = command.pieceId;
+          recordTutorialEvent(draft, "selectedMarketPiece");
+        }
         break;
       case "marketMove": {
         const b = draft.marketBattle;
-        if (!b || b.current !== "player") break;
+        if (!b || b.current !== "player" || draft.pendingMentor) break;
         const piece = b.pieces.find((p) => p.id === b.selectedPieceId);
-        if (!piece) break;
-        movePiece(b, piece, command.dest, r);
+        if (!piece || piece.owner !== "player") break;
+        if (movePiece(b, piece, command.dest, r) !== "illegal") recordTutorialEvent(draft, "movedMarketPiece");
         break;
       }
       case "marketCapture": {
         const b = draft.marketBattle;
-        if (!b) break;
+        if (!b || draft.pendingMentor || b.current !== "player") break;
         const piece = b.pieces.find((p) => p.id === b.selectedPieceId);
-        if (piece) capture(b, piece);
+        if (piece?.owner === "player" && capture(b, piece)) recordTutorialEvent(draft, "capturedMarketTile");
         break;
       }
       case "marketEndTurn": {
         const b = draft.marketBattle;
-        if (!b) break;
+        if (!b || draft.pendingMentor || b.current !== "player") break;
         const finish = () => {
           if (!shouldEnd(b)) return false;
           applyBattleResults(draft, b, r);
           draft.marketBattle = null;
-          draft.clock.paused = false;
-          draft.clock.reasonPaused = null;
+          setPause(draft, "market", false);
+          setPause(draft, "results", true);
+          recordTutorialEvent(draft, "completedFirstMarket");
           return true;
         };
         if (finish()) break;
+        recordTutorialEvent(draft, "endedMarketTurn");
         b.turnsLeft -= 1;
         resetTurn(b, "ai");
         aiTakeTurn(b, r);
@@ -237,6 +276,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         break;
       }
       case "recruit": {
+        if (!draft.unlocks.hiring) break;
         const ch = recruitingChannels.find((c) => c.id === command.channelId);
         if (!ch || draft.company.cash < ch.cost || draft.hiring.cooldownDays > 0) break;
         if (ch.robots && !draft.company.technologies.includes("agents")) break;
@@ -260,7 +300,11 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         draft.hiring.cooldownDays = 10;
         break;
       }
+      case "passCandidate":
+        draft.hiring.candidates = draft.hiring.candidates.filter(c => c.employee.id !== command.candidateId);
+        break;
       case "hire": {
+        if (!Number.isFinite(command.salary) || command.salary < 0) break;
         const cand = draft.hiring.candidates.find((c) => c.employee.id === command.candidateId);
         if (!cand) break;
         const office = offices[draft.company.officeLevel];
@@ -274,14 +318,15 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         cand.employee.salary = command.salary;
         cand.employee.equity = 0.002;
         draft.employees.push(cand.employee);
-        draft.hiring.candidates = [];
+        draft.hiring.candidates = draft.hiring.candidates.filter(c => c.employee.id !== command.candidateId);
         draft.stats.employeesHired += 1;
         draft.unlocks.hiring = true;
+        recordTutorialEvent(draft, "hiredEmployee");
         break;
       }
       case "fire": {
         const w = draft.employees.find((e) => e.id === command.workerId);
-        if (!w || w.role === "founder") break;
+        if (!w || w.role === "founder" || (w.role === "cofounder" && draft.onboarding.tutorialEnabled && !draft.company.seenMarket)) break;
         draft.employees = draft.employees.filter((e) => e.id !== w.id);
         draft.stats.employeesFired += 1;
         for (const e of draft.employees) e.happiness -= 1.2;
@@ -291,7 +336,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       }
       case "startResearch": {
         const tech = techById[command.techId];
-        if (!tech) break;
+        if (!tech || !draft.unlocks.research || draft.company.technologies.includes(tech.id) || draft.tasks.some(t => t.techId === tech.id)) break;
         if (tech.requires.some((id) => !draft.company.technologies.includes(id))) break;
         if (tech.requiredVertical && !draft.company.verticals.includes(tech.requiredVertical)) break;
         if (draft.company.cash < tech.cost) break;
@@ -323,7 +368,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       }
       case "startProject": {
         const proj = specialProjects.find((p) => p.id === command.projectId);
-        if (!proj || draft.company.cash < proj.cost) break;
+        if (!proj || draft.company.cash < proj.cost || draft.company.specialProjects.includes(proj.id) || draft.tasks.some(t=>t.projectId===proj.id)) break;
         if (proj.requiresTechs.some((t) => !draft.company.technologies.includes(t))) break;
         draft.company.cash -= proj.cost;
         draft.tasks.push(
@@ -338,7 +383,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       }
       case "startLobby": {
         const lobby = lobbies.find((p) => p.id === command.lobbyId);
-        if (!lobby || draft.company.cash < lobby.cost) break;
+        if (!lobby || draft.company.cash < lobby.cost || draft.company.lobbies.includes(lobby.id) || draft.tasks.some(t=>t.lobbyId===lobby.id)) break;
         draft.company.cash -= lobby.cost;
         draft.tasks.push(
           makeTask(r, {
@@ -412,7 +457,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
             archetype: a.id,
             cash,
             valuation,
-            dilution: Math.min(0.28, 0.18 - idx * 0.01 + i * 0.02),
+            dilution: cash / (valuation + cash),
             boardPressure: 8 + idx * 4,
             notes: a.notes,
           };
@@ -427,7 +472,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         draft.funding.lastRound = offer.round;
         draft.funding.offers = [];
         draft.funding.cooldownDays = 80;
-        const inv = Math.min(0.7, draft.company.ownership.investors + offer.dilution);
+        const inv = draft.company.ownership.investors * (1 - offer.dilution) + offer.dilution;
         const scale = (1 - offer.dilution);
         draft.company.ownership.founder *= scale;
         draft.company.ownership.cofounder *= scale;
@@ -446,7 +491,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         break;
       }
       case "rentGpus":
-        draft.compute.rentedGpus = Math.max(0, command.count);
+        if (Number.isFinite(command.count)) draft.compute.rentedGpus = Math.min(10000, Math.max(0, Math.floor(command.count)));
         break;
       case "buyCluster":
         if (draft.company.cash < 400_000) break;
@@ -460,8 +505,11 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         }
         break;
       case "setAutomation":
-        draft.company.automation[command.department] = Math.max(0, Math.min(100, command.percent));
-        for (const w of draft.employees) if (w.role !== "founder") w.happiness -= command.percent * 0.01 * BALANCE.AUTOMATION_MORALE_HIT;
+        if (!Number.isFinite(command.percent)) break;
+        const prior = draft.company.automation[command.department];
+        const nextPercent = Math.max(0, Math.min(100, command.percent));
+        draft.company.automation[command.department] = nextPercent;
+        for (const w of draft.employees) if (w.role !== "founder") w.happiness = Math.max(0, w.happiness - Math.max(0, nextPercent - prior) * 0.01 * BALANCE.AUTOMATION_MORALE_HIT);
         draft.world.automation += 0.2;
         draft.world.economicDisruption += 0.1;
         break;
@@ -499,6 +547,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         mail.requiresResponse = false;
         mail.read = true;
         mail.choices = undefined;
+        if (!draft.inbox.some(m=>m.requiresResponse)) setPause(draft,"event",false);
         break;
       }
       case "readMail": {
@@ -518,8 +567,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         };
         draft.endingId = ending.id;
         draft.endingNote = ending.note;
-        draft.clock.paused = true;
-        draft.clock.reasonPaused = "Closed";
+        setPause(draft,"ended",true);
         break;
       }
       case "debug": {
@@ -574,7 +622,9 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       default:
         break;
     }
-    if (slideWantsAction(draft, command.type)) applyAdvanceMentor(draft);
+    if (command.type === "startProduct" && draft.products.length > state.products.length) recordTutorialEvent(draft, "startedFirstProduct");
+    if (command.type === "recruit" && draft.hiring.candidates.length) recordTutorialEvent(draft, "recruitedCandidates");
+    if (command.type === "startResearch" && draft.tasks.length > state.tasks.length) recordTutorialEvent(draft, "startedResearch");
     checkOnboarding(draft);
     commit(draft, r);
   });

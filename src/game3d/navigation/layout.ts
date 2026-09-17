@@ -22,14 +22,19 @@ export const apartmentLayout: OfficeLayout = {
   id: "apartment",
   level: 0,
   hub: [0.2, 0, 0.4],
-  camera: { overview: [-4.2, 7.4, 5.6], target: [0.2, 0.4, -0.5], min: 4, max: 14 },
+  camera: { overview: [10, 11, 13], target: [0.2, 0.4, -0.5], min: 7, max: 22 },
   points: [
     { id: "desk-a", kind: "desk", position: [-2.35, 0, -1.35], look: [-2.35, 0, -2.4], capacity: 1 },
     { id: "desk-b", kind: "desk", position: [2.05, 0, -1.4], look: [2.05, 0, -2.4], capacity: 1 },
+    { id: "desk-c", kind: "desk", position: [-2.35, 0, 1.0], look: [-2.35, 0, .2], capacity: 1 },
+    { id: "desk-d", kind: "desk", position: [2.05, 0, 1.0], look: [2.05, 0, .2], capacity: 1 },
+    { id: "desk-e", kind: "desk", position: [-4.7, 0, -1.35], look: [-4.7, 0, -2.15], capacity: 1 },
+    { id: "desk-f", kind: "desk", position: [.0, 0, -1.35], look: [0, 0, -2.15], capacity: 1 },
     { id: "coffee", kind: "coffee", position: [3.55, 0, 1.7], look: [4.2, 0, 1.7], capacity: 1 },
-    { id: "board", kind: "board", position: [-0.2, 0, 2.35], look: [-0.2, 0, 3.3], capacity: 2 },
+    { id: "board", kind: "board", position: [-1.15, 0, 3.75], look: [-0.15, 0, 3.7], capacity: 1 },
     { id: "idle-window", kind: "idle", position: [3.4, 0, -2.6], look: [4.2, 0, -3.2], capacity: 1 },
-    { id: "idle-rug", kind: "idle", position: [0.15, 0, 0.45], look: [0.4, 0, -0.2], capacity: 2 },
+    { id: "idle-rug", kind: "idle", position: [-.6, 0, 1.6], look: [.6, 0, 1.6], capacity: 1 },
+    { id: "idle-chat", kind: "idle", position: [.6, 0, 1.6], look: [-.6, 0, 1.6], capacity: 1 },
     { id: "entrance", kind: "entrance", position: [0.3, 0, 4.1], look: [0.3, 0, 0], capacity: 4 },
   ],
 };
@@ -128,10 +133,31 @@ export const megaLayout: OfficeLayout = {
   ],
 };
 
-const ALL = [apartmentLayout, garageLayout, loftLayout, labLayout, campusLayout, megaLayout];
+// Furniture and navigation share these exact workstation coordinates.
+const ALL = [apartmentLayout, garageLayout, loftLayout, labLayout, campusLayout, megaLayout].map(layout=>{
+  if(layout.level===0)return layout;
+  const columns=layout.level===1?3:6,rows=4;
+  const startX=layout.level===1?-5:layout.level===2?-8:layout.level===3?-10:-12;
+  const startZ=layout.level===1?-3.4:layout.level===2?-5.5:layout.level===3?-6.5:-7.5;
+  const desks:ActivityPoint[]=Array.from({length:columns*rows},(_,i)=>{
+    const x=startX+(i%columns)*2.2,z=startZ+Math.floor(i/columns)*2.4;
+    return {id:`desk-${i}`,kind:'desk',position:[x,0,z],look:[x,0,z-.8],capacity:1};
+  });
+  const activities=layout.points.filter(p=>p.kind!=='desk').flatMap(p=>{
+    const point=layout.level===5&&p.kind==='lab'?{...p,position:[8,0,-4] as Vector3Tuple,look:[9,0,-4] as Vector3Tuple}:p;
+    if(point.kind==='entrance')return [point];
+    const n=Math.min(point.kind==='idle'?4:point.kind==='coffee'?1:3,point.capacity);
+    const dx=point.look[0]-point.position[0],dz=point.look[2]-point.position[2],len=Math.hypot(dx,dz)||1;
+    return Array.from({length:n},(_,i):ActivityPoint=>{
+      const offset=i===0?0:i%2?-.85: .85;
+      return {...point,id:i===0?point.id:`${point.id}-slot-${i}`,capacity:1,position:[point.position[0]+dz/len*offset,0,point.position[2]-dx/len*offset]};
+    });
+  });
+  return {...layout,points:[...desks,...activities],camera:{...layout.camera,overview:[Math.abs(layout.camera.overview[0]),layout.camera.overview[1],layout.camera.overview[2]] as Vector3Tuple}};
+});
 
 export function layoutFor(level: number): OfficeLayout {
-  return ALL.find((l) => l.level === level) ?? (level <= 0 ? apartmentLayout : megaLayout);
+  return ALL.find(l=>l.level===level)??ALL[level<=0?0:ALL.length-1]!;
 }
 
 export function homeDeskFor(index: number, layout: OfficeLayout): ActivityPoint {
@@ -140,14 +166,14 @@ export function homeDeskFor(index: number, layout: OfficeLayout): ActivityPoint 
 }
 
 export const ACTIVITY_WEIGHTS: Record<string, Partial<Record<PointKind, number>>> = {
-  product: { desk: 55, board: 20, meet: 15, coffee: 5, idle: 5 },
-  research: { lab: 40, desk: 30, board: 20, idle: 10 },
-  promo: { meet: 40, idle: 25, coffee: 15, board: 20 },
+  product: { desk: 82, board: 13, coffee: 5 },
+  research: { lab: 60, desk: 25, board: 15 },
+  promo: { desk: 40, meet: 30, board: 15, coffee: 15 },
   lobby: { meet: 50, desk: 30, idle: 20 },
   special: { lab: 40, desk: 40, board: 20 },
   crisis: { meet: 40, board: 30, desk: 30 },
   training: { desk: 60, board: 20, idle: 20 },
-  hiring: { meet: 50, idle: 30, coffee: 20 },
-  idle: { coffee: 30, idle: 40, board: 10, meet: 20 },
+  hiring: { meet: 60, desk: 40 },
+  idle: { coffee: 25, idle: 65, desk: 10 },
   burnout: { idle: 50, coffee: 40, desk: 10 },
 };

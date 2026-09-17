@@ -13,14 +13,15 @@ export function monthlyRent(state: GameState): number {
   return office?.rent ?? 2200;
 }
 
+export function inferenceCoverage(state: GameState): number {
+  return state.compute.rentedGpus * 800 + state.compute.ownedCluster * 120 + state.compute.dataCenters * 4000;
+}
+export function fixedComputeCost(state: GameState): number {
+  return state.compute.rentedGpus * 2400 + state.compute.reservedCapacity * 6500 + state.compute.dataCenters * 180000 + state.compute.monthlyCloudBill;
+}
 export function monthlyCompute(state: GameState): number {
-  const inference = state.products
-    .filter((p) => p.status === "active" || p.status === "mature")
-    .reduce((s, p) => s + p.weeklyInference * 4.33, 0);
-  const rentGpus = state.compute.rentedGpus * 2_400;
-  const reserved = state.compute.reservedCapacity * 6_500;
-  const dc = state.compute.dataCenters * 180_000;
-  return inference + rentGpus + reserved + dc + state.compute.monthlyCloudBill;
+  const weekly = state.products.filter(p=>["active","mature","declining"].includes(p.status)).reduce((sum,p)=>sum+p.weeklyInference,0);
+  return Math.max(0, weekly-inferenceCoverage(state))*4.33 + fixedComputeCost(state);
 }
 
 export function monthlyBurn(state: GameState): number {
@@ -38,7 +39,7 @@ export function runwayMonths(state: GameState): number {
 export function grossMargin(state: GameState): number {
   const rev = monthlyArr(state);
   const inf = state.products
-    .filter((p) => p.status === "active" || p.status === "mature")
+    .filter((p) => p.status === "active" || p.status === "mature" || p.status === "declining")
     .reduce((s, p) => s + p.weeklyInference * 4.33, 0);
   if (rev <= 0) return 0;
   return (rev - inf) / rev;

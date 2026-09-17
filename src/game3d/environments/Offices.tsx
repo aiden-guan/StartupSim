@@ -1,286 +1,80 @@
-import { mats } from "../materials/library";
+import { Bevel } from '../geometry/Bevel';
 import {
+  BookStack,
   BrandSign,
+  CardboardBox,
   Chair,
+  CoffeeMachine,
+  Couch,
   Desk,
   Fridge,
+  Headphones,
+  Keyboard,
   Laptop,
+  Monitor,
+  Mug,
+  Notebook,
+  PizzaBox,
   Plant,
+  RobotAssistant,
   ServerRack,
   Whiteboard,
-} from "../props/Furniture";
-import { Hotspot } from "../props/Hotspot";
-import { PerkSet } from "../props/PerkSet";
-import type { CompanyBrand } from "../../simulation/types";
+} from '../props/Furniture';
+import { Hotspot } from '../props/Hotspot';
+import { PerkSet } from '../props/PerkSet';
+import { layoutFor } from '../navigation/layout';
+import type { CompanyBrand } from '../../simulation/types';
 
-export function GarageOffice({
-  onObject,
-  perks = [],
-  brand,
-  computeLoad = 0.2,
-}: {
-  onObject: (id: string) => void;
-  perks?: { id: string; level: number; object?: string }[];
-  brand: CompanyBrand;
-  computeLoad?: number;
-}) {
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[18, 14]} />
-        <meshStandardMaterial {...mats.concrete} />
-      </mesh>
-      <mesh position={[0, 1.9, -6.9]}>
-        <boxGeometry args={[18, 3.8, 0.2]} />
-        <meshStandardMaterial color="#c9b8a3" roughness={0.95} />
-      </mesh>
-      <mesh position={[-8.9, 1.9, 0]}>
-        <boxGeometry args={[0.2, 3.8, 14]} />
-        <meshStandardMaterial color="#bba894" roughness={0.95} />
-      </mesh>
-      {[-4.5, -2.2, 0.1, 2.4].map((x) => (
-        <group key={x}>
-          <Desk position={[x, 0, -2.4]} color="#d7c4a8" />
-          <Chair position={[x, 0, -1.6]} />
-          <Laptop position={[x, 0.76, -2.3]} />
-        </group>
-      ))}
-      <Whiteboard position={[-6.4, 1.5, 2.6]} />
-      <Fridge position={[6.2, 0.68, 2.4]} />
-      <ServerRack position={[5.7, 0.85, -3]} load={computeLoad} />
-      <Plant position={[-7.2, 0.1, 4]} />
-      <BrandSign position={[0, 2.4, -6.75]} color={brand.color} mark={brand.mark} />
-      <Hotspot id="servers" position={[5.7, 1.6, -3]} label="Compute" onClick={onObject} />
-      <Hotspot id="coffee" position={[6.2, 1.4, 2.4]} label="Kitchen" onClick={onObject} />
-      <Hotspot id="board" position={[-6.4, 1.5, 2.6]} label="Tasks" onClick={onObject} size={[2.2, 1.4, 0.4]} />
-      <Hotspot id="reception" position={[0, 1.2, 5.4]} label="Hiring" onClick={onObject} />
-      <PerkSet perks={perks} level={1} />
+type OfficeProps={onObject:(id:string)=>void;perks?:{id:string;level:number;object?:string}[];brand:CompanyBrand;computeLoad?:number;empty?:boolean;emptyDesks?:boolean;mega?:boolean};
+function OfficeInterior({level,onObject,perks=[],brand,computeLoad=.3,empty=false,emptyDesks=false}:OfficeProps&{level:number}) {
+  const layout=layoutFor(level),size=level===1?[18,14]:level===2?[23,19]:level===3?[30,25]:[36,29];
+  const [w,d]=size as [number,number];
+  const desks=layout.points.filter(p=>p.kind==='desk');
+  return <group>
+    <Bevel position={[0,-.17,0]} size={[w,.32,d]} radius={.08} color={level<3?'#cfbc9e':'#cad0c8'}/>
+    <Bevel position={[0,1.3,-d/2]} size={[w,2.6,.16]} radius={.022} color="#e8ebe5"/>
+    <Bevel position={[-w/2,1.3,0]} size={[.16,2.6,d]} radius={.022} color="#dbe2de"/>
+    <BrandSign position={[0,1.85,-d/2+.1]} color={brand.color} mark={brand.mark} width={2.5}/>
+    {[-1,1].map(side=><group key={side} position={[side*w*.31,1.62,-d/2+.11]}><Bevel size={[w*.23,1.34,.055]} color="#f6f5ed" radius={.015}/><Bevel position={[0,0,.03]} size={[w*.23-.15,1.17,.012]} color="#b9cfd5" radius={.005}/><Bevel position={[0,0,.049]} size={[.065,1.2,.027]} color="#f6f5ed" radius={.005}/></group>)}
+    {desks.map((p,i)=>{
+      const [x,,z]=p.position;
+      return <group key={p.id}>
+        <Desk position={[x,0,z-.79]} color={level>=3?'#d0b797':'#d2ab84'}/>
+        {(!(empty||emptyDesks)||i<4)&&<Chair position={[x,0,z]} rotation={Math.PI}/>}
+        {level===1?<Laptop position={[x,.79,z-.86]}/>:<><Monitor position={[x,1.13,z-.96]}/><Keyboard position={[x,.79,z-.57]}/></>}
+        {i % 2 === 0 && <Mug position={[x + 0.56, 0.84, z - 0.74]} color={i % 4 === 0 ? '#ffffff' : '#3b82f6'} />}
+        {i === 1 && <BookStack position={[x - 0.56, 0.79, z - 0.93]} />}
+        {i === 2 && <Notebook position={[x - 0.52, 0.79, z - 0.68]} />}
+        {i === 3 && <Headphones position={[x + 0.48, 0.795, z - 0.60]} />}
+      </group>;
+    })}
+    {layout.points.filter(p=>!p.id.includes('-slot-')).map(p=>{
+      const [x,,z]=p.look;
+      if(p.kind==='server')return <group key={p.id}><group position={[x,.86,z]} rotation={[0,Math.atan2(p.position[0]-x,p.position[2]-z),0]}>{Array.from({length:level>=3?4:1},(_,i)=><ServerRack key={i} position={[i*.91,0,0]} load={computeLoad}/>)}<CardboardBox position={[level>=3?4*.91+.25:1.05,-.65,.15]} scale={1.1}/></group><Hotspot id="servers" position={[x,1,z]} label="Compute" onClick={onObject}/></group>;
+      if(p.kind==='board')return <group key={p.id} position={[x,0,z]} rotation={[0,Math.atan2(p.position[0]-x,p.position[2]-z),0]}><Whiteboard position={[0,1.35,0]}/><Hotspot id="board" position={[0,1.4,0]} label="Projects" onClick={onObject}/></group>;
+      if(p.kind==='coffee')return <group key={p.id} position={[x,0,z]} rotation={[0,Math.atan2(p.position[0]-x,p.position[2]-z),0]}><Bevel position={[0,.39,0]} size={[1.6,.78,.65]} color="#b8ad97" radius={.025}/><Bevel position={[0,.80,0]} size={[1.69,.05,.7]} color="#e8d7bd" radius={.012}/><CoffeeMachine position={[-.28,.83,0]}/><Fridge position={[1.1,.68,0]}/><Mug position={[-.05,.85,.12]} color="#ffffff"/><Hotspot id="coffee" position={[0,1,0]} label="Kitchen" onClick={onObject}/></group>;
+      if(p.kind==='lab')return <group key={p.id} position={[x,0,z]} rotation={[0,Math.atan2(p.position[0]-x,p.position[2]-z),0]}><Desk position={[0,0,0]} standing/><Monitor position={[0,1.33,-.13]}/><Keyboard position={[0,.99,.22]}/><RobotAssistant position={[.55,.99,-.1]}/><Hotspot id="lab" position={[0,1,0]} label="Research" onClick={onObject}/></group>;
+      if(p.kind==='meet')return <group key={p.id} position={[x,0,z]}><Desk position={[0,0,0]}/><Chair position={[-.95,0,0]} rotation={-Math.PI/2}/><Chair position={[.95,0,0]} rotation={Math.PI/2}/><Laptop position={[0,.79,0]}/><Notebook position={[-.35,.79,.12]}/><Mug position={[.42,.84,-.15]} color="#f26419"/></group>;
+      return null;
+    })}
+    <group position={[-w*.3,0,d*.34]} rotation={[0,.2,0]}>
+      <Couch position={[0,0,0]}/>
+      <Plant position={[-1.45,0,0]} scale={1.4}/>
+      <Bevel position={[0,.18,.95]} size={[1.1,.08,.55]} color="#c99e76" radius={.025}/>
+      {[-.42,.42].map(cx=>[-.18,.18].map(cz=><Bevel key={`${cx},${cz}`} position={[cx,.09,.95+cz]} size={[.04,.18,.04]} color="#545354" radius={.006}/>))}
+      <PizzaBox position={[0,.26,.95]}/>
     </group>
-  );
+    <Plant position={[w/2-1.1,0,-d/2+1.1]} scale={1.8}/>
+    <Plant position={[-w/2+1.1,0,-d/2+1.1]} scale={1.6}/>
+    {level>=4&&<><Bevel position={[w*.33,.10,d*.31]} size={[4.5,.2,3.5]} color="#9daa8e" radius={.06}/>{[-1,0,1].map(x=><Plant key={x} position={[w*.33+x*1.25,.2,d*.31]} scale={1.8}/>)}</>}
+    <Hotspot id="logo" position={[0,1.85,-d/2+.2]} label="Company" onClick={onObject}/>
+    <Hotspot id="reception" position={layout.points.find(p=>p.kind==='entrance')!.position} label="Recruiting" onClick={onObject}/>
+    <PerkSet perks={perks} level={level}/>
+  </group>;
 }
-
-export function HQOffice({
-  onObject,
-  perks = [],
-  brand,
-  computeLoad = 0.35,
-  emptyDesks = false,
-}: {
-  onObject: (id: string) => void;
-  perks?: { id: string; level: number; object?: string }[];
-  brand: CompanyBrand;
-  computeLoad?: number;
-  emptyDesks?: boolean;
-}) {
-  const desks = [
-    [-6, -3],
-    [-3.2, -3],
-    [-0.4, -3],
-    [2.4, -3],
-    [-6, 1.4],
-    [-3.2, 1.4],
-  ] as const;
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[22, 18]} />
-        <meshStandardMaterial color="#d4cfc4" roughness={0.88} />
-      </mesh>
-      <mesh position={[0, 2.1, -8.9]}>
-        <boxGeometry args={[22, 4.2, 0.16]} />
-        <meshStandardMaterial {...mats.plaster} />
-      </mesh>
-      <mesh position={[-10.9, 2.1, 0]}>
-        <boxGeometry args={[0.16, 4.2, 18]} />
-        <meshStandardMaterial color="#e4ddd0" roughness={0.9} />
-      </mesh>
-      <mesh position={[7.2, 1.7, 5.4]}>
-        <boxGeometry args={[5.2, 3.2, 0.08]} />
-        <meshStandardMaterial {...mats.glass} opacity={0.28} />
-      </mesh>
-      <mesh position={[-6.4, 0.02, 5.2]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[6.4, 4.2]} />
-        <meshStandardMaterial color="#8f3d2c" roughness={0.92} />
-      </mesh>
-      {desks.map(([x, z], i) => (
-        <group key={`${x}-${z}`}>
-          <Desk position={[x, 0, z]} color="#e2d3bc" />
-          {emptyDesks && i > 2 ? null : <Chair position={[x, 0, z + 0.8]} />}
-          <Laptop position={[x, 0.76, z + 0.1]} />
-        </group>
-      ))}
-      <ServerRack position={[8.2, 0.85, -4.4]} load={computeLoad} />
-      <ServerRack position={[9.1, 0.85, -4.4]} load={computeLoad * 0.85} />
-      <Plant position={[8.4, 0.1, 5.6]} scale={1.4} />
-      <Whiteboard position={[-8.4, 1.6, 3.2]} />
-      <BrandSign position={[0, 3.1, -8.75]} color={brand.color} mark={brand.mark} width={2.6} />
-      <Hotspot id="logo" position={[0, 3.1, -8.5]} label="Company" onClick={onObject} />
-      <Hotspot id="servers" position={[8.6, 1.6, -4.4]} label="Compute" onClick={onObject} />
-      <Hotspot id="coffee" position={[8.2, 1.3, 4.2]} label="Kitchen" onClick={onObject} />
-      <Hotspot id="board" position={[-8.4, 1.6, 3.2]} label="Tasks" onClick={onObject} />
-      <Hotspot id="reception" position={[0, 1.2, 7.4]} label="Hiring" onClick={onObject} />
-      <PerkSet perks={perks} level={2} />
-    </group>
-  );
-}
-
-export function ResearchLab({
-  onObject,
-  perks = [],
-  brand,
-  computeLoad = 0.5,
-  mega = false,
-  empty = false,
-}: {
-  onObject: (id: string) => void;
-  perks?: { id: string; level: number; object?: string }[];
-  brand: CompanyBrand;
-  computeLoad?: number;
-  mega?: boolean;
-  empty?: boolean;
-}) {
-  const cool = empty || mega;
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[36, 28]} />
-        <meshStandardMaterial color={cool ? "#b7c4b2" : "#c5d0c4"} roughness={0.9} />
-      </mesh>
-      <mesh position={[-8, 1.4, -4]}>
-        <boxGeometry args={[12, 2.8, 8]} />
-        <meshStandardMaterial color={cool ? "#d5dce3" : "#e8dfd0"} />
-      </mesh>
-      <mesh position={[9, 1.8, -2]}>
-        <boxGeometry args={[10, 3.6, 9]} />
-        <meshStandardMaterial color="#d5dce3" />
-      </mesh>
-      <mesh position={[10, 1.6, 6]}>
-        <boxGeometry args={[8, 3.2, 7]} />
-        <meshStandardMaterial color="#2c3340" emissive="#1f6b4a" emissiveIntensity={0.12 + computeLoad * 0.2} />
-      </mesh>
-      <mesh position={[0, 0.02, 2]}>
-        <cylinderGeometry args={[3.2, 3.2, 0.08, 24]} />
-        <meshStandardMaterial {...mats.plant} color="#8aa37a" />
-      </mesh>
-      {!empty ? (
-        <>
-          <Desk position={[-8, 0, -4]} />
-          <Desk position={[-5, 0, -4]} />
-          <Chair position={[-8, 0, -3.2]} />
-          <Chair position={[-5, 0, -3.2]} />
-        </>
-      ) : (
-        <Desk position={[-8, 0, -4]} />
-      )}
-      <ServerRack position={[10, 0.85, 6]} load={computeLoad} />
-      <ServerRack position={[11.2, 0.85, 5.2]} load={Math.min(1, computeLoad + 0.2)} />
-      {mega
-        ? [-14, -2, 12].map((x) => (
-            <mesh key={x} position={[x, 2.2, 10]}>
-              <boxGeometry args={[6, 4.4, 5]} />
-              <meshStandardMaterial color="#2a3140" emissive="#1f6b4a" emissiveIntensity={0.1} />
-            </mesh>
-          ))
-        : null}
-      <BrandSign position={[0, 3.2, -8]} color={brand.color} mark={brand.mark} width={3} />
-      <Hotspot id="servers" position={[10, 3, 6]} label="Compute" onClick={onObject} />
-      <Hotspot id="lab" position={[9, 3.4, -2]} label="Research" onClick={onObject} />
-      <Hotspot id="logo" position={[-8, 2.6, -4]} label="Company" onClick={onObject} />
-      <PerkSet perks={perks} level={mega ? 5 : 3} />
-    </group>
-  );
-}
-
-export function CampusOffice({
-  onObject,
-  perks = [],
-  brand,
-  computeLoad = 0.55,
-  empty = false,
-}: {
-  onObject: (id: string) => void;
-  perks?: { id: string; level: number; object?: string }[];
-  brand: CompanyBrand;
-  computeLoad?: number;
-  empty?: boolean;
-}) {
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[48, 36]} />
-        <meshStandardMaterial color="#9eae9a" roughness={0.95} />
-      </mesh>
-      <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[6.4, 40]} />
-        <meshStandardMaterial color="#c5d0c4" />
-      </mesh>
-      <mesh position={[-12, 2.2, -8]}>
-        <boxGeometry args={[14, 4.4, 10]} />
-        <meshStandardMaterial color="#d9dfe4" roughness={0.82} />
-      </mesh>
-      <mesh position={[12, 2.6, -6]}>
-        <boxGeometry args={[12, 5.2, 12]} />
-        <meshStandardMaterial color="#cfd6dc" roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 1.6, 10]}>
-        <boxGeometry args={[8, 3.2, 6]} />
-        <meshStandardMaterial color="#efe8dc" />
-      </mesh>
-      {empty ? null : (
-        <>
-          <Desk position={[-12, 0, -6]} />
-          <Desk position={[-9, 0, -6]} />
-          <Chair position={[-12, 0, -5.2]} />
-        </>
-      )}
-      <ServerRack position={[14, 0.85, -4]} load={computeLoad} />
-      <ServerRack position={[15.2, 0.85, -4]} load={computeLoad} />
-      <ServerRack position={[16.4, 0.85, -4]} load={Math.min(1, computeLoad + 0.15)} />
-      <BrandSign position={[0, 3.4, 7.1]} color={brand.color} mark={brand.mark} width={3.4} />
-      <Hotspot id="logo" position={[0, 3.4, 7.2]} label="Company" onClick={onObject} />
-      <Hotspot id="lab" position={[12, 3.4, -6]} label="Research" onClick={onObject} />
-      <Hotspot id="servers" position={[15, 2, -4]} label="Compute" onClick={onObject} />
-      <Hotspot id="reception" position={[0, 1.4, 12]} label="Hiring" onClick={onObject} />
-      <PerkSet perks={perks} level={4} />
-    </group>
-  );
-}
-
-export function MegaCampus({
-  onObject,
-  perks = [],
-  brand,
-  computeLoad = 0.8,
-}: {
-  onObject: (id: string) => void;
-  perks?: { id: string; level: number; object?: string }[];
-  brand: CompanyBrand;
-  computeLoad?: number;
-}) {
-  return (
-    <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[56, 40]} />
-        <meshStandardMaterial color="#8a9694" roughness={0.96} />
-      </mesh>
-      {[-16, 0, 16].map((x) => (
-        <mesh key={x} position={[x, 2.6, -8]}>
-          <boxGeometry args={[12, 5.2, 14]} />
-          <meshStandardMaterial color="#2a3140" emissive="#1f6b4a" emissiveIntensity={0.08 + computeLoad * 0.12} />
-        </mesh>
-      ))}
-      <Desk position={[-4, 0, 4]} />
-      <Chair position={[-4, 0, 4.8]} />
-      <ServerRack position={[10, 0.85, 6]} load={1} />
-      <ServerRack position={[11.4, 0.85, 6]} load={0.9} />
-      <ServerRack position={[12.8, 0.85, 6]} load={0.85} />
-      <BrandSign position={[0, 4.4, 10]} color={brand.color} mark={brand.mark} width={4} />
-      <Hotspot id="servers" position={[11.4, 2.2, 6]} label="Compute" onClick={onObject} />
-      <Hotspot id="lab" position={[0, 4, -8]} label="Research" onClick={onObject} />
-      <Hotspot id="logo" position={[0, 4.4, 10]} label="Company" onClick={onObject} />
-      <PerkSet perks={perks} level={5} />
-    </group>
-  );
-}
-
-export const StartupLoft = HQOffice;
+export const GarageOffice=(props:OfficeProps)=><OfficeInterior {...props} level={1}/>;
+export const HQOffice=(props:OfficeProps)=><OfficeInterior {...props} level={2}/>;
+export const ResearchLab=(props:OfficeProps)=><OfficeInterior {...props} level={3}/>;
+export const CampusOffice=(props:OfficeProps)=><OfficeInterior {...props} level={4}/>;
+export const MegaCampus=(props:OfficeProps)=><OfficeInterior {...props} level={5}/>;
+export const StartupLoft=HQOffice;

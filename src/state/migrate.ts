@@ -3,10 +3,13 @@ import { offices } from "../data/offices";
 import { onboarding } from "../data/onboarding";
 import { DEFAULT_BRAND, defaultSettings } from "../simulation/newGame";
 import { normalizeLook } from "../simulation/look";
+import { reconcileTutorial } from "../simulation/tutorial";
+import { setPause } from "../simulation/pause";
 import type { GameState } from "../simulation/types";
 
 export function migrateGameState(raw: GameState): GameState {
-  const state = raw;
+  const state = structuredClone(raw);
+  const legacyTutorial = state.onboarding?.version !== 2;
   state.meta.schemaVersion = BALANCE.SCHEMA_VERSION;
   state.founder.look = normalizeLook(state.founder.look);
   state.employees = state.employees.map((employee) => ({
@@ -17,6 +20,13 @@ export function migrateGameState(raw: GameState): GameState {
   if (!state.company.brand.color) state.company.brand.color = DEFAULT_BRAND.color;
   if (!state.company.brand.mark) state.company.brand.mark = DEFAULT_BRAND.mark;
   state.onboarding = {
+    ...state.onboarding,
+    version: 2,
+    events: state.onboarding?.events ?? [],
+    primitiveA: state.onboarding?.primitiveA ?? null,
+    primitiveB: state.onboarding?.primitiveB ?? null,
+    firstProductId: state.onboarding?.firstProductId ?? state.products[0]?.id ?? null,
+    nextLessonTick: state.onboarding?.nextLessonTick ?? 0,
     finished: state.onboarding?.finished ?? [],
     tutorialEnabled: state.onboarding?.tutorialEnabled ?? true,
     slideIndex: state.onboarding?.slideIndex ?? 0,
@@ -45,5 +55,27 @@ export function migrateGameState(raw: GameState): GameState {
   if (state.pendingMentor && !onboarding.some((step) => step.id === state.pendingMentor)) {
     state.pendingMentor = null;
   }
+  state.marketResult ??= null;
+  state.firstLaunchTick ??= state.company.seenMarket ? state.clock.tick : null;
+  state.clock.pauseReasons ??= state.clock.paused ? ["manual"] : [];
+  if (legacyTutorial && state.onboarding.tutorialEnabled) {
+    state.onboarding.finished = state.company.seenMarket ? ["intro","assign","clock","designer","market"] : state.products[0]?.status === "ready" ? ["intro","assign","clock"] : state.products.length ? ["intro"] : [];
+    state.pendingMentor = null;
+    state.onboarding.slideIndex = 0;
+  }
+  if (state.marketBattle) {
+    state.onboarding.finished = [...new Set([...state.onboarding.finished,"intro","assign","clock","designer"])];
+    if (state.pendingMentor !== "market") state.pendingMentor = null;
+  }
+  if (state.pendingMentor) {
+    const step = onboarding.find(s=>s.id===state.pendingMentor);
+    state.onboarding.slideIndex = Math.max(0, Math.min(state.onboarding.slideIndex, (step?.slides.length ?? 1)-1));
+  }
+  if (state.pendingMentor === "clock" && state.onboarding.events.includes("startedClock")) state.onboarding.events = state.onboarding.events.filter(e=>e!=="startedClock");
+  setPause(state,"market",Boolean(state.marketBattle));
+  setPause(state,"results",Boolean(state.marketResult));
+  setPause(state,"productReady",!state.marketBattle && state.products.some(p=>p.status==="ready"));
+  setPause(state,"settings",false);
+  reconcileTutorial(state);
   return state;
 }

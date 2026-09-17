@@ -148,10 +148,18 @@ export function startBattle(state: GameState, product: Product, rng: Rng): Marke
   const designed = designCompetitorLevels(product, first ? 0 : def?.difficulty ?? 1);
   const playerPieces = makePieces(rng, "player", product, playerStart, first);
   const aiPieces = makePieces(rng, "ai", designed, best, first);
-  const extras = [...playerPieces, ...aiPieces].slice(1);
-  for (const piece of extras) {
-    const near = tiles.filter((t) => manhattan(t.pos, piece.pos) === 1);
-    if (near.length) piece.pos = { ...rng.pick(near).pos };
+  const occupied = new Set<string>();
+  for (const piece of [...playerPieces, ...aiPieces]) {
+    const available = tiles.filter(t=>!occupied.has(posKey(t.pos))).sort((a,b)=>manhattan(a.pos,piece.pos)-manhattan(b.pos,piece.pos));
+    if (available[0]) piece.pos = {...available[0].pos};
+    occupied.add(posKey(piece.pos));
+  }
+  if (first) {
+    // Make the first capture and the enterprise lesson visible on every seed.
+    const startTile = tiles.find(t=>samePos(t.pos,playerPieces[0]!.pos))!;
+    startTile.kind = "customer"; startTile.income = 1; startTile.baseCost = 2;
+    const rich = tiles.find(t=>!occupied.has(posKey(t.pos)))!;
+    rich.kind = "enterprise"; rich.income = 3; rich.baseCost = 5;
   }
 
   product.competitorId = comp.id;
@@ -288,7 +296,7 @@ export function resetTurn(battle: MarketBattle, who: "player" | "ai"): void {
 }
 
 export function aiTakeTurn(battle: MarketBattle, rng: Rng): void {
-  const personality = competitorDefs.find((d) => d.id === battle.competitorId)?.personality ?? "opportunistic";
+  const personality = battle.firstMarket ? "opportunistic" : competitorDefs.find((d) => d.id === battle.competitorId)?.personality ?? "opportunistic";
   const pieces = battle.pieces.filter((p) => p.owner === "ai" && p.health > 0);
   for (const piece of pieces) {
     if (personality === "aggressive") {
@@ -355,9 +363,12 @@ export function applyBattleResults(state: GameState, battle: MarketBattle, _rng:
   product.marketShare = share.player;
   const captured = battle.tiles.filter((t) => t.owner === "player" && (t.kind === "customer" || t.kind === "enterprise"));
   const influencers = battle.tiles.filter((t) => t.owner === "player" && t.kind === "influencer").length;
+  product.newDiscovery = product.recipeId !== "generic" && !state.company.discoveredRecipes.includes(product.recipeId);
+  const hypeBefore = state.company.hype;
   setProductEconomics(product, state, captured.map((t) => ({ income: t.income })), influencers);
   product.status = "active";
   state.company.seenMarket = true;
+  state.firstLaunchTick ??= state.clock.tick;
   state.company.productsLaunched += 1;
   state.stats.productsLaunched += 1;
   if (product.recipeId !== "generic" && !state.company.discoveredRecipes.includes(product.recipeId)) {
@@ -371,5 +382,11 @@ export function applyBattleResults(state: GameState, battle: MarketBattle, _rng:
   const v = (state.company.versions[product.name] ?? 0) + 1;
   state.company.versions[product.name] = v;
   product.version = v;
+  state.marketResult = {
+    productId: product.id, share: share.player, capturedTiles: captured.length,
+    tileValue: captured.reduce((sum,t)=>sum+t.income+1,0), revenue: product.weeklyRevenue,
+    inference: product.weeklyInference, users: product.users, hype: state.company.hype-hypeBefore,
+    outcome: shouldEnd(battle) ?? "Market closed.",
+  };
   if (v > 1) product.name = `${product.name.replace(/ \d+$/, "")} ${v}`;
 }

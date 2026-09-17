@@ -1,186 +1,95 @@
-import { Html } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { Group } from "three";
-import * as THREE from "three";
-import { Character, type CharacterActivity } from "../characters/Character";
-import { useGame } from "../../state/store";
-import { ACTIVITY_WEIGHTS, homeDeskFor, type ActivityPoint, type OfficeLayout, type PointKind } from "./layout";
-import { claimPoint, releasePoint } from "./occupancy";
-import type { AgentView } from "../selectWorldView";
+import { Html } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
+import { useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
+import { Character, type CharacterActivity } from '../characters/Character';
+import { useGame } from '../../state/store';
+import type { OfficeLayout, ActivityPoint } from './layout';
+import { OfficeRuntime, chooseSession, stateForPoint, type AgentState } from './behavior';
+import { route } from './path';
+import type { AgentView } from '../selectWorldView';
 
-function pickKind(weights: Partial<Record<PointKind, number>>): PointKind {
-  const entries = Object.entries(weights) as [PointKind, number][];
-  const total = entries.reduce((s, [, w]) => s + w, 0);
-  let roll = Math.random() * total;
-  for (const [k, w] of entries) {
-    roll -= w;
-    if (roll <= 0) return k;
+const ANIMATION:Record<AgentState,CharacterActivity>={SPAWNING:'walking',WALKING_TO_ACTIVITY:'walking',WORKING:'working',WHITEBOARD:'whiteboard',MEETING:'meeting',COFFEE:'coffee',IDLE:'idle',CHATTING:'talking',BURNED_OUT:'tired',CELEBRATING:'celebrate',DEPARTING:'walking'};
+export function EmployeeAgent({agent,layout,reducedMotion,onSelect,runtime}:{agent:AgentView;layout:OfficeLayout;reducedMotion:boolean;onSelect:(id:string)=>void;runtime:OfficeRuntime}) {
+  const selected=useGame(s=>s.selectedEmployeeId===agent.id);
+  const ref=useRef<THREE.Group>(null);
+  const home=useRef(runtime.home(agent.id));
+  const point=useRef<ActivityPoint>(home.current);
+  const spawn=agent.role==='employee'||agent.role==='robot'?layout.points.find(p=>p.kind==='entrance')??home.current:home.current;
+  const start=useRef([...spawn.position] as THREE.Vector3Tuple);
+  const path=useRef<THREE.Vector3Tuple[]>([]);
+  const counter=useRef(0),remaining=useRef(0),elapsed=useRef(0),priorTask=useRef(agent.taskType),celebrating=useRef(0);
+  const [behavior,setBehavior]=useState<AgentState>('SPAWNING');
+  const state=useRef<AgentState>('SPAWNING');
+  const setState=(s:AgentState)=>{if(state.current!==s){state.current=s;setBehavior(s);}};
+  function moveTo(next:ActivityPoint) {
+    if(!runtime.claim(agent.id,next))return false;
+    point.current=next;
+    path.current=route(ref.current?.position.toArray()??start.current,next.position,layout);
+    setState('WALKING_TO_ACTIVITY');return true;
   }
-  return entries[0]?.[0] ?? "idle";
-}
-
-function activityFor(kind: PointKind, walking: boolean, burnout: boolean): CharacterActivity {
-  if (walking) return burnout ? "tired" : "walking";
-  if (burnout) return "tired";
-  if (kind === "desk") return "working";
-  if (kind === "board" || kind === "meet") return "talking";
-  if (kind === "coffee") return "coffee";
-  return "idle";
-}
-
-export function EmployeeAgent({
-  agent,
-  layout,
-  index,
-  reducedMotion,
-  onSelect,
-}: {
-  agent: AgentView;
-  layout: OfficeLayout;
-  index: number;
-  reducedMotion: boolean;
-  onSelect: (id: string) => void;
-}) {
-  const selected = useGame((s) => s.selectedEmployeeId === agent.id);
-  const ref = useRef<Group>(null);
-  const home = useMemo(() => homeDeskFor(index, layout), [index, layout]);
-  const [point, setPoint] = useState<ActivityPoint>(home);
-  const [arrived, setArrived] = useState(false);
-  const spawn = layout.points.find((p) => p.kind === "entrance") ?? home;
-  const start = useRef(new THREE.Vector3(...(agent.role === "employee" ? spawn.position : home.position)));
-  const dest = useRef(new THREE.Vector3(...home.position));
-  const speed = agent.burnoutDays > 0 ? 0.7 : 1.45;
-
-  useEffect(() => {
-    return () => releasePoint(agent.id);
-  }, [agent.id]);
-
-  useEffect(() => {
-    const weights =
-      agent.burnoutDays > 0
-        ? ACTIVITY_WEIGHTS.burnout
-        : agent.taskType
-          ? ACTIVITY_WEIGHTS[agent.taskType] ?? ACTIVITY_WEIGHTS.idle
-          : ACTIVITY_WEIGHTS.idle;
-    const kind = pickKind(weights ?? ACTIVITY_WEIGHTS.idle);
-    const candidates = layout.points.filter((p) => p.kind === kind);
-    const pool = candidates.length ? candidates : layout.points.filter((p) => p.kind === "idle" || p.kind === "desk");
-    const next =
-      kind === "desk"
-        ? home
-        : pool.find((p) => claimPoint(p.id, agent.id, p.capacity)) ?? home;
-    claimPoint(next.id, agent.id, next.capacity);
-    setPoint(next);
-    dest.current.set(...next.position);
-    setArrived(false);
-  }, [agent.taskType, agent.burnoutDays, agent.id, home, layout]);
-
-  useFrame((_, dt) => {
-    const g = ref.current;
-    if (!g) return;
-    const target = dest.current;
-    const dist = g.position.distanceTo(target);
-    if (dist < 0.12) {
-      if (!arrived) setArrived(true);
-      const look = new THREE.Vector3(...point.look);
-      const dir = look.sub(g.position);
-      dir.y = 0;
-      if (dir.lengthSq() > 0.01) {
-        const yaw = Math.atan2(dir.x, dir.z);
-        g.rotation.y += (yaw - g.rotation.y) * Math.min(1, dt * 6);
-      }
-      if (Math.random() < dt * 0.08) {
-        const weights =
-          agent.burnoutDays > 0
-            ? ACTIVITY_WEIGHTS.burnout
-            : agent.taskType
-              ? ACTIVITY_WEIGHTS[agent.taskType] ?? ACTIVITY_WEIGHTS.idle
-              : ACTIVITY_WEIGHTS.idle;
-        const kind = pickKind(weights ?? ACTIVITY_WEIGHTS.idle);
-        const candidates = layout.points.filter((p) => p.kind === kind);
-        const next = (kind === "desk" ? home : candidates.find((p) => claimPoint(p.id, agent.id, p.capacity))) ?? point;
-        if (next.id !== point.id) {
-          claimPoint(next.id, agent.id, next.capacity);
-          setPoint(next);
-          dest.current.set(...next.position);
-          setArrived(false);
-        }
-      }
+  function plan(first=false) {
+    const firstProduct=!useGame.getState().game?.company.seenMarket;
+    const session=chooseSession(runtime.seed,agent.id,counter.current++,agent.taskType,agent.burnoutDays>0,firstProduct);
+    const kind=(first&&agent.taskType&&agent.burnoutDays<=0)||(firstProduct&&useGame.getState().game?.clock.paused)?'desk':session.kind;
+    remaining.current=session.seconds;
+    const pool=kind==='desk'?[home.current]:layout.points.filter(p=>p.kind===kind);
+    const choices=[...pool,...(agent.taskType?[home.current]:layout.points.filter(p=>p.kind==='idle'))];
+    for(const p of choices)if(moveTo(p))return;
+    // Stay at the current point when every suitable object is occupied.
+    setState(stateForPoint(point.current.kind,agent.burnoutDays>0));
+  }
+  useEffect(()=>{
+    runtime.cancelChat(agent.id);
+    if(priorTask.current==='product'&&!agent.taskType&&useGame.getState().game?.products.some(p=>p.status==='ready')) {celebrating.current=3;setState('CELEBRATING');}
+    else plan(true);
+    priorTask.current=agent.taskType;
+  },[agent.taskType,agent.burnoutDays]);
+  useEffect(()=>()=>runtime.release(agent.id),[runtime,agent.id]);
+  useFrame((_,rawDt)=>{
+    const g=ref.current;if(!g)return;
+    const dt=Math.min(rawDt,.08),game=useGame.getState().game;
+    runtime.positions.set(agent.id,g.position.toArray());
+    elapsed.current+=dt;
+    if(celebrating.current>0) {celebrating.current-=dt;if(celebrating.current<=0)plan();return;}
+    // Walking to newly assigned work is visual acknowledgement, even while company time is paused.
+    if(path.current.length) {
+      const dest=new THREE.Vector3(...path.current[0]!);const dir=dest.sub(g.position);dir.y=0;
+      const distance=dir.length();const amount=(agent.burnoutDays>0?.65:1.25)*dt;
+      if(distance<=amount+.015){g.position.set(...path.current.shift()!);}
+      else {dir.normalize();g.position.addScaledVector(dir,amount);const yaw=Math.atan2(dir.x,dir.z);g.rotation.y+=Math.atan2(Math.sin(yaw-g.rotation.y),Math.cos(yaw-g.rotation.y))*Math.min(1,dt*12);}
+      if(!path.current.length)setState(stateForPoint(point.current.kind,agent.burnoutDays>0));
       return;
     }
-    const hub = new THREE.Vector3(...layout.hub);
-    const viaHub = g.position.distanceTo(target) > 3.2 && g.position.distanceTo(hub) > 0.6 && hub.distanceTo(target) > 0.6;
-    const aim = viaHub ? hub : target;
-    const dir = aim.clone().sub(g.position);
-    dir.y = 0;
-    dir.normalize();
-    g.position.addScaledVector(dir, speed * dt);
-    g.position.y = 0;
-    g.rotation.y = Math.atan2(dir.x, dir.z);
+    let look=point.current.look;
+    if(!agent.taskType&&agent.burnoutDays<=0&&point.current.kind==='idle'&&!game?.clock.paused) {
+      runtime.idle.add(agent.id);const partner=runtime.chat(agent.id,elapsed.current);
+      if(partner&&runtime.positions.has(partner)){look=runtime.positions.get(partner)!;setState('CHATTING');}
+      else if(state.current==='CHATTING')setState('IDLE');
+    }else {runtime.idle.delete(agent.id);runtime.cancelChat(agent.id);}
+    const yaw=Math.atan2(look[0]-g.position.x,look[2]-g.position.z);
+    g.rotation.y+=Math.atan2(Math.sin(yaw-g.rotation.y),Math.cos(yaw-g.rotation.y))*Math.min(1,dt*6);
+    if(game?.clock.paused||state.current==='CHATTING')return;
+    remaining.current-=dt*Math.min(1.5,Math.sqrt(game?.clock.speed??1));
+    if(remaining.current<=0)plan();
   });
-
-  const walking = !arrived;
-  const activity = reducedMotion ? "idle" : activityFor(point.kind, walking, agent.burnoutDays > 0);
-
-  return (
-    <group
-      ref={ref}
-      position={start.current.toArray()}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(agent.id);
-      }}
-    >
-      <Character look={agent.look} activity={activity} exhausted={agent.burnoutDays > 0} robot={agent.role === "robot"} />
-      {selected ? (
-        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.32, 0.4, 24]} />
-          <meshBasicMaterial color="#c4622d" transparent opacity={0.85} />
-        </mesh>
-      ) : null}
-      {agent.burnoutDays > 0 ? (
-        <Html position={[0, 2.05, 0]} center distanceFactor={10}>
-          <div className="rounded-sm bg-[#1b2433]/80 px-1.5 py-0.5 font-mono text-[9px] text-[#e07a7a]">tired</div>
-        </Html>
-      ) : null}
-    </group>
-  );
+  const atDesk=point.current.kind==='desk'&&behavior==='WORKING';
+  return <group ref={ref} position={start.current} onClick={e=>{e.stopPropagation();onSelect(agent.id);}}>
+    <Character look={agent.look} activity={reducedMotion?'idle':ANIMATION[behavior]} exhausted={agent.burnoutDays>0} robot={agent.role==='robot'} seated={atDesk}/>
+    {selected&&<mesh position={[0,.015,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.31,.38,24]}/><meshBasicMaterial color="#e59154"/></mesh>}
+    {(selected||agent.burnoutDays>0)&&<Html position={[0,1.8,0]} center distanceFactor={10}><div className="agent-label">{agent.name.split(' ')[0]} · {agent.burnoutDays?'Resting':behavior==='WORKING'?agent.taskType:behavior.toLowerCase().replaceAll('_',' ')}</div></Html>}
+  </group>;
 }
-
-export function DepartingAgent({
-  id,
-  look,
-  robot,
-  layout,
-}: {
-  id: string;
-  look: AgentView["look"];
-  robot: boolean;
-  layout: OfficeLayout;
-}) {
-  const clear = useGame((s) => s.clearDeparture);
-  const ref = useRef<Group>(null);
-  const exit = layout.points.find((p) => p.kind === "entrance") ?? layout.points[0]!;
-  const target = useRef(new THREE.Vector3(...exit.position));
-
-  useFrame((_, dt) => {
-    const g = ref.current;
-    if (!g) return;
-    const dir = target.current.clone().sub(g.position);
-    dir.y = 0;
-    if (dir.length() < 0.15) {
-      clear(id);
-      return;
-    }
-    dir.normalize();
-    g.position.addScaledVector(dir, 1.8 * dt);
-    g.rotation.y = Math.atan2(dir.x, dir.z);
+export function DepartingAgent({id,look,robot,layout,runtime}:{id:string;look:AgentView['look'];robot:boolean;layout:OfficeLayout;runtime:OfficeRuntime}) {
+  const ref=useRef<THREE.Group>(null),start=useRef(runtime.positions.get(id)??runtime.lastPositions.get(id)??layout.hub);
+  const exit=layout.points.find(p=>p.kind==='entrance')!;
+  const path=useRef(route(start.current,exit.position,layout));
+  useFrame((_,dt)=>{
+    const g=ref.current;if(!g)return;
+    if(!path.current.length){runtime.release(id);runtime.homes.delete(id);runtime.lastPositions.delete(id);useGame.getState().clearDeparture(id);return;}
+    const dir=new THREE.Vector3(...path.current[0]!).sub(g.position),distance=dir.length(),amount=Math.min(dt,.08)*1.5;
+    if(distance<=amount+.02)g.position.set(...path.current.shift()!);
+    else {dir.normalize();g.position.addScaledVector(dir,amount);g.rotation.y=Math.atan2(dir.x,dir.z);}
   });
-
-  return (
-    <group ref={ref} position={layout.hub}>
-      <Character look={look} activity="walking" robot={robot} />
-    </group>
-  );
+  return <group ref={ref} position={start.current}><Character look={look} activity="walking" robot={robot}/></group>;
 }

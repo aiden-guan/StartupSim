@@ -5,8 +5,8 @@ import { monthlyArr } from "./conditions";
 
 describe("headless year", () => {
   it("keeps cash finite and can earn after a launch", () => {
-    let g = createNewGame({ founderName: "Ada", companyName: "Northstar", cofounderId: "reya", seed: 2022 });
-    g = applyCommand(g, { type: "dismissMentor" })!;
+    let g = createNewGame({ founderName: "Ada", companyName: "Northstar", cofounderId: "reya", seed: 2022, skipTutorial: true });
+    g = applyCommand(g, { type: "setSpeed", speed: 1 })!;
     g = applyCommand(g, { type: "startProduct", a: "chat", b: "writing" })!;
     const task = g.tasks.find((t) => t.type === "product")!;
     for (const w of g.employees) {
@@ -14,7 +14,7 @@ describe("headless year", () => {
     }
     for (let i = 0; i < 80 && g.products[0]?.status !== "ready"; i++) {
       g = applyCommand(g, { type: "tickDay" })!;
-      if (g.pendingMentor) g = applyCommand(g, { type: "dismissMentor" })!;
+      if (g.pendingMentor) g = applyCommand(g, { type: "setSpeed", speed: 1 })!;
     }
     expect(g.products[0]?.status).toBe("ready");
     const productId = g.products[0]!.id;
@@ -32,11 +32,15 @@ describe("headless year", () => {
     }
     expect(g.marketBattle).toBeNull();
     expect(g.products[0]?.status).toBe("active");
+    g = applyCommand(g, { type: "continueMarketResults" })!;
+    g = applyCommand(g, { type: "setSpeed", speed: 1 })!;
     for (let i = 0; i < 365; i++) {
       g = applyCommand(g, { type: "tickDay" })!;
-      if (g.pendingMentor) g = applyCommand(g, { type: "dismissMentor" })!;
+      if (g.pendingMentor) g = applyCommand(g, { type: "setSpeed", speed: 1 })!;
       if (g.endingId) break;
     }
+    expect(g.clock.tick).toBeGreaterThan(300);
+    expect(g.company.lifetimeRevenue).toBeGreaterThan(0);
     expect(Number.isFinite(g.company.cash)).toBe(true);
     expect(g.company.cash).not.toBe(Number.POSITIVE_INFINITY);
     expect(g.stats.productsLaunched).toBeGreaterThanOrEqual(1);

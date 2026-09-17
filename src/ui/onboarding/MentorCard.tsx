@@ -19,7 +19,7 @@ export function MentorCard() {
   const showNext = slide.advance.type === "nextButton";
 
   return (
-    <div className="pointer-events-auto absolute bottom-6 left-1/2 z-30 w-[min(540px,92vw)] -translate-x-1/2">
+    <div className="mentor-card" role="dialog" aria-label="Mentor">
       <div className="term-sheet flex gap-3 p-3 shadow-2xl">
         <CharacterPortrait look={MENTOR_LOOK} className="h-24 w-20 shrink-0" />
         <div className="min-w-0 flex-1">
@@ -45,7 +45,7 @@ export function MentorCard() {
                   Next
                 </GameButton>
               ) : (
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted">Waiting</span>
+                <span className="text-xs text-muted">Your turn →</span>
               )}
               <button
                 type="button"
@@ -74,7 +74,11 @@ export function Spotlight() {
     }
     const update = () => {
       const el = document.querySelector(`[data-tutorial="${slide.highlightUI}"]`);
-      setRect(el?.getBoundingClientRect() ?? null);
+      if (!(el instanceof HTMLElement || el instanceof SVGElement)) {setRect(null);return;}
+      const r = el.getBoundingClientRect();
+      const style = getComputedStyle(el);
+      const visible = r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth && style.visibility !== 'hidden' && style.display !== 'none' && !el.closest('[hidden]');
+      setRect(visible ? r : null);
     };
     update();
     const t = window.setInterval(update, 240);
@@ -93,11 +97,7 @@ export function Spotlight() {
   const h = rect.height + pad * 2;
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
-      <div className="absolute bg-[#1b2230]/45" style={{ left: 0, top: 0, right: 0, height: Math.max(0, y) }} />
-      <div className="absolute bg-[#1b2230]/45" style={{ left: 0, top: y, width: Math.max(0, x), height: h }} />
-      <div className="absolute bg-[#1b2230]/45" style={{ left: x + w, top: y, right: 0, height: h }} />
-      <div className="absolute bg-[#1b2230]/45" style={{ left: 0, top: y + h, right: 0, bottom: 0 }} />
-      <div className="absolute border-2 border-copper" style={{ left: x, top: y, width: w, height: h }} />
+      <div className="tutorial-outline" data-testid="tutorial-spotlight" style={{ left: x, top: y, width: w, height: h }} />
     </div>
   );
 }

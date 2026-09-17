@@ -8,7 +8,7 @@ import { Apartment } from "./environments/Apartment";
 import { OfficeLighting } from "./environments/Lighting";
 import { CampusOffice, GarageOffice, HQOffice, MegaCampus, ResearchLab } from "./environments/Offices";
 import { layoutFor } from "./navigation/layout";
-import { occupancyReset } from "./navigation/occupancy";
+import { OfficeRuntime } from "./navigation/behavior";
 import { DepartingAgent, EmployeeAgent } from "./navigation/Agent";
 import { selectWorldView } from "./selectWorldView";
 import { useGame } from "../state/store";
@@ -26,6 +26,7 @@ function Scene() {
   const view = useMemo(() => (game ? selectWorldView(game) : null), [game]);
   const level = view?.officeLevel ?? 0;
   const layout = layoutFor(level);
+  const runtime = useMemo(()=>new OfficeRuntime(layout,game?.meta.seed??1),[layout,game?.meta.seed]);
   const reduced = Boolean(game?.settings.reducedMotion);
   const quality = game?.settings.graphics ?? "high";
   const standing = Boolean(game?.company.perks.some((p) => p.id === "desks"));
@@ -33,9 +34,7 @@ function Scene() {
   const empty = (view?.automation ?? 0) > 55;
   const emptyDesks = empty || (view ? view.agents.length < 4 && level >= 2 : false);
 
-  useEffect(() => {
-    occupancyReset();
-  }, [level]);
+
 
   useEffect(() => {
     const cam = useCameraDirector.getState();
@@ -66,7 +65,7 @@ function Scene() {
 
   const office =
     level <= 0 ? (
-      <Apartment onObject={onObject} perks={view?.perks ?? []} brand={brand} standingDesks={standing} />
+      <Apartment onObject={onObject} perks={view?.perks ?? []} brand={brand} standingDesks={standing} employeeCount={view?.agents.length??2} />
     ) : level === 1 ? (
       <GarageOffice onObject={onObject} perks={view?.perks ?? []} brand={brand} computeLoad={view?.computeLoad} />
     ) : level === 2 ? (
@@ -120,19 +119,19 @@ function Scene() {
         </>
       ) : null}
       {screen === "playing" && view
-        ? view.agents.map((agent, index) => (
+        ? view.agents.map((agent) => (
             <EmployeeAgent
-              key={agent.id}
+              key={`${layout.id}-${agent.id}`}
               agent={agent}
               layout={layout}
-              index={index}
+              runtime={runtime}
               reducedMotion={reduced}
               onSelect={selectEmployee}
             />
           ))
         : null}
       {screen === "playing" && view
-        ? departures.map((d) => <DepartingAgent key={d.id} look={d.look} robot={d.robot} layout={layout} id={d.id} />)
+        ? departures.map((d) => <DepartingAgent key={d.id} look={d.look} robot={d.robot} layout={layout} id={d.id} runtime={runtime} />)
         : null}
       {screen === "playing" && view && view.hiddenCount > 0 && quality !== "low" ? (
         <CrowdSilhouettes count={view.hiddenCount} layout={layout} cool={level >= 3} />

@@ -1,20 +1,21 @@
-import { useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
-import type { Group } from "three";
-import type { CharacterLook, ExpressionId } from "../../simulation/types";
-import { FaceMesh } from "./Face";
-import { HairMesh } from "./Hair";
-import { clipForActivity, type CharacterActivity } from "./Animations";
-
+import { useFrame } from '@react-three/fiber';
+import { useRef } from 'react';
+import type { Group } from 'three';
+import type { CharacterLook, ExpressionId } from '../../simulation/types';
+import { Bevel } from '../geometry/Bevel';
+import { FaceMesh } from './Face';
+import { HairMesh } from './Hair';
+import type { CharacterActivity } from './Animations';
 export type { CharacterActivity };
 
 export function Character({
   look,
-  activity = "idle",
+  activity = 'idle',
   expression,
   exhausted = false,
   robot = false,
   preview = false,
+  seated = false,
 }: {
   look: CharacterLook;
   activity?: CharacterActivity;
@@ -22,234 +23,347 @@ export function Character({
   exhausted?: boolean;
   robot?: boolean;
   preview?: boolean;
+  seated?: boolean;
 }) {
   const ref = useRef<Group>(null);
+  const head = useRef<Group>(null);
   const leftArm = useRef<Group>(null);
   const rightArm = useRef<Group>(null);
+  const leftElbow = useRef<Group>(null);
+  const rightElbow = useRef<Group>(null);
   const leftLeg = useRef<Group>(null);
   const rightLeg = useRef<Group>(null);
-  const head = useRef<Group>(null);
-  const bodyScale = look.body === "slim" ? 0.9 : look.body === "broad" ? 1.12 : 1;
-  const heightScale = look.height === "short" ? 0.9 : look.height === "tall" ? 1.08 : 1;
-  const face: ExpressionId = expression ?? (exhausted ? "tired" : activity === "celebrate" ? "happy" : activity === "talking" ? "confident" : "neutral");
-  const hoodie = look.topId === "hoodie";
-  const coat = look.topId === "labcoat" || look.topId === "blazer" || look.topId === "jacket" || look.topId === "techjacket";
-  const vest = look.topId === "vest";
+  const leftKnee = useRef<Group>(null);
+  const rightKnee = useRef<Group>(null);
 
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    const g = ref.current;
-    if (!g) return;
-    const tired = exhausted || activity === "tired" ? 0.55 : 1;
-    const walk = activity === "walking" ? 1 : 0;
-    const work = activity === "working" ? 1 : 0;
-    const talk = activity === "talking" ? 1 : 0;
-    const cele = activity === "celebrate" ? 1 : 0;
-    const sit = activity === "sit" ? 1 : 0;
-    const idle = activity === "idle" || activity === "coffee" ? 1 : 0;
-    const breath = Math.sin(t * 2.1) * 0.012 * idle;
-    g.position.y = (sit ? -0.22 : 0) + Math.sin(t * 8) * 0.04 * walk * tired + cele * (0.08 + Math.abs(Math.sin(t * 6)) * 0.06);
-    if (head.current) {
-      head.current.rotation.x = exhausted ? 0.22 : work * 0.18 + Math.sin(t * 1.4) * 0.04 * talk;
-      head.current.rotation.y = Math.sin(t * 2.4) * 0.12 * talk;
+  const bodyScale = look.body === 'slim' ? 0.93 : look.body === 'broad' ? 1.08 : 1;
+  const heightScale = look.height === 'short' ? 0.94 : look.height === 'tall' ? 1.06 : 1;
+  const face = expression ?? (exhausted ? 'tired' : activity === 'celebrate' ? 'happy' : 'neutral');
+  const jacket = ['blazer', 'jacket', 'techjacket', 'labcoat', 'overshirt'].includes(look.topId);
+  const tee = look.topId === 'tee';
+  const hoodie = look.topId === 'hoodie';
+  const cloth = look.topId === 'labcoat' ? '#e9e9e3' : look.top;
+  const inner = look.topId === 'blazer' ? (look.top === '#2d4972' ? '#b0c8e8' : '#1e2126') : '#141517';
+
+  useFrame(({ clock }, rawDt) => {
+    const dt = Math.min(rawDt, 0.08);
+    const t = clock.elapsedTime;
+    const smooth = (g: Group | null, axis: 'x' | 'y' | 'z', value: number) => {
+      if (g) g.rotation[axis] += (value - g.rotation[axis]) * (1 - Math.exp(-dt * 12));
+    };
+    const walking = activity === 'walking';
+    const working = activity === 'working';
+    const talking = activity === 'talking' || activity === 'meeting';
+    const celebrate = activity === 'celebrate';
+    const sit = seated || activity === 'sit';
+    const stride = Math.sin(t * (exhausted ? 5 : 7.5));
+    const typing = Math.sin(t * 13) * 0.035;
+
+    if (ref.current) {
+      const y = sit
+        ? -0.23
+        : walking
+        ? Math.abs(stride) * 0.018
+        : celebrate
+        ? Math.abs(Math.sin(t * 5)) * 0.055
+        : Math.sin(t * 1.8) * 0.004;
+      ref.current.position.y += (y - ref.current.position.y) * (1 - Math.exp(-dt * 12));
     }
-    if (leftArm.current && rightArm.current) {
-      leftArm.current.rotation.x = walk * Math.sin(t * 8) * 0.7 * tired + work * (-0.9 + Math.sin(t * 16) * 0.12) + talk * (-0.4 + Math.sin(t * 3) * 0.25) + cele * -1.4;
-      rightArm.current.rotation.x = walk * Math.sin(t * 8 + Math.PI) * 0.7 * tired + work * (-0.85 + Math.sin(t * 16 + 0.4) * 0.12) + talk * -0.2 + cele * -1.5;
-    }
-    if (leftLeg.current && rightLeg.current) {
-      leftLeg.current.rotation.x = walk * Math.sin(t * 8 + Math.PI) * 0.55 * tired + sit * -1.2;
-      rightLeg.current.rotation.x = walk * Math.sin(t * 8) * 0.55 * tired + sit * -1.2;
-    }
-    g.scale.setScalar(preview ? 1 : 1);
-    if (idle) g.rotation.y += Math.sin(t * 0.6) * 0.0008;
-    void breath;
-    void clipForActivity(activity);
+    smooth(head.current, 'x', exhausted ? 0.18 : working ? 0.12 : 0);
+    smooth(head.current, 'y', talking ? Math.sin(t * 1.8) * 0.14 : preview ? 0.06 : 0);
+    smooth(leftArm.current, 'x', walking ? stride * 0.45 : working ? -0.95 + typing : celebrate ? -2.6 : talking ? -0.2 : 0);
+    smooth(
+      rightArm.current,
+      'x',
+      walking
+        ? -stride * 0.45
+        : activity === 'whiteboard'
+        ? -1.4
+        : activity === 'coffee'
+        ? -0.55
+        : working
+        ? -0.95 - typing
+        : celebrate
+        ? -2.6
+        : talking
+        ? -0.4 + Math.sin(t * 2) * 0.15
+        : 0
+    );
+    smooth(leftArm.current, 'z', celebrate ? -0.3 : 0.04);
+    smooth(rightArm.current, 'z', celebrate ? 0.3 : -0.04);
+    smooth(leftElbow.current, 'x', working ? -0.62 : talking ? -0.5 : -0.08);
+    smooth(rightElbow.current, 'x', activity === 'coffee' ? -1.6 : activity === 'whiteboard' ? -0.4 : working ? -0.62 : talking ? -0.7 : -0.08);
+    smooth(leftLeg.current, 'x', sit ? -Math.PI / 2 : walking ? -stride * 0.4 : 0);
+    smooth(rightLeg.current, 'x', sit ? -Math.PI / 2 : walking ? stride * 0.4 : 0);
+    smooth(leftKnee.current, 'x', sit ? Math.PI / 2 : 0);
+    smooth(rightKnee.current, 'x', sit ? Math.PI / 2 : 0);
   });
 
-  const shoeGeo = useMemo(() => look.shoesId, [look.shoesId]);
-
-  if (robot) {
-    return (
-      <group ref={ref} scale={[bodyScale, heightScale, bodyScale]}>
-        <mesh position={[0, 0.62, 0]} castShadow>
-          <boxGeometry args={[0.46, 0.62, 0.3]} />
-          <meshStandardMaterial color="#6d7788" metalness={0.45} roughness={0.32} />
-        </mesh>
-        <mesh position={[0, 1.08, 0.02]} castShadow>
-          <boxGeometry args={[0.32, 0.24, 0.26]} />
-          <meshStandardMaterial color="#1b2433" emissive="#1f6b4a" emissiveIntensity={0.5} />
-        </mesh>
-        <mesh position={[0, 1.28, 0]}>
-          <cylinderGeometry args={[0.02, 0.02, 0.22, 6]} />
-          <meshStandardMaterial color="#c9a227" metalness={0.6} roughness={0.3} />
-        </mesh>
-        <group ref={leftLeg} position={[-0.12, 0.28, 0]}>
-          <mesh position={[0, -0.08, 0]}>
-            <boxGeometry args={[0.12, 0.22, 0.16]} />
-            <meshStandardMaterial color="#222" />
-          </mesh>
-        </group>
-        <group ref={rightLeg} position={[0.12, 0.28, 0]}>
-          <mesh position={[0, -0.08, 0]}>
-            <boxGeometry args={[0.12, 0.22, 0.16]} />
-            <meshStandardMaterial color="#222" />
-          </mesh>
-        </group>
-      </group>
-    );
-  }
+  const sitting = seated || activity === 'sit';
 
   return (
     <group ref={ref} scale={[bodyScale, heightScale, bodyScale]}>
-      <group ref={leftLeg} position={[-0.1, 0.42, 0]}>
-        <mesh position={[0, -0.2, 0]} castShadow>
-          <capsuleGeometry args={[0.075, 0.32, 4, 8]} />
-          <meshStandardMaterial color={look.pants} roughness={0.78} />
-        </mesh>
-        <mesh position={[0, -0.4, shoeGeo === "boots" ? 0.04 : 0.06]} castShadow>
-          <boxGeometry args={[0.16, shoeGeo === "boots" ? 0.14 : 0.08, shoeGeo === "dress" ? 0.26 : 0.22]} />
-          <meshStandardMaterial color={look.shoes} roughness={0.55} />
-        </mesh>
-      </group>
-      <group ref={rightLeg} position={[0.1, 0.42, 0]}>
-        <mesh position={[0, -0.2, 0]} castShadow>
-          <capsuleGeometry args={[0.075, 0.32, 4, 8]} />
-          <meshStandardMaterial color={look.pants} roughness={0.78} />
-        </mesh>
-        <mesh position={[0, -0.4, shoeGeo === "boots" ? 0.04 : 0.06]} castShadow>
-          <boxGeometry args={[0.16, shoeGeo === "boots" ? 0.14 : 0.08, shoeGeo === "dress" ? 0.26 : 0.22]} />
-          <meshStandardMaterial color={look.shoes} roughness={0.55} />
-        </mesh>
-      </group>
-      <mesh position={[0, 0.52, 0]} castShadow>
-        <boxGeometry args={[look.pantsId === "joggers" ? 0.32 : 0.36, 0.18, look.pantsId === "trousers" ? 0.24 : 0.22]} />
-        <meshStandardMaterial color={look.pants} roughness={look.pantsId === "jeans" ? 0.82 : 0.7} />
-      </mesh>
-      <mesh position={[0, 0.82, 0]} castShadow>
-        <boxGeometry args={[hoodie || coat ? 0.5 : vest ? 0.46 : 0.42, 0.5, hoodie ? 0.32 : 0.26]} />
-        <meshStandardMaterial color={look.top} roughness={hoodie ? 0.85 : 0.62} />
-      </mesh>
-      {hoodie ? (
-        <mesh position={[0, 1.08, -0.04]}>
-          <sphereGeometry args={[0.16, 10, 8, 0, Math.PI * 2, 0, 1.2]} />
-          <meshStandardMaterial color={look.top} roughness={0.85} />
-        </mesh>
-      ) : null}
-      {coat ? (
-        <mesh position={[0, 0.7, 0.02]} scale={[1.12, 0.7, 1.08]}>
-          <boxGeometry args={[0.5, 0.5, 0.28]} />
-          <meshStandardMaterial color={look.top} roughness={0.55} />
-        </mesh>
-      ) : null}
-      {look.topId === "labcoat" ? (
-        <mesh position={[0.02, 0.78, 0.14]}>
-          <boxGeometry args={[0.36, 0.42, 0.04]} />
-          <meshStandardMaterial color="#f4f0e6" roughness={0.8} />
-        </mesh>
-      ) : null}
-      <group ref={leftArm} position={[-0.28, 0.98, 0]}>
-        <mesh position={[0, -0.16, 0]} castShadow>
-          <capsuleGeometry args={[0.055, 0.32, 4, 8]} />
-          <meshStandardMaterial color={look.top} roughness={0.62} />
-        </mesh>
-        <mesh position={[0, -0.34, 0]}>
-          <sphereGeometry args={[0.05, 8, 8]} />
-          <meshStandardMaterial color={look.skin} roughness={0.58} />
-        </mesh>
-      </group>
-      <group ref={rightArm} position={[0.28, 0.98, 0]}>
-        <mesh position={[0, -0.16, 0]} castShadow>
-          <capsuleGeometry args={[0.055, 0.32, 4, 8]} />
-          <meshStandardMaterial color={look.top} roughness={0.62} />
-        </mesh>
-        <mesh position={[0, -0.34, 0]}>
-          <sphereGeometry args={[0.05, 8, 8]} />
-          <meshStandardMaterial color={look.skin} roughness={0.58} />
-        </mesh>
-        {look.accessory === "coffee" ? (
-          <mesh position={[0.02, -0.42, 0.08]}>
-            <cylinderGeometry args={[0.04, 0.035, 0.08, 10]} />
-            <meshStandardMaterial color="#efe8dc" />
-          </mesh>
-        ) : null}
-        {look.accessory === "phone" ? (
-          <mesh position={[0.02, -0.4, 0.06]}>
-            <boxGeometry args={[0.05, 0.09, 0.02]} />
-            <meshStandardMaterial color="#111" />
-          </mesh>
-        ) : null}
-        {look.accessory === "notebook" ? (
-          <mesh position={[0.04, -0.32, 0.08]} rotation={[-0.4, 0.2, 0]}>
-            <boxGeometry args={[0.1, 0.02, 0.14]} />
-            <meshStandardMaterial color="#2b3a55" />
-          </mesh>
-        ) : null}
-      </group>
-      <group ref={head} position={[0, 1.22, 0]}>
-        <FaceMesh skin={look.skin} expression={face} faceId={look.faceId} />
-        <group position={[0, 0.12, 0]}>
-          <HairMesh style={look.hairStyle} color={look.hair} />
+      {/* Legs and Shoes */}
+      {[-1, 1].map((side) => (
+        <group key={side} ref={side === -1 ? leftLeg : rightLeg} position={[side * 0.115, 0.72, 0]}>
+          <Bevel position={[0, sitting ? -0.16 : -0.285, 0]} size={[0.183, sitting ? 0.35 : 0.61, 0.225]} radius={0.032} color={robot ? '#d9dede' : look.pants} taper={0.14} />
+          <group ref={side === -1 ? leftKnee : rightKnee} position={[0, -0.31, 0]}>
+            {sitting && <Bevel position={[0, -0.14, 0]} size={[0.17, 0.32, 0.21]} radius={0.025} color={robot ? '#d9dede' : look.pants} taper={0.1} />}
+            <Bevel position={[0, -0.32, 0.045]} size={[0.205, look.shoesId === 'boots' ? 0.155 : 0.115, 0.32]} radius={0.037} color={robot ? '#525a61' : look.shoes} />
+            {(look.shoesId === 'sneakers' || look.shoesId === 'runners') && (
+              <>
+                <Bevel position={[0, -0.365, 0.05]} size={[0.208, 0.035, 0.326]} radius={0.014} color="#d7d9d9" />
+                <Bevel position={[0, -0.277, 0.11]} size={[0.125, 0.018, 0.055]} radius={0.005} color="#cbd0d2" />
+              </>
+            )}
+          </group>
         </group>
-        {look.glassesId === "round" || (look.glasses && look.glassesId !== "rect" && look.glassesId !== "none") ? (
-          <group>
-            <mesh position={[-0.08, 0.04, 0.2]}>
-              <torusGeometry args={[0.05, 0.008, 8, 12]} />
-              <meshStandardMaterial color="#1a1a1a" metalness={0.4} roughness={0.3} />
-            </mesh>
-            <mesh position={[0.08, 0.04, 0.2]}>
-              <torusGeometry args={[0.05, 0.008, 8, 12]} />
-              <meshStandardMaterial color="#1a1a1a" metalness={0.4} roughness={0.3} />
-            </mesh>
+      ))}
+
+      {/* Hip / Waist */}
+      <Bevel position={[0, 0.725, 0]} size={[0.405, 0.10, 0.245]} radius={0.035} color={robot ? '#e6e9e8' : look.pants} />
+
+      {/* Torso */}
+      <Bevel position={[0, 0.984, 0]} size={[robot ? 0.51 : 0.455, robot ? 0.49 : 0.55, robot ? 0.32 : 0.28]} radius={0.075} color={robot ? '#ecefeb' : cloth} taper={0.27} />
+
+      {/* Neck */}
+      <Bevel position={[0, 1.27, 0]} size={[0.145, 0.14, 0.145]} radius={0.037} color={robot ? '#525a61' : look.topId === 'turtleneck' ? cloth : look.skin} />
+
+      {/* Neck & Clothing Accents */}
+      {!robot && (
+        <>
+          {/* Turtleneck collar roll */}
+          {look.topId === 'turtleneck' && <Bevel position={[0, 1.245, 0]} size={[0.19, 0.095, 0.19]} radius={0.035} color={cloth} />}
+
+          {/* Jackets and Blazers */}
+          {jacket ? (
+            <>
+              {/* Inner shirt center panel */}
+              <Bevel position={[0, 1.015, 0.144]} size={[0.14, 0.43, 0.012]} radius={0.003} color={inner} />
+              {/* Inner shirt collar tips for collared inner (e.g. Bezos' light blue shirt) */}
+              {look.top === '#2d4972' &&
+                [-1, 1].map((side) => (
+                  <Bevel
+                    key={side}
+                    position={[side * 0.038, 1.205, 0.088]}
+                    rotation={[0, 0, side * 0.35]}
+                    size={[0.042, 0.06, 0.01]}
+                    color="#b0c8e8"
+                    radius={0.003}
+                  />
+                ))}
+              {/* Sleek low-profile lapels flush with jacket torso */}
+              {[-1, 1].map((side) => (
+                <Bevel
+                  key={side}
+                  position={[side * 0.088, 1.10, 0.148]}
+                  rotation={[0, 0, side * -0.22]}
+                  size={[0.078, 0.22, 0.012]}
+                  radius={0.006}
+                  color={cloth}
+                />
+              ))}
+              {look.topId === 'techjacket' && <Bevel position={[0, 0.99, 0.155]} size={[0.009, 0.45, 0.008]} radius={0.002} color="#899194" />}
+            </>
+          ) : (
+            <>
+              {/* Standard crewneck collar ring */}
+              <mesh position={[0, 1.213, 0.005]} rotation={[Math.PI / 2, 0, 0]}>
+                <torusGeometry args={[0.083, 0.015, 4, 12]} />
+                <meshStandardMaterial color={cloth} roughness={1} />
+              </mesh>
+
+              {/* White collared shirt peaking out of sweater neckline (Bill Gates style) */}
+              {look.topId === 'sweater' && (
+                <>
+                  <Bevel position={[0, 1.222, 0.01]} size={[0.15, 0.04, 0.15]} radius={0.02} color="#ffffff" />
+                  {[-1, 1].map((side) => (
+                    <Bevel
+                      key={side}
+                      position={[side * 0.042, 1.205, 0.088]}
+                      rotation={[0, 0, side * 0.35]}
+                      size={[0.045, 0.065, 0.012]}
+                      color="#ffffff"
+                      radius={0.004}
+                    />
+                  ))}
+                </>
+              )}
+            </>
+          )}
+
+          {hoodie && (
+            <>
+              <Bevel position={[0, 1.185, -0.11]} size={[0.27, 0.16, 0.17]} radius={0.064} color={cloth} />
+              <Bevel position={[0, 0.837, 0.15]} size={[0.22, 0.095, 0.02]} radius={0.025} color={cloth} />
+              {[-0.062, 0.062].map((x) => (
+                <Bevel key={x} position={[x, 1.113, 0.151]} size={[0.009, 0.12, 0.009]} radius={0.003} color="#bcc1bd" />
+              ))}
+            </>
+          )}
+
+          {look.topId === 'vest' && <Bevel position={[0, 1.007, 0.148]} size={[0.01, 0.46, 0.013]} radius={0.002} color="#959da2" />}
+        </>
+      )}
+
+      {/* Arms & Hands */}
+      {[-1, 1].map((side) => (
+        <group key={side} ref={side === -1 ? leftArm : rightArm} position={[side * 0.273, 1.162, 0]}>
+          {/* Upper Arm: Clean short sleeve vs long sleeve */}
+          {tee ? (
+            <>
+              {/* T-shirt sleeve */}
+              <Bevel position={[0, -0.085, 0]} size={[0.145, 0.17, 0.155]} radius={0.03} color={robot ? '#5c6267' : cloth} />
+              {/* Bare upper arm */}
+              <Bevel position={[0, -0.185, 0]} size={[0.132, 0.16, 0.142]} radius={0.025} color={robot ? '#e2e8e7' : look.skin} />
+            </>
+          ) : (
+            /* Long sleeve */
+            <Bevel position={[0, -0.212, 0]} size={[0.148, 0.44, 0.158]} radius={0.035} color={robot ? '#5c6267' : cloth} />
+          )}
+
+          {/* Forearm and Hand */}
+          <group ref={side === -1 ? leftElbow : rightElbow} position={[0, -0.238, 0]}>
+            {/* Forearm: skin tone for tee, cloth for long sleeve */}
+            <Bevel
+              position={[0, -0.11, 0]}
+              size={[0.13, 0.22, 0.14]}
+              radius={0.025}
+              color={robot ? '#e2e8e7' : tee ? look.skin : cloth}
+            />
+            {/* Hand */}
+            <Bevel position={[0, -0.236, 0.011]} size={[0.125, 0.12, 0.135]} radius={0.035} color={robot ? '#656e72' : look.skin} />
+            {!robot && (
+              <Bevel
+                position={[-side * 0.055, -0.212, 0.05]}
+                rotation={[0, 0, side * 0.15]}
+                size={[0.046, 0.075, 0.055]}
+                radius={0.021}
+                color={look.skin}
+              />
+            )}
+
+            {/* Accessories on hands */}
+            {side === 1 && (look.accessory === 'coffee' || activity === 'coffee') && (
+              <group position={[0, -0.225, 0.1]}>
+                <mesh rotation={[Math.PI / 2, 0, 0]}>
+                  <cylinderGeometry args={[0.058, 0.052, 0.1, 10]} />
+                  <meshStandardMaterial color="#eeeae0" roughness={0.9} />
+                </mesh>
+                <mesh position={[0.06, 0, 0]}>
+                  <torusGeometry args={[0.031, 0.011, 4, 8]} />
+                  <meshStandardMaterial color="#eeeae0" roughness={0.9} />
+                </mesh>
+              </group>
+            )}
+            {side === 1 && look.accessory === 'phone' && (
+              <Bevel position={[0, -0.22, 0.091]} size={[0.083, 0.16, 0.015]} color="#30353b" radius={0.015} />
+            )}
+            {side === 1 && look.accessory === 'notebook' && (
+              <Bevel position={[0.035, -0.22, 0.075]} size={[0.15, 0.21, 0.032]} color="#365474" radius={0.006} />
+            )}
+            {side === -1 && look.accessory === 'watch' && (
+              <Bevel position={[0, -0.172, 0.084]} size={[0.08, 0.064, 0.023]} color="#aeb7ba" radius={0.014} />
+            )}
           </group>
-        ) : null}
-        {look.glassesId === "rect" ? (
-          <mesh position={[0, 0.04, 0.21]}>
-            <boxGeometry args={[0.26, 0.07, 0.03]} />
-            <meshStandardMaterial color="#1a1a1a" metalness={0.35} roughness={0.28} />
-          </mesh>
-        ) : null}
-        {look.accessory === "headphones" ? (
-          <group>
-            <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0.08, 0]}>
-              <torusGeometry args={[0.2, 0.025, 8, 16, Math.PI]} />
-              <meshStandardMaterial color="#222" />
-            </mesh>
-            <mesh position={[-0.2, 0.02, 0]}>
-              <cylinderGeometry args={[0.05, 0.05, 0.04, 10]} />
-              <meshStandardMaterial color="#111" />
-            </mesh>
-            <mesh position={[0.2, 0.02, 0]}>
-              <cylinderGeometry args={[0.05, 0.05, 0.04, 10]} />
-              <meshStandardMaterial color="#111" />
-            </mesh>
-          </group>
-        ) : null}
+        </group>
+      ))}
+
+      {/* Head, Face, Hair, Beard, Glasses */}
+      <group ref={head} position={[0, 1.506, 0]}>
+        {robot ? (
+          <>
+            <Bevel size={[0.52, 0.405, 0.385]} radius={0.12} color="#e9edeb" />
+            <Bevel position={[0, 0.007, 0.182]} size={[0.405, 0.27, 0.071]} radius={0.094} color="#22252a" />
+            {[-0.09, 0.09].map((x) => (
+              <Bevel key={x} position={[x, 0.016, 0.224]} size={[0.042, 0.08, 0.014]} radius={0.018} color="#50a8ff" emissive="#50a8ff" emissiveIntensity={0.6} />
+            ))}
+          </>
+        ) : (
+          <>
+            <FaceMesh skin={look.skin} expression={face} faceId={look.faceId} />
+            <HairMesh style={look.hairStyle} color={look.hair} />
+
+            {/* Beard: Clean low-poly goatee for Jobs vs full beard for Reed */}
+            {look.beard && (
+              <group>
+                {look.hairStyle === 'balding' || look.beardColor === '#8c929a' ? (
+                  /* Steve Jobs: Stubble goatee framing mouth & chin */
+                  <>
+                    <Bevel position={[0, -0.165, 0.17]} size={[0.13, 0.075, 0.05]} radius={0.018} color={look.beardColor ?? look.hair} />
+                    <Bevel position={[0, -0.086, 0.201]} size={[0.095, 0.015, 0.008]} radius={0.003} color={look.beardColor ?? look.hair} />
+                    {[-1, 1].map((side) => (
+                      <Bevel key={side} position={[side * 0.058, -0.125, 0.19]} size={[0.016, 0.065, 0.008]} radius={0.003} color={look.beardColor ?? look.hair} />
+                    ))}
+                  </>
+                ) : (
+                  /* Reed Hastings & general full beard: jawline, chin, mustache */
+                  <>
+                    <Bevel position={[0, -0.165, 0.165]} size={[0.22, 0.085, 0.09]} radius={0.025} color={look.beardColor ?? look.hair} />
+                    {[-1, 1].map((side) => (
+                      <Bevel key={side} position={[side * 0.135, -0.13, 0.08]} size={[0.075, 0.08, 0.18]} radius={0.022} color={look.beardColor ?? look.hair} />
+                    ))}
+                    <Bevel position={[0, -0.082, 0.201]} size={[0.125, 0.018, 0.008]} radius={0.003} color={look.beardColor ?? look.hair} />
+                  </>
+                )}
+              </group>
+            )}
+
+            {/* Glasses */}
+            {look.glassesId !== 'none' && (
+              <group position={[0, -0.004, 0.218]}>
+                {[-1, 1].map((side) => (
+                  <group key={side} position={[side * 0.083, 0, 0]}>
+                    {look.glassesId === 'round' ? (
+                      <mesh>
+                        <torusGeometry args={[0.046, 0.006, 6, 16]} />
+                        <meshStandardMaterial color="#2b2e32" roughness={0.8} />
+                      </mesh>
+                    ) : (
+                      <>
+                        {[-1, 1].map((edge) => (
+                          <group key={edge}>
+                            <Bevel position={[0, edge * 0.043, 0]} size={[0.122, 0.013, 0.02]} color="#23262a" radius={0.005} />
+                            <Bevel position={[edge * 0.055, 0, 0]} size={[0.013, 0.085, 0.02]} color="#23262a" radius={0.005} />
+                          </group>
+                        ))}
+                      </>
+                    )}
+                  </group>
+                ))}
+                {/* Bridge */}
+                <Bevel position={[0, 0.002, 0]} size={[0.064, 0.011, 0.018]} radius={0.003} color="#23262a" />
+                {/* Temple arms to ears */}
+                {[-1, 1].map((side) => (
+                  <Bevel key={side} position={[side * 0.195, 0.01, -0.08]} rotation={[0, side * -0.2, 0]} size={[0.014, 0.016, 0.18]} color="#23262a" radius={0.005} />
+                ))}
+              </group>
+            )}
+
+            {look.accessory === 'headphones' && (
+              <>
+                <mesh position={[0, 0.07, -0.025]}>
+                  <torusGeometry args={[0.25, 0.027, 5, 12, Math.PI]} />
+                  <meshStandardMaterial color="#292b2f" roughness={0.9} />
+                </mesh>
+                {[-0.244, 0.244].map((x) => (
+                  <Bevel key={x} position={[x, -0.008, 0]} size={[0.07, 0.16, 0.12]} radius={0.035} color="#292b2f" />
+                ))}
+              </>
+            )}
+          </>
+        )}
       </group>
-      {look.accessory === "badge" ? (
-        <mesh position={[0.16, 0.86, 0.15]}>
-          <boxGeometry args={[0.08, 0.1, 0.02]} />
-          <meshStandardMaterial color="#c9a227" />
-        </mesh>
-      ) : null}
-      {look.accessory === "scarf" ? (
-        <mesh position={[0, 1.04, 0.08]}>
-          <boxGeometry args={[0.28, 0.1, 0.16]} />
-          <meshStandardMaterial color="#8a3b2f" roughness={0.85} />
-        </mesh>
-      ) : null}
-      {look.accessory === "watch" ? (
-        <mesh position={[0.28, 0.72, 0.02]}>
-          <torusGeometry args={[0.04, 0.01, 8, 10]} />
-          <meshStandardMaterial color="#c9a227" metalness={0.6} roughness={0.3} />
-        </mesh>
-      ) : null}
-      {look.accessory === "backpack" ? (
-        <mesh position={[0, 0.86, -0.2]}>
-          <boxGeometry args={[0.28, 0.34, 0.12]} />
-          <meshStandardMaterial color="#2b3a55" roughness={0.7} />
-        </mesh>
-      ) : null}
+
+      {/* Body Accessories */}
+      {look.accessory === 'badge' && (
+        <>
+          <Bevel position={[0, 1.1, 0.16]} size={[0.012, 0.22, 0.013]} color="#42638a" radius={0.003} />
+          <Bevel position={[0, 0.94, 0.163]} size={[0.105, 0.14, 0.014]} radius={0.009} color="#eeeae3" />
+        </>
+      )}
+      {look.accessory === 'scarf' && <Bevel position={[0, 1.225, 0.055]} size={[0.23, 0.088, 0.17]} radius={0.026} color="#b37855" />}
+      {look.accessory === 'backpack' && <Bevel position={[0, 1, -0.202]} size={[0.31, 0.39, 0.17]} radius={0.056} color="#365474" />}
     </group>
   );
 }

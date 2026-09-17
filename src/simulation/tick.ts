@@ -2,14 +2,15 @@ import { produce } from "immer";
 import { BALANCE } from "../config/balance";
 import { events } from "../data/events";
 import { fillerNews, newsTemplates } from "../data/news";
-import { onboarding } from "../data/onboarding";
+import { reconcileTutorial, recordTutorialEvent, updateUnlocks } from "./tutorial";
+import { setPause } from "./pause";
 import { specialProjects } from "../data/specialProjects";
 import { techById } from "../data/technologies";
 import { applyBattleResults } from "../market/battle";
 import { applyEffects } from "./effects";
 import { allSatisfied, monthlyArr } from "./conditions";
 import { addDays, isMonthStart, isQuarterStart, isWeekStart, isYearStart } from "./date";
-import { monthlyCompute, monthlyPayroll, monthlyRent, valuationOf } from "./derived";
+import { fixedComputeCost, inferenceCoverage, monthlyPayroll, monthlyRent, valuationOf } from "./derived";
 import { harvestProduct } from "./products";
 import { Rng, uid } from "./rng";
 import { developTask, makeTask, unassignAll } from "./tasks";
@@ -39,8 +40,8 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
         p.points.research += 12;
       }
     }
-    state.clock.paused = true;
-    state.clock.reasonPaused = "Product ready to configure";
+    setPause(state, "productReady", true);
+    recordTutorialEvent(state, "firstProductReady");
     return;
   }
   if (task.type === "research" && task.techId) {
@@ -95,6 +96,7 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
 }
 
 function maybeEvents(state: GameState, r: Rng): void {
+  if (!state.company.seenMarket || state.pendingMentor || state.marketResult) return;
   for (const ev of events) {
     if (!allSatisfied(ev.conditions, state)) continue;
     if (!ev.repeatable && state.inbox.some((m) => m.subject === ev.title)) continue;
@@ -126,8 +128,7 @@ function maybeEvents(state: GameState, r: Rng): void {
         failureBody: ev.crisis.failureBody,
       });
       state.tasks.push(t);
-      state.clock.paused = true;
-      state.clock.reasonPaused = "A crisis needs people";
+      setPause(state, "manual", true);
     }
     break;
   }
@@ -192,29 +193,8 @@ function newsTick(state: GameState, r: Rng): void {
   state.news = state.news.slice(0, 40);
 }
 
-function onboard(state: GameState): void {
-  if (!state.onboarding.tutorialEnabled) return;
-  if (state.pendingMentor) return;
-  for (const step of onboarding) {
-    if (state.onboarding.finished.includes(step.id)) continue;
-    if (step.condition) {
-      const ok = allSatisfied(
-        [{ type: step.condition.type, op: step.condition.op as never, val: step.condition.val }],
-        state,
-      );
-      if (!ok) continue;
-    }
-    if (step.after && !state.onboarding.finished.includes(step.after)) continue;
-    state.pendingMentor = step.id;
-    state.onboarding.slideIndex = 0;
-    state.clock.paused = true;
-    state.clock.reasonPaused = "Mentor";
-    break;
-  }
-}
-
 export function checkOnboarding(state: GameState): void {
-  onboard(state);
+  reconcileTutorial(state);
 }
 
 const TERMINAL = new Set(["bankruptcy", "board-out", "automated-ceo", "safety-crisis", "monopoly", "unknown"]);
@@ -225,13 +205,12 @@ function checkEndings(state: GameState): void {
   if (!found || !TERMINAL.has(found.id)) return;
   state.endingId = found.id;
   state.endingNote = found.note;
-  state.clock.paused = true;
-  state.clock.reasonPaused = "Closed";
+  setPause(state, "ended", true);
 }
 
 export function tickDay(state: GameState): GameState {
   return produce(state, (draft) => {
-    if (draft.endingId) return;
+    if (draft.endingId || draft.marketBattle || draft.marketResult) return;
     const r = rng(draft);
     draft.clock.date = addDays(draft.clock.date, 1);
     draft.clock.tick += 1;
@@ -264,13 +243,13 @@ export function tickDay(state: GameState): GameState {
       draft.company.lifetimeRevenue += rev;
       draft.company.monthlyRevenue += rev;
       draft.stats.computeConsumed += inf;
+      inf = Math.max(0, inf - inferenceCoverage(draft));
       if (draft.compute.apiCredits > 0) {
         const use = Math.min(draft.compute.apiCredits, inf);
         draft.compute.apiCredits -= use;
         inf -= use;
       }
-      const ownedOffset = draft.compute.ownedCluster * 120 + draft.compute.dataCenters * 4000;
-      inf = Math.max(0, inf - ownedOffset);
+
       draft.company.cash -= inf;
       draft.company.lifetimeCosts += inf;
       draft.company.monthlyCosts += inf;
@@ -290,7 +269,7 @@ export function tickDay(state: GameState): GameState {
     if (isMonthStart(draft.clock.date)) {
       const pay = monthlyPayroll(draft);
       const rent = monthlyRent(draft);
-      const compute = monthlyCompute(draft) * 0.15;
+      const compute = fixedComputeCost(draft);
       const cost = pay + rent + compute;
       draft.company.cash -= cost;
       draft.company.lifetimeCosts += cost;
@@ -346,24 +325,10 @@ export function tickDay(state: GameState): GameState {
       }
     }
 
-    if (draft.clock.tick === 10 || draft.company.productsLaunched >= 1) draft.unlocks.hiring = true;
-    if (draft.company.productsLaunched >= 1) {
-      draft.unlocks.research = true;
-      draft.unlocks.compute = true;
-      draft.unlocks.promo = true;
-      draft.unlocks.perks = true;
-      draft.unlocks.models = true;
-    }
-    if (draft.company.productsLaunched >= 2) draft.unlocks.funding = true;
-    if (draft.company.productsLaunched >= 3) draft.unlocks.world = true;
-    if (draft.company.officeLevel >= 1) draft.unlocks.locations = true;
-    if (draft.company.cash > 200_000) draft.unlocks.verticals = true;
+    updateUnlocks(draft);
     if (monthlyArr(draft) > 400_000) draft.unlocks.acquisitions = true;
     if (monthlyArr(draft) > 250_000) draft.unlocks.lobbying = true;
-    if (draft.company.technologies.includes("agents")) draft.unlocks.automation = true;
-    if (draft.company.technologies.includes("fine-tuning")) draft.unlocks.models = true;
-
-    onboard(draft);
+    reconcileTutorial(draft);
     checkEndings(draft);
     commit(draft, r);
   });
@@ -375,8 +340,8 @@ export function applyBattleToState(state: GameState): GameState {
     const r = rng(draft);
     applyBattleResults(draft, draft.marketBattle, r);
     draft.marketBattle = null;
-    draft.clock.paused = false;
-    draft.clock.reasonPaused = null;
+    setPause(draft, "market", false);
+    setPause(draft, "results", true);
     commit(draft, r);
   });
 }

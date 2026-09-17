@@ -6,7 +6,8 @@ import type { CharacterLook, CompanyBrand, DrawerId, GameState, ScreenId } from 
 import { identity } from "../branding/identity";
 import { cofounders } from "../data/cofounders";
 import { offices } from "../data/offices";
-import { currentTutorialSlide, slideWantsAction } from "../simulation/tutorial";
+import { currentTutorialSlide } from "../simulation/tutorial";
+import type { TutorialAction } from "../data/onboarding";
 import { migrateGameState } from "./migrate";
 import { writeSave } from "./save";
 import { audio } from "../audio/Audio";
@@ -68,7 +69,7 @@ interface AppState extends UiState {
   selectObject: (id: string | null) => void;
   toggleDebug: () => void;
   loadGame: (state: GameState) => void;
-  reportTutorialAction: (action: string) => void;
+  reportTutorialAction: (action: TutorialAction) => void;
   patchSetup: (patch: Partial<SetupDraft>) => void;
   resetSetup: () => void;
   setGalleryOpen: (open: boolean) => void;
@@ -125,8 +126,9 @@ export const useGame = create<AppState>((set, get) => ({
       patch.officeCaption = null;
       patch.departures = [];
     }
-    if (cmd.type === "enterMarket") patch.screen = "market";
-    if ((cmd.type === "marketEndTurn" || cmd.type === "delegateMarket") && next && !next.marketBattle) {
+    if (next?.marketBattle || next?.marketResult) patch.screen = "market";
+    if (cmd.type === "continueMarketResults" && next && !next.marketResult) { patch.screen = "playing"; patch.drawer = "products"; }
+    if ((cmd.type === "marketEndTurn" || cmd.type === "delegateMarket") && next && !next.marketBattle && !next.marketResult) {
       patch.screen = "playing";
     }
     if (next?.endingId) patch.screen = "ended";
@@ -135,7 +137,7 @@ export const useGame = create<AppState>((set, get) => ({
       cmd.type === "tickDay" &&
       next.products.some((p) => p.status === "ready") &&
       !prev?.products.some((p) => p.status === "ready") &&
-      (!next.onboarding.tutorialEnabled || next.onboarding.finished.includes("designer"))
+      true
     ) {
       patch.drawer = "products";
     }
@@ -157,20 +159,38 @@ export const useGame = create<AppState>((set, get) => ({
       const office = offices[next.company.officeLevel];
       if (office) patch.officeCaption = `${office.name.toUpperCase()} · CAPACITY ${office.capacity}`;
     }
-    if (cmd.type === "fire" && prev) {
-      const gone = prev.employees.find((e) => e.id === cmd.workerId);
-      if (gone) {
-        patch.departures = [...get().departures, { id: gone.id, look: gone.look, robot: gone.role === "robot" }];
-      }
-    }
-    if (next && prev && next.news[0] && next.news[0].id !== prev.news[0]?.id) {
+    if (next && prev && next.news[0] && next.news[0].id !== prev.news[0]?.id && next.company.seenMarket && !next.pendingMentor) {
       patch.eventFrame = { id: next.news[0].id, headline: next.news[0].headline, body: next.news[0].body };
+    }
+    if (next && prev) {
+      let message = '';
+      if (next.products.length > prev.products.length) { message = 'Product started · Assign a team to begin'; patch.drawer = 'tasks'; }
+      if (cmd.type === 'assign' && next.employees.find(e=>e.id===cmd.workerId)?.taskId !== prev.employees.find(e=>e.id===cmd.workerId)?.taskId) message = 'Team updated · Development estimate recalculated';
+      if (cmd.type === 'unassign') message = 'Worker is available for a new assignment';
+      if (next.stats.researchCompleted > prev.stats.researchCompleted) message = 'Research complete · New possibilities unlocked';
+      if (cmd.type === 'startResearch' && next.tasks.length > prev.tasks.length) {message = 'Research started · Assign a team in Projects';patch.drawer = 'tasks';}
+      if (cmd.type === 'hire') message = next.employees.length > prev.employees.length ? 'New teammate · Arriving at the entrance' : next.hiring.candidates.length < prev.hiring.candidates.length ? 'Offer declined · Try another candidate' : 'Office full · Expand before hiring';
+      if (next.company.officeLevel > prev.company.officeLevel) message = 'A new home for your company';
+      if (cmd.type === 'acceptOffer' && next.company.cash > prev.company.cash) message = 'Term sheet signed · Funds received';
+      if (next.employees.some(e=>e.burnoutDays > 0 && !prev.employees.find(p=>p.id===e.id)?.burnoutDays)) message = 'A teammate needs rest · Reassign their work';
+      if (next.compute.apiCredits <= 0 && prev.compute.apiCredits > 0 && next.products.some(p=>p.status==='active')) message = 'API credits exhausted · Cloud billing active';
+      const ready = next.products.find(p=>p.status==='ready' && prev.products.find(x=>x.id===p.id)?.status==='development');
+      if (ready) {message = `Product ready · ${ready.name}`;patch.drawer='products';}
+      const gone = prev.employees.filter(e=>!next.employees.some(n=>n.id===e.id));
+      if (gone.length) {
+        patch.departures = [...get().departures, ...gone.map(e=>({id:e.id,look:e.look,robot:e.role==='robot'}))];
+        if (cmd.type !== 'fire') message = `${gone[0]!.name} has left the company`;
+      }
+      if (message) patch.floaters = [...(patch.floaters ?? get().floaters).slice(-3),{id:`${next.clock.tick}-${cmd.type}-${message}`,text:message,tone:'ok'}];
     }
     set(patch);
     if (next && prev && next.products.some((p) => p.status === "ready") && !prev.products.some((p) => p.status === "ready")) {
       audio.play("complete", next.settings);
     }
-    if (next && cmd.type === "hire") audio.play("success", next.settings);
+    if (next && prev && next.stats.researchCompleted > prev.stats.researchCompleted) audio.play("success", next.settings);
+    if (next && prev && next.employees.some(e=>e.burnoutDays > 0 && !prev.employees.find(p=>p.id===e.id)?.burnoutDays)) audio.play("warn", next.settings);
+    if (next && (cmd.type === "assign" || cmd.type === "unassign" || cmd.type === "startProduct")) audio.play("click", next.settings);
+    if (next && prev && cmd.type === "hire") audio.play(next.employees.length > prev.employees.length ? "success" : "warn", next.settings);
     if (next && (cmd.type === "upgradeOffice" || (cmd.type === "debug" && cmd.action === "office"))) audio.play("notify", next.settings);
     if (next && cmd.type === "fire") audio.play("warn", next.settings);
     if (next && cmd.type === "acceptOffer") audio.play("success", next.settings);
@@ -183,28 +203,32 @@ export const useGame = create<AppState>((set, get) => ({
       next.settings.pauseOnEvents &&
       cmd.type !== "setPaused" &&
       !next.pendingMentor &&
+      !next.marketBattle &&
+      !next.marketResult &&
       next.inbox.some((m) => m.requiresResponse && !prev.inbox.some((p) => p.id === m.id))
     ) {
       get().dispatch({ type: "setPaused", paused: true, reason: "Inbox" });
     }
     if (next && (cmd.type === "tickDay" ? next.clock.date.day === 1 : true) && next.settings.autosave) {
-      void writeSave("autosave", next);
+      void writeSave("autosave", get().game ?? next);
     }
   },
   setScreen: (screen) => set({ screen }),
   setDrawer: (drawer) => {
     set({ drawer });
-    if (drawer === "tasks") get().reportTutorialAction("openTasks");
+    const events: Partial<Record<DrawerId, TutorialAction>> = {tasks:'openedProductLab',products:'openedProductDesigner',hiring:'openedHiring',research:'openedResearch',compute:'openedCompute',funding:'openedFunding'};
+    if (drawer && events[drawer]) get().reportTutorialAction(events[drawer]!);
   },
-  selectEmployee: (id) => set({ selectedEmployeeId: id, drawer: id ? "people" : get().drawer }),
+  selectEmployee: (id) => set({ selectedEmployeeId: id }),
   selectObject: (id) => set({ selectedObject: id }),
   toggleDebug: () => set({ debugOpen: !get().debugOpen }),
   loadGame: (state) => {
     const migrated = migrateGameState(state);
     set({
       game: migrated,
-      screen: migrated.endingId ? "ended" : migrated.marketBattle ? "market" : "playing",
-      drawer: null,
+      screen: migrated.endingId ? "ended" : (migrated.marketBattle || migrated.marketResult) ? "market" : "playing",
+      drawer: currentTutorialSlide(migrated)?.workspace ?? (migrated.products.some(p=>p.status==="ready") ? "products" : null),
+      selectedEmployeeId: null, departures: [], floaters: [], eventFrame: null, officeCaption: null,
       revealPlaying: false,
     });
   },
@@ -212,18 +236,12 @@ export const useGame = create<AppState>((set, get) => ({
     const game = get().game;
     if (!game) return;
     set({ lastUiAction: action });
-    if (slideWantsAction(game, action)) {
-      get().dispatch({ type: "advanceMentor" });
-    }
-    const slide = currentTutorialSlide(get().game ?? game);
-    if (slide?.highlightUI === action) {
-      /* no-op: consumed by spotlight */
-    }
+    get().dispatch({ type: "tutorialEvent", action });
   },
   patchSetup: (patch) => set({ setup: { ...get().setup, ...patch } }),
   resetSetup: () => set({ setup: blankSetup() }),
   setGalleryOpen: (open) => set({ galleryOpen: open }),
-  setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setSettingsOpen: (open) => {set({ settingsOpen: open });get().dispatch({type:"pauseLock",reason:"settings",enabled:open});},
   setCreditsOpen: (open) => set({ creditsOpen: open }),
   setRevealPlaying: (playing) => set({ revealPlaying: playing }),
   dismissFloater: (id) => set({ floaters: get().floaters.filter((f) => f.id !== id) }),

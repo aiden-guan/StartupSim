@@ -96,11 +96,13 @@ export type HairStyle =
   | "swept"
   | "bald"
   | "textured"
-  | "shaved";
+  | "shaved"
+  | "beanie"
+  | "balding";
 
 export type BodyType = "slim" | "average" | "broad";
 export type HeightId = "short" | "avg" | "tall";
-export type TopId = "tee" | "hoodie" | "sweater" | "overshirt" | "blazer" | "vest" | "jacket" | "labcoat" | "techjacket";
+export type TopId = "turtleneck" | "tee" | "hoodie" | "sweater" | "overshirt" | "blazer" | "vest" | "jacket" | "labcoat" | "techjacket";
 export type PantsId = "jeans" | "chinos" | "joggers" | "trousers";
 export type ShoesId = "sneakers" | "dress" | "boots" | "runners";
 export type GlassesId = "none" | "round" | "rect";
@@ -111,6 +113,8 @@ export type BrandMark = "wordmark" | "circle" | "bars" | "spark";
 export type GraphicsQuality = "low" | "medium" | "high";
 
 export interface CharacterLook {
+  beard?: boolean;
+  beardColor?: string;
   skin: string;
   hair: string;
   hairStyle: HairStyle;
@@ -378,6 +382,12 @@ export interface OnboardingState {
   tutorialEnabled: boolean;
   slideIndex: number;
   revealDone: boolean;
+  version: number;
+  events: string[];
+  primitiveA: string | null;
+  primitiveB: string | null;
+  firstProductId: string | null;
+  nextLessonTick: number;
 }
 
 export interface Stats {
@@ -432,12 +442,27 @@ export interface MarketBattle {
   firstMarket: boolean;
 }
 
+export type PauseReason = "manual" | "tutorial" | "market" | "event" | "productReady" | "results" | "settings" | "ended";
+
+export interface MarketResult {
+  productId: string;
+  share: number;
+  capturedTiles: number;
+  tileValue: number;
+  revenue: number;
+  inference: number;
+  users: number;
+  hype: number;
+  outcome: string;
+}
+
 export interface ClockState {
   date: CalendarDate;
   speed: 0 | 1 | 2 | 4 | 8;
   paused: boolean;
   tick: number;
   reasonPaused: string | null;
+  pauseReasons: PauseReason[];
 }
 
 export interface CompanyState {
@@ -521,6 +546,8 @@ export interface GameState {
     raisedTotal: number;
   };
   marketBattle: MarketBattle | null;
+  marketResult: MarketResult | null;
+  firstLaunchTick: number | null;
   pendingMentor: string | null;
   endingId: string | null;
   endingNote: string | null;

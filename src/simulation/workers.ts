@@ -68,11 +68,10 @@ export function companySkill(
   workers: Employee[],
   scaleByProductivity = false,
 ): number {
-  const companyBonus = companyTraitBonus(state, name);
   let total = 0;
   for (const w of workers) {
     if (w.burnoutDays > 0) continue;
-    const s = workerSkill(w, state, name) + companyBonus;
+    const s = workerSkill(w, state, name);
     const prod = scaleByProductivity ? Math.max(0.3, workerSkill(w, state, "productivity") / 8) : 1;
     total += Math.max(0, s * prod);
   }
@@ -93,6 +92,7 @@ export function idleWorkers(state: GameState): Employee[] {
 }
 
 export function updateBurnout(state: GameState, rng: Rng, worker: Employee): void {
+  if (!state.company.seenMarket && (worker.role === "founder" || worker.role === "cofounder")) return;
   if (worker.traits.includes("tireless") || worker.role === "robot" || worker.role === "ai") return;
   if (worker.burnoutDays > 0) {
     worker.burnoutDays -= 1;

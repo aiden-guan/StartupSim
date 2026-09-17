@@ -96,6 +96,7 @@ describe("rng", () => {
 describe("research prereqs", () => {
   it("blocks techs whose requires are missing", () => {
     let g = createNewGame({ founderName: "A", companyName: "N", cofounderId: "reya", seed: 7 });
+    g.unlocks.research = true;
     g = applyCommand(g, { type: "startResearch", techId: "fine-tuning" })!;
     expect(g.tasks.some((t) => t.techId === "fine-tuning")).toBe(false);
     expect(techById["fine-tuning"]?.requires).toContain("prompt-engineering");
@@ -151,14 +152,14 @@ describe("compute vs users", () => {
 
 describe("first product grant", () => {
   it("gives enough points to buy a launch stat", () => {
-    let g = createNewGame({ founderName: "Ada", companyName: "Northstar", cofounderId: "reya", seed: 11 });
-    g = applyCommand(g, { type: "dismissMentor" })!;
+    let g = createNewGame({ founderName: "Ada", companyName: "Northstar", cofounderId: "reya", seed: 11, skipTutorial: true });
+    g = applyCommand(g, { type: "setSpeed", speed: 1 })!;
     g = applyCommand(g, { type: "startProduct", a: "chat", b: "writing" })!;
     const task = g.tasks.find((t) => t.type === "product")!;
     for (const w of g.employees) g = applyCommand(g, { type: "assign", taskId: task.id, workerId: w.id })!;
     for (let i = 0; i < 80 && g.products[0]?.status !== "ready"; i++) {
       g = applyCommand(g, { type: "tickDay" })!;
-      if (g.pendingMentor) g = applyCommand(g, { type: "dismissMentor" })!;
+      if (g.pendingMentor) g = applyCommand(g, { type: "setSpeed", speed: 1 })!;
     }
     const p = g.products[0]!;
     expect(p.status).toBe("ready");
@@ -171,8 +172,8 @@ describe("first product grant", () => {
 
 describe("hype decay", () => {
   it("decays across a week", () => {
-    let g = createNewGame({ founderName: "A", companyName: "N", cofounderId: "reya", seed: 8 });
-    g = applyCommand(g, { type: "dismissMentor" })!;
+    let g = createNewGame({ founderName: "A", companyName: "N", cofounderId: "reya", seed: 8, skipTutorial: true });
+    g = applyCommand(g, { type: "setSpeed", speed: 1 })!;
     g = applyCommand(g, { type: "debug", action: "hype", amount: 40 })!;
     const before = g.company.hype;
     for (let i = 0; i < 8; i++) g = applyCommand(g, { type: "tickDay" })!;

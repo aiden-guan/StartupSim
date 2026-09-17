@@ -1,0 +1,73 @@
+import { describe, expect, it } from 'vitest';
+import { apartmentLayout, campusLayout, garageLayout, labLayout, loftLayout, megaLayout } from './layout';
+import { route } from './path';
+
+describe('Navigation Pathfinding (route)', () => {
+  const layouts = [
+    { name: 'Apartment', layout: apartmentLayout },
+    { name: 'Garage', layout: garageLayout },
+    { name: 'Loft', layout: loftLayout },
+    { name: 'Lab', layout: labLayout },
+    { name: 'Campus', layout: campusLayout },
+    { name: 'Mega', layout: megaLayout },
+  ];
+
+  it.each(layouts)('computes reachable paths between major points in $name layout', ({ layout }) => {
+    const points = layout.points.slice(0, 8);
+    for (let i = 0; i < points.length; i++) {
+      for (let j = 0; j < points.length; j++) {
+        const from = points[i]!.position;
+        const to = points[j]!.position;
+        const path = route(from, to, layout);
+
+        expect(Array.isArray(path)).toBe(true);
+        expect(path.length).toBeGreaterThanOrEqual(1);
+
+        // Path must end at the destination
+        const destination = path[path.length - 1]!;
+        expect(destination).toEqual(to);
+
+        // Path nodes should have 0 Y (floor level)
+        for (const node of path) {
+          expect(node[1]).toBe(0);
+          expect(Number.isFinite(node[0])).toBe(true);
+          expect(Number.isFinite(node[2])).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('handles identical start and destination gracefully', () => {
+    const pos: [number, number, number] = [1.5, 0, 2.0];
+    const path = route(pos, pos, apartmentLayout);
+    expect(path).toEqual([pos]);
+  });
+
+  it('skirts around blocked desk collision volumes', () => {
+    const desk = apartmentLayout.points.find((p) => p.kind === 'desk')!;
+    const chair = desk.position;
+    // Target is on the other side of the desk
+    const behindDesk: [number, number, number] = [chair[0], 0, chair[2] - 1.8];
+
+    const path = route(chair, behindDesk, apartmentLayout);
+    expect(path.length).toBeGreaterThan(1);
+    expect(path[path.length - 1]).toEqual(behindDesk);
+
+    // Verify intermediate path points do not pass through the core desk bounding box
+    const deskCenterX = desk.position[0];
+    const deskCenterZ = desk.position[2] - 0.8;
+    for (let i = 1; i < path.length - 1; i++) {
+      const pt = path[i]!;
+      const dx = Math.abs(pt[0] - deskCenterX);
+      const dz = Math.abs(pt[2] - deskCenterZ);
+      const insideCoreDesk = dx < 0.75 && dz < 0.35;
+      expect(insideCoreDesk).toBe(false);
+    }
+  });
+
+  it('safely falls back when target is unreachable without infinite loops', () => {
+    const distantUnreachable: [number, number, number] = [9999, 0, 9999];
+    const path = route([0, 0, 0], distantUnreachable, apartmentLayout);
+    expect(path).toEqual([distantUnreachable]);
+  });
+});

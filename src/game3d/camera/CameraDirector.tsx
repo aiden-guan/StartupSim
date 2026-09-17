@@ -53,7 +53,7 @@ export function CameraDirector({
     const duration = Math.max(0.05, goal.duration);
     t.current = skip.current || reducedMotion ? 1 : Math.min(1, t.current + dt / duration);
     const k = ease(t.current);
-    camera.position.lerpVectors(fromPos.current, new THREE.Vector3(...goal.position), k);
+    if (t.current < 1 || !orbitEnabled || reducedMotion) camera.position.lerpVectors(fromPos.current, new THREE.Vector3(...goal.position), k);
     look.current.lerpVectors(fromTarget.current, new THREE.Vector3(...goal.target), k);
     if (!orbitEnabled) camera.lookAt(look.current);
     if (goal.mode === "CINEMATIC" && !reducedMotion) {
@@ -66,8 +66,9 @@ export function CameraDirector({
   return orbitEnabled ? (
     <OrbitControls
       makeDefault
-      enablePan
-      maxPolarAngle={Math.PI / 2.12}
+      enablePan={false}
+      minPolarAngle={Math.PI / 6}
+      maxPolarAngle={Math.PI / 2.8}
       minDistance={minDistance}
       maxDistance={maxDistance}
       target={look.current}

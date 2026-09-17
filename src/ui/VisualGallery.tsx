@@ -1,90 +1,142 @@
-import { Canvas } from "@react-three/fiber";
-import { ACCESSORIES, GLASSES_IDS, HAIR_STYLES, TOP_IDS, normalizeLook } from "../simulation/look";
-import { cofounders } from "../data/cofounders";
-import { MENTOR_LOOK } from "../game3d/characters/HeroLooks";
-import { Character, type CharacterActivity } from "../game3d/characters/Character";
-import { DEFAULT_FOUNDER_LOOK } from "../simulation/look";
-import { useGame } from "../state/store";
-import type { CharacterLook, ExpressionId } from "../simulation/types";
-import { GameButton } from "./shared/controls";
+import { Canvas, useThree } from '@react-three/fiber';
+import { ContactShadows } from '@react-three/drei';
+import { useLayoutEffect, useState } from 'react';
+import { Character } from '../game3d/characters/Character';
+import { referenceLooks } from '../game3d/characters/ReferenceLooks';
+import { useGame } from '../state/store';
+import {
+  BookStack,
+  CardboardBox,
+  Chair,
+  CoffeeMachine,
+  ConferenceBadge,
+  Couch,
+  Desk,
+  Fridge,
+  Headphones,
+  Keyboard,
+  Laptop,
+  Monitor,
+  Mug,
+  Notebook,
+  PizzaBox,
+  Plant,
+  RobotAssistant,
+  ServerRack,
+  Smartphone,
+  Whiteboard,
+} from '../game3d/props/Furniture';
+import type { ComponentType } from 'react';
+import type { Vector3Tuple } from 'three';
 
-function Cell({
-  look,
-  label,
-  activity = "idle",
-  expression,
-  robot = false,
-}: {
-  look: CharacterLook;
-  label: string;
-  activity?: CharacterActivity;
-  expression?: ExpressionId;
-  robot?: boolean;
-}) {
-  return (
-    <div className="border border-white/10">
-      <div className="h-40 bg-[#cbb59a]">
-        <Canvas camera={{ position: [0.2, 1.4, 2.2], fov: 30 }}>
-          <ambientLight intensity={0.6} />
-          <directionalLight position={[2, 3, 2]} />
-          <Character look={look} activity={activity} expression={expression} robot={robot} preview />
-        </Canvas>
-      </div>
-      <div className="px-2 py-1 font-mono text-[10px] text-paper">{label}</div>
-    </div>
-  );
+const assets: { name: string; component: ComponentType<{ position: Vector3Tuple }>; offset?: number }[] = [
+  { name: 'Laptop', component: Laptop },
+  { name: 'Monitor', component: Monitor, offset: 0.35 },
+  { name: 'Keyboard', component: Keyboard },
+  { name: 'Office chair', component: Chair },
+  { name: 'Desk', component: Desk },
+  { name: 'Whiteboard', component: Whiteboard, offset: 1.35 },
+  { name: 'Coffee machine', component: CoffeeMachine },
+  { name: 'Potted plant', component: Plant },
+  { name: 'Server rack', component: ServerRack, offset: 0.86 },
+  { name: 'GPU shipping box', component: CardboardBox, offset: 0.2 },
+  { name: 'Notebook', component: Notebook, offset: 0.02 },
+  { name: 'Headphones', component: Headphones, offset: 0.08 },
+  { name: 'Conference badge', component: ConferenceBadge, offset: 0.12 },
+  { name: 'Smartphone', component: Smartphone, offset: 0.02 },
+  { name: 'Pizza box', component: PizzaBox, offset: 0.04 },
+  { name: 'Couch', component: Couch },
+  { name: 'Stack of books', component: BookStack },
+  { name: 'Robot assistant', component: RobotAssistant },
+  { name: 'Coffee mug', component: Mug, offset: 0.06 },
+  { name: 'Fridge', component: Fridge, offset: 0.67 },
+];
+
+function Framing({ propsMode }: { propsMode: boolean }) {
+  const { camera } = useThree();
+  useLayoutEffect(() => {
+    camera.position.set(propsMode ? 3.2 : 0, propsMode ? 2.5 : 1.95, propsMode ? 4.2 : 5.1);
+    camera.lookAt(0, propsMode ? 0.65 : 0.92, 0);
+  }, [camera, propsMode]);
+  return null;
 }
 
 export function VisualGallery() {
-  const setGalleryOpen = useGame((s) => s.setGalleryOpen);
+  const [mode, setMode] = useState<'characters' | 'props'>('characters');
+  const [index, setIndex] = useState(0);
+  const propsMode = mode === 'props';
+  const person = referenceLooks[index % referenceLooks.length]!;
+  const asset = assets[index % assets.length]!;
+  const Asset = asset.component;
+
   return (
-    <div className="absolute inset-0 z-50 overflow-auto bg-[#1b2433] p-6 text-paper">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="font-display text-3xl">Visual gallery</h1>
-        <GameButton onClick={() => setGalleryOpen(false)}>Close</GameButton>
-      </div>
-      <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-gold">Hair</h2>
-      <div className="grid grid-cols-4 gap-2 md:grid-cols-6">
-        {HAIR_STYLES.map((hairStyle) => (
-          <Cell key={hairStyle} label={hairStyle} look={normalizeLook({ ...DEFAULT_FOUNDER_LOOK, hairStyle })} />
-        ))}
-      </div>
-      <h2 className="mb-2 mt-6 font-mono text-xs uppercase tracking-widest text-gold">Tops</h2>
-      <div className="grid grid-cols-4 gap-2 md:grid-cols-6">
-        {TOP_IDS.map((topId) => (
-          <Cell key={topId} label={topId} look={normalizeLook({ ...DEFAULT_FOUNDER_LOOK, topId })} />
-        ))}
-      </div>
-      <h2 className="mb-2 mt-6 font-mono text-xs uppercase tracking-widest text-gold">Accessories</h2>
-      <div className="grid grid-cols-4 gap-2">
-        {ACCESSORIES.map((accessory) => (
-          <Cell key={accessory} label={accessory} look={normalizeLook({ ...DEFAULT_FOUNDER_LOOK, accessory })} />
-        ))}
-        {GLASSES_IDS.map((glassesId) => (
-          <Cell key={glassesId} label={glassesId} look={normalizeLook({ ...DEFAULT_FOUNDER_LOOK, glassesId, glasses: glassesId !== "none" })} />
-        ))}
-      </div>
-      <h2 className="mb-2 mt-6 font-mono text-xs uppercase tracking-widest text-gold">Heroes</h2>
-      <div className="grid grid-cols-4 gap-2">
-        <Cell label="Founder" look={DEFAULT_FOUNDER_LOOK} />
-        {cofounders.map((c) => (
-          <Cell key={c.id} label={c.name} look={c.look} />
-        ))}
-        <Cell label="Marcus Vale" look={MENTOR_LOOK} activity="talking" />
-        <Cell label="Robot" look={DEFAULT_FOUNDER_LOOK} robot />
-      </div>
-      <h2 className="mb-2 mt-6 font-mono text-xs uppercase tracking-widest text-gold">Expressions</h2>
-      <div className="grid grid-cols-4 gap-2 md:grid-cols-7">
-        {(["neutral", "happy", "stressed", "angry", "tired", "confident", "surprised"] as const).map((expression) => (
-          <Cell key={expression} label={expression} look={DEFAULT_FOUNDER_LOOK} expression={expression} />
-        ))}
-      </div>
-      <h2 className="mb-2 mt-6 font-mono text-xs uppercase tracking-widest text-gold">Activities</h2>
-      <div className="grid grid-cols-4 gap-2">
-        {(["idle", "walking", "working", "talking", "celebrate", "tired"] as CharacterActivity[]).map((activity) => (
-          <Cell key={activity} label={activity} look={DEFAULT_FOUNDER_LOOK} activity={activity} />
-        ))}
-      </div>
-    </div>
+    <main className="asset-studio">
+      <header>
+        <div>
+          <span className="eyebrow">StartupSim / 3D Style Guide</span>
+          <h1>Simple people. Big ideas.</h1>
+        </div>
+        <button onClick={() => useGame.getState().setGalleryOpen(false)}>Return to game →</button>
+      </header>
+      <aside>
+        <div className="studio-tabs">
+          <button aria-pressed={!propsMode} onClick={() => { setMode('characters'); setIndex(0); }}>
+            8 Founder characters
+          </button>
+          <button aria-pressed={propsMode} onClick={() => { setMode('props'); setIndex(0); }}>
+            Office props ({assets.length})
+          </button>
+        </div>
+        <p>Matte materials. Clean geometry. Consistent proportions.</p>
+        <div className="studio-options">
+          {(propsMode ? assets : referenceLooks).map((item, i) => (
+            <button key={item.name} aria-pressed={index === i} onClick={() => setIndex(i)}>
+              <small>{String(i + 1).padStart(2, '0')}</small>
+              <div className="text-left">
+                <div>{item.name}</div>
+                {'role' in item && <div className="text-[10px] opacity-70">{(item as typeof person).role}</div>}
+              </div>
+            </button>
+          ))}
+        </div>
+      </aside>
+      <section className="studio-stage">
+        <Canvas shadows camera={{ fov: 30, position: [0, 1.95, 5.1] }} dpr={[1, 2]}>
+          <color attach="background" args={['#f1f2ef']} />
+          <hemisphereLight args={['#fffaf3', '#c1c9d0', 1.5]} />
+          <ambientLight intensity={0.45} />
+          <directionalLight
+            position={[-3, 6, 5]}
+            intensity={2.4}
+            castShadow
+            shadow-mapSize={2048}
+            shadow-normalBias={0.025}
+          />
+          <Framing propsMode={propsMode} />
+          {propsMode ? (
+            <Asset position={[0, asset.offset ?? 0, 0]} />
+          ) : (
+            <>
+              <group position={[-0.68, 0, 0]}>
+                <Character look={person.look} preview />
+              </group>
+              <group position={[0.68, 0, 0]} rotation={[0, 0.6, 0]}>
+                <Character look={person.look} preview />
+              </group>
+            </>
+          )}
+          <ContactShadows opacity={0.28} scale={8} blur={2.8} far={3} resolution={512} />
+        </Canvas>
+        <div className="studio-caption">
+          <span className="eyebrow">{propsMode ? 'Office things' : `${person.role} • Front / 3/4`}</span>
+          <h2>{propsMode ? asset.name : `${person.name} — ${person.role}`}</h2>
+          <p>
+            {propsMode
+              ? 'Simple shapes. Clear silhouettes. Consistent style. Built from the same palette.'
+              : 'Simple geometry. Consistent proportions. Easy to model. Game-ready.'}
+          </p>
+        </div>
+      </section>
+    </main>
   );
 }

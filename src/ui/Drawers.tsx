@@ -1,7 +1,7 @@
 import type { GameState } from "../simulation/types";
 import { useGame } from "../state/store";
 import { ProductsPanel, TasksPanel } from "./products/panels";
-import { GamePanel } from "./shared/controls";
+import { NAV_GROUPS } from "./HUD";
 import { CompanyPanel, ComputePanel, FinancePanel, FundingPanel, InboxPanel, PerksPanel, ResearchPanel, WorldPanel } from "./systems/panels";
 import { HiringPanel, PeoplePanel } from "./team/panels";
 
@@ -36,32 +36,23 @@ export function Drawers({ game }: { game: GameState }) {
       <CompanyPanel game={game} />
     );
   const titles: Record<string, string> = {
-    tasks: "Workbench",
-    products: "Catalog",
+    tasks: "Product studio",
+    products: "Products & launches",
     people: "People",
     hiring: "Hiring",
     research: "Research",
     finance: "Ledger",
-    compute: "Compute",
-    funding: "Term sheets",
+    compute: "Infrastructure",
+    funding: "Capital partners",
     perks: "Culture",
     world: "World",
     inbox: "Inbox",
     company: "Company",
   };
-  const variants: Record<string, "default" | "paper" | "mail" | "workbench" | "tree" | "cards"> = {
-    tasks: "workbench",
-    products: "workbench",
-    finance: "paper",
-    funding: "paper",
-    inbox: "mail",
-    research: "tree",
-    hiring: "cards",
-    people: "cards",
-  };
-  return (
-    <GamePanel title={titles[drawer] ?? drawer} variant={variants[drawer] ?? "default"} onClose={() => setDrawer(null)}>
-      {body}
-    </GamePanel>
-  );
+  const group = NAV_GROUPS.find(g=>g.items.some(i=>i.id===drawer));
+  return <section className={`workspace workspace-${drawer}`} aria-label={titles[drawer] ?? drawer}>
+    <header className="workspace-header"><div><span className="eyebrow">{group?.label} / {game.company.name}</span><h2>{titles[drawer] ?? drawer}</h2></div><button aria-label="Close workspace" onClick={()=>setDrawer(null)}>✕</button></header>
+    {group && group.items.filter(i=>!i.need||game.unlocks[i.need]).length>1 && <nav className="workspace-tabs">{group.items.filter(i=>!i.need||game.unlocks[i.need]).map(item=><button key={item.id} aria-current={drawer===item.id?'page':undefined} onClick={()=>setDrawer(item.id)}>{item.label}</button>)}</nav>}
+    <div className="workspace-body panel-scroll">{body}</div>
+  </section>;
 }
