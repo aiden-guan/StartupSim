@@ -22,11 +22,38 @@ export function FeelLayer() {
   return (
     <>
       {eventFrame ? (
-        <div className="pointer-events-none absolute inset-x-0 top-28 z-30 flex justify-center">
-          <article className="term-sheet max-w-md p-4 shadow-2xl">
-            <div className="font-mono text-[10px] uppercase tracking-[0.28em] text-copper">Wire</div>
-            <h3 className="mt-1 font-display text-2xl leading-tight">{eventFrame.headline}</h3>
-            <p className="mt-2 text-sm text-muted">{eventFrame.body}</p>
+        <div className="news-flash-layer" role="status" aria-live="polite" aria-atomic="true">
+          <article className="news-post" aria-label="News flash">
+            <header className="news-post-header">
+              <div className="news-post-avatar" aria-hidden="true">W</div>
+              <div className="news-post-author">
+                <div className="news-post-author-line">
+                  <strong>The Wire</strong>
+                  <span className="news-post-verified" aria-label="Verified source">✓</span>
+                  <span className="news-post-handle">@founderwire · now</span>
+                </div>
+                <span className="news-post-context">World news</span>
+              </div>
+              <span className="news-post-menu" aria-hidden="true">···</span>
+            </header>
+            <div className="news-post-copy">
+              <h3>{eventFrame.headline}</h3>
+              <p>{eventFrame.body}</p>
+            </div>
+            <footer className="news-post-actions" aria-hidden="true">
+              <span className="news-post-action">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.6 8.6 0 0 1-3.4-.7L4 20l1.3-3.4A7.4 7.4 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5a7.5 7.5 0 0 1 8 7Z" /></svg>
+              </span>
+              <span className="news-post-action">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m17 3 3 3-3 3M20 6H9a5 5 0 0 0-5 5v1M7 21l-3-3 3-3M4 18h11a5 5 0 0 0 5-5v-1" /></svg>
+              </span>
+              <span className="news-post-action">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 8.8c0 5.5-8.8 10.2-8.8 10.2S3.2 14.3 3.2 8.8A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z" /></svg>
+              </span>
+              <span className="news-post-action">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7.5 8.5 12 4l4.5 4.5M5 14v5h14v-5" /></svg>
+              </span>
+            </footer>
           </article>
         </div>
       ) : null}

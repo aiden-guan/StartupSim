@@ -36,7 +36,7 @@ export function MentorCard() {
 
   return (
     <div className="mentor-card" role="dialog" aria-label="Mentor" data-tutorial-card>
-      <div className="term-sheet flex gap-3 p-3 shadow-2xl">
+      <div className="term-sheet flex gap-4 p-4 shadow-2xl">
         <CharacterPortrait look={MENTOR_LOOK} className="h-24 w-20 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-copper">
@@ -44,13 +44,13 @@ export function MentorCard() {
           </div>
           <div className="font-mono text-[10px] text-muted">{identity.mentorTitle}</div>
           <p className="mt-2 font-display text-[17px] leading-snug">“{slide.text}”</p>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <div className="flex gap-1">
+          <div className="mentor-card-footer mt-3 flex items-center justify-between gap-3">
+            <div className="mentor-progress flex gap-1" aria-label={`Step ${index + 1} of ${step.slides.length}`}>
               {step.slides.map((s, i) => (
                 <span key={s.id} className={`h-1.5 w-1.5 rounded-full ${i === index ? "bg-copper" : "bg-[#cfc5b6]"}`} />
               ))}
             </div>
-            <div className="flex gap-2">
+            <div className="mentor-actions flex items-center gap-2">
               {index > 0 ? (
                 <GameButton className="border-[#cfc5b6] text-ink" onClick={() => dispatch({ type: "backMentor" })}>
                   Back
@@ -70,11 +70,14 @@ export function MentorCard() {
                   Next
                 </GameButton>
               ) : (
-                <span className="text-xs text-muted">Your turn →</span>
+                <span className="mentor-action-status" role="status">
+                  <span className="mentor-action-status-dot" aria-hidden="true" />
+                  Waiting for your action
+                </span>
               )}
               <button
                 type="button"
-                className="font-mono text-[10px] uppercase tracking-widest text-muted"
+                className="mentor-skip font-mono text-[10px] uppercase tracking-widest text-muted"
                 onClick={() => dispatch({ type: "skipTutorial" })}
               >
                 Skip
@@ -231,7 +234,11 @@ export function Spotlight() {
   const h = rect.height + pad * 2;
   return (
     <div className="pointer-events-none absolute inset-0 z-20">
-      <div className="tutorial-outline" data-testid="tutorial-spotlight" style={{ left: x, top: y, width: w, height: h }} />
+      <div
+        className="tutorial-outline"
+        data-testid="tutorial-spotlight"
+        style={{ left: x, top: y, width: w, height: h }}
+      />
     </div>
   );
 }
