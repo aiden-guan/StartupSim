@@ -128,6 +128,11 @@ describe("save round-trip", () => {
     expect(copy.meta.seed).toBe(123);
     expect(copy.employees).toHaveLength(2);
   });
+
+  it("accepts a raw game object", () => {
+    const g = createNewGame({ founderName: "Ada", companyName: "North", cofounderId: "casey", seed: 123 });
+    expect(importSave(JSON.stringify(g)).company.name).toBe("North");
+  });
 });
 
 describe("compute vs users", () => {

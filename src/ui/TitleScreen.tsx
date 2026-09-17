@@ -1,16 +1,10 @@
 import { identity } from "../branding/identity";
-import { listSaves, readSave } from "../state/save";
 import { useGame } from "../state/store";
-import { useEffect, useState } from "react";
+import { SavePanel } from "./SavePanel";
 
 export function TitleScreen() {
   const setScreen = useGame((s) => s.setScreen);
   const loadGame = useGame((s) => s.loadGame);
-  const [saves, setSaves] = useState<{ id: string; company: string; date: string }[]>([]);
-
-  useEffect(() => {
-    void listSaves().then(setSaves);
-  }, []);
 
   return (
     <div className="flex h-full bg-[#1b2230] text-[#efe8dc]">
@@ -24,7 +18,7 @@ export function TitleScreen() {
           Two people, an apartment, a pile of API credits. The industry is about to become a weather system. You can still name the company.
         </p>
       </div>
-      <div className="flex flex-1 flex-col justify-center gap-4 p-16">
+      <div className="flex flex-1 flex-col justify-center gap-4 overflow-auto p-16">
         <button
           type="button"
           onClick={() => setScreen("setup")}
@@ -32,19 +26,7 @@ export function TitleScreen() {
         >
           Incorporate
         </button>
-        {saves[0] ? (
-          <button
-            type="button"
-            onClick={async () => {
-              const g = await readSave(saves[0]!.id);
-              if (g) loadGame(g);
-            }}
-            className="w-72 border border-white/20 px-5 py-3 text-left text-sm"
-          >
-            Continue {saves[0].company}
-            <span className="block font-mono text-[11px] text-[#9aa3b2]">{saves[0].date}</span>
-          </button>
-        ) : null}
+        <SavePanel game={null} onLoad={loadGame} variant="title" />
         <p className="mt-8 max-w-md font-mono text-[11px] leading-relaxed text-[#6d7788]">
           Inspired by systems in The Founder (Francis Tseng, MIT). Original names, art, and copy are not used.
         </p>

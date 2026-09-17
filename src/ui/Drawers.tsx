@@ -16,9 +16,9 @@ import { grossMargin, monthlyArr, monthlyBurn, monthlyCompute, monthlyPayroll, m
 import { canAffordStat, launchCosts } from "../simulation/products";
 import { workersFor } from "../simulation/tasks";
 import type { BusinessModel, DepartmentId, GameState, LaunchStat } from "../simulation/types";
-import { exportSave, importSave, listSaves, readSave, writeSave } from "../state/save";
 import { useGame } from "../state/store";
 import { money, pct } from "./format";
+import { SavePanel } from "./SavePanel";
 
 const STATS: LaunchStat[] = ["deployment", "capability", "distribution"];
 const MODELS: BusinessModel[] = ["free", "freemium", "subscription", "usage", "enterprise", "api", "ads"];
@@ -766,7 +766,6 @@ function InboxPanel({ game }: { game: GameState }) {
 function CompanyPanel({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const loadGame = useGame((s) => s.loadGame);
-  const [saves, setSaves] = useState<{ id: string; company: string; date: string }[]>([]);
   const office = offices[game.company.officeLevel];
   const next = offices[game.company.officeLevel + 1];
 
@@ -794,66 +793,7 @@ function CompanyPanel({ game }: { game: GameState }) {
         Hype {game.company.hype.toFixed(0)} · backlash {game.company.backlash.toFixed(0)} · prestige {game.company.prestige.toFixed(0)} ·
         trust {game.company.trust.toFixed(0)}
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="border border-white/20 px-3 py-1"
-          onClick={async () => {
-            await writeSave("slot-1", game);
-            setSaves(await listSaves());
-          }}
-        >
-          Save slot 1
-        </button>
-        <button
-          type="button"
-          className="border border-white/20 px-3 py-1"
-          onClick={async () => {
-            const list = await listSaves();
-            setSaves(list);
-            const g = await readSave("slot-1");
-            if (g) loadGame(g);
-          }}
-        >
-          Load slot 1
-        </button>
-        <button
-          type="button"
-          className="border border-white/20 px-3 py-1"
-          onClick={() => {
-            const blob = new Blob([exportSave(game)], { type: "application/json" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = `${game.company.name.replace(/\s+/g, "-")}.json`;
-            a.click();
-          }}
-        >
-          Export
-        </button>
-        <label className="border border-white/20 px-3 py-1">
-          Import
-          <input
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const text = await file.text();
-              loadGame(importSave(text));
-            }}
-          />
-        </label>
-      </div>
-      {saves.length ? (
-        <ul className="font-mono text-[11px] text-[#9aa3b2]">
-          {saves.map((s) => (
-            <li key={s.id}>
-              {s.id} · {s.company} · {s.date}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <SavePanel game={game} onLoad={loadGame} variant="company" />
       <button type="button" className="text-xs underline" onClick={() => dispatch({ type: "retire" })}>
         Close the books
       </button>
