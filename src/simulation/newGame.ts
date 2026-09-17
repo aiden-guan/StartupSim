@@ -1,15 +1,11 @@
+import { identity } from "../branding/identity";
 import { BALANCE } from "../config/balance";
 import { cofounders } from "../data/cofounders";
 import { competitors as competitorDefs } from "../data/competitors";
-import type {
-  CompanyState,
-  DepartmentId,
-  Employee,
-  GameState,
-  Unlocks,
-} from "./types";
-import { founderLook } from "./look";
+import type { CompanyBrand, CompanyState, DepartmentId, Employee, GameState, Unlocks } from "./types";
+import { DEFAULT_FOUNDER_LOOK, founderLook, normalizeLook } from "./look";
 import { Rng, uid } from "./rng";
+import { skipTutorial } from "./tutorial";
 
 const depts: DepartmentId[] = [
   "engineering",
@@ -41,11 +37,32 @@ function emptyUnlocks(): Unlocks {
   };
 }
 
+export const DEFAULT_BRAND: CompanyBrand = { color: "#c4622d", mark: "wordmark" };
+
 export interface NewGameInput {
   founderName: string;
   companyName: string;
   cofounderId: string;
   seed?: number;
+  founderLook?: GameState["founder"]["look"];
+  companyBrand?: CompanyBrand;
+  skipTutorial?: boolean;
+}
+
+export function defaultSettings(): GameState["settings"] {
+  return {
+    reducedMotion: false,
+    mute: false,
+    masterVolume: 0.72,
+    musicVolume: 0.35,
+    sfxVolume: 0.8,
+    ambientVolume: 0.28,
+    graphics: "high",
+    npcDensity: 1,
+    pauseOnEvents: true,
+    autosave: true,
+    uiScale: 1,
+  };
 }
 
 export function createNewGame(input: NewGameInput): GameState {
@@ -57,7 +74,7 @@ export function createNewGame(input: NewGameInput): GameState {
     name: input.founderName.trim() || "Founder",
     title: "Founder",
     role: "founder",
-    look: founderLook(rng),
+    look: normalizeLook(input.founderLook ?? founderLook(rng) ?? DEFAULT_FOUNDER_LOOK),
     skills: { research: 4, engineering: 5, product: 5, growth: 4, productivity: 7 },
     happiness: 10,
     burnoutDays: 0,
@@ -79,7 +96,7 @@ export function createNewGame(input: NewGameInput): GameState {
     name: cofounderDef.name,
     title: cofounderDef.title,
     role: "cofounder",
-    look: cofounderDef.look,
+    look: normalizeLook(cofounderDef.look),
     skills: { ...cofounderDef.skills },
     happiness: 10,
     burnoutDays: 0,
@@ -99,7 +116,8 @@ export function createNewGame(input: NewGameInput): GameState {
   founder.equity = 1 - cofounder.equity - 0.1;
 
   const company: CompanyState = {
-    name: input.companyName.trim() || "Northstar Labs",
+    name: input.companyName.trim() || identity.companyFallback,
+    brand: input.companyBrand ?? { ...DEFAULT_BRAND },
     cash: BALANCE.STARTING_CASH,
     officeLevel: 0,
     hype: 4,
@@ -199,7 +217,7 @@ export function createNewGame(input: NewGameInput): GameState {
       {
         id: uid(rng, "mail"),
         at: { year: 2022, month: 11, day: 30 },
-        from: "nia@operator.local",
+        from: identity.mentorEmail,
         subject: "You have a company now",
         body: "Lease is month-to-month. Cloud credits expire in spirit, not in fact. Build something that talks.",
         read: false,
@@ -208,7 +226,7 @@ export function createNewGame(input: NewGameInput): GameState {
     ],
     news: [],
     unlocks: emptyUnlocks(),
-    onboarding: { finished: [], tutorialEnabled: true },
+    onboarding: { finished: [], tutorialEnabled: true, slideIndex: 0, revealDone: false },
     stats: {
       productsLaunched: 0,
       employeesHired: 0,
@@ -228,8 +246,10 @@ export function createNewGame(input: NewGameInput): GameState {
     pendingMentor: "intro",
     endingId: null,
     endingNote: null,
-    settings: { reducedMotion: false, mute: true },
+    settings: defaultSettings(),
   };
+
+  if (input.skipTutorial) skipTutorial(state);
 
   state.meta.rngState = rng.seed;
   return state;

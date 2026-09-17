@@ -1,5 +1,6 @@
 import { openDB } from "idb";
 import type { GameState } from "../simulation/types";
+import { migrateGameState } from "./migrate";
 
 const DB = "founder-mode";
 const STORE = "saves";
@@ -54,7 +55,7 @@ export async function writeSave(id: string, state: GameState): Promise<void> {
 export async function readSave(id: string): Promise<GameState | null> {
   const database = await db();
   const row = await database.get(STORE, id);
-  return row?.state ?? null;
+  return row?.state ? migrateGameState(row.state) : null;
 }
 
 export async function deleteSave(id: string): Promise<void> {
@@ -69,10 +70,10 @@ export function exportSave(state: GameState): string {
 export function importSave(raw: string): GameState {
   const parsed = JSON.parse(raw) as { state?: GameState; company?: unknown; clock?: unknown };
   if (parsed?.state && typeof parsed.state === "object" && parsed.state.company && parsed.state.clock) {
-    return parsed.state;
+    return migrateGameState(parsed.state);
   }
   if (parsed && typeof parsed === "object" && parsed.company && parsed.clock) {
-    return parsed as GameState;
+    return migrateGameState(parsed as GameState);
   }
   throw new Error("Not a Founder Mode save file");
 }

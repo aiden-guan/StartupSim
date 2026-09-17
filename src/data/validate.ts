@@ -43,5 +43,5 @@ export function validateCatalogs(): void {
   z.array(z.object({ id: z.string(), name: z.string(), provider: z.string(), costPerMTok: z.number() })).parse(models);
   z.array(z.object({ id: z.string(), name: z.string(), skills: z.object({ research: z.number() }) })).parse(cofounders);
   z.array(z.object({ id: z.string(), title: z.string(), conditions: z.array(z.any()) })).parse(events);
-  z.array(z.object({ id: z.string(), messages: z.array(z.string()) })).parse(onboarding);
+  z.array(z.object({ id: z.string(), slides: z.array(z.object({ id: z.string(), text: z.string() })) })).parse(onboarding);
 }

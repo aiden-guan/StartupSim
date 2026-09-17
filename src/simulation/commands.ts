@@ -20,10 +20,11 @@ import { Rng } from "./rng";
 import { assign, makeTask } from "./tasks";
 import type { DepartmentId, GameState, HexPos, LaunchStat } from "./types";
 import { createNewGame, type NewGameInput } from "./newGame";
-import { tickDay } from "./tick";
+import { tickDay, checkOnboarding } from "./tick";
 import { employeeScore, minSalaryFor } from "./workers";
 import { valuationOf } from "./derived";
 import { detectEnding } from "./endings";
+import { applyAdvanceMentor, applyBackMentor, finishMentorStep, skipTutorial, slideWantsAction } from "./tutorial";
 
 export type GameCommand =
   | { type: "newGame"; input: NewGameInput }
@@ -31,6 +32,11 @@ export type GameCommand =
   | { type: "setSpeed"; speed: 0 | 1 | 2 | 4 | 8 }
   | { type: "setPaused"; paused: boolean; reason?: string | null }
   | { type: "dismissMentor" }
+  | { type: "advanceMentor" }
+  | { type: "backMentor" }
+  | { type: "beginTutorial" }
+  | { type: "skipTutorial" }
+  | { type: "setSettings"; patch: Partial<GameState["settings"]> }
   | { type: "startProduct"; a: string; b: string }
   | { type: "assign"; taskId: string; workerId: string }
   | { type: "unassign"; workerId: string }
@@ -67,7 +73,7 @@ export type GameCommand =
   | { type: "readMail"; mailId: string }
   | { type: "killProduct"; productId: string }
   | { type: "retire" }
-  | { type: "debug"; action: string; amount?: number };
+  | { type: "debug"; action: string; amount?: number; id?: string };
 
 function rng(state: GameState): Rng {
   return new Rng(state.meta.rngState);
@@ -82,7 +88,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
   if (!state) return state;
   if (command.type === "tickDay") return tickDay(state);
 
-  return produce(state, (draft) => {
+  const next = produce(state, (draft) => {
     const r = rng(draft);
     switch (command.type) {
       case "setSpeed":
@@ -100,12 +106,28 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         draft.clock.reasonPaused = command.reason ?? null;
         break;
       case "dismissMentor":
-        if (draft.pendingMentor) {
-          draft.onboarding.finished.push(draft.pendingMentor);
-          draft.pendingMentor = null;
-          draft.clock.paused = false;
-          draft.clock.reasonPaused = null;
+        finishMentorStep(draft);
+        break;
+      case "advanceMentor":
+        applyAdvanceMentor(draft);
+        break;
+      case "backMentor":
+        applyBackMentor(draft);
+        break;
+      case "beginTutorial":
+        draft.onboarding.revealDone = true;
+        if (draft.onboarding.tutorialEnabled && !draft.onboarding.finished.includes("intro") && !draft.pendingMentor) {
+          draft.pendingMentor = "intro";
+          draft.onboarding.slideIndex = 0;
+          draft.clock.paused = true;
+          draft.clock.reasonPaused = "Mentor";
         }
+        break;
+      case "skipTutorial":
+        skipTutorial(draft);
+        break;
+      case "setSettings":
+        draft.settings = { ...draft.settings, ...command.patch };
         break;
       case "startProduct": {
         const a = primitiveById[command.a];
@@ -522,14 +544,44 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           e.salary = 140_000;
           draft.employees.push(e);
         }
+        if (command.action === "burnout") {
+          for (const employee of draft.employees) {
+            if (employee.role === "ai") continue;
+            employee.burnoutDays = command.amount ?? 10;
+          }
+        }
+        if (command.action === "completeProduct") {
+          const task = draft.tasks.find((t) => t.type === "product");
+          if (task) task.progress = task.requiredProgress;
+        }
+        if (command.action === "perk") {
+          const id = command.id ?? "coffee";
+          const existing = draft.company.perks.find((p) => p.id === id);
+          if (existing) existing.level = Math.min(existing.level + 1, 2);
+          else draft.company.perks.push({ id, level: 0 });
+        }
+        if (command.action === "skipTutorial") skipTutorial(draft);
+        if (command.action === "jumpOnboard") {
+          const id = command.id ?? onboardingSteps[command.amount ?? 0] ?? "intro";
+          draft.onboarding.tutorialEnabled = true;
+          draft.pendingMentor = id;
+          draft.onboarding.slideIndex = 0;
+          draft.clock.paused = true;
+          draft.clock.reasonPaused = "Mentor";
+        }
         break;
       }
       default:
         break;
     }
+    if (slideWantsAction(draft, command.type)) applyAdvanceMentor(draft);
+    checkOnboarding(draft);
     commit(draft, r);
   });
+  return next;
 }
+
+const onboardingSteps = ["intro", "assign", "clock", "designer", "market", "hire", "research", "compute", "funding"];
 
 export function legalMarketMoves(state: GameState): HexPos[] {
   const b = state.marketBattle;

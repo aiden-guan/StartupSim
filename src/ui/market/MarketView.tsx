@@ -6,6 +6,7 @@ import { marketShare } from "../../market/battle";
 import { hexPoints, pixelFor, posKey, samePos } from "../../market/hex";
 import type { GameState, HexPos } from "../../simulation/types";
 import { useGame } from "../../state/store";
+import { audio } from "../../audio/Audio";
 import { pct } from "../format";
 
 const SIZE = 22;
@@ -53,6 +54,7 @@ export function MarketView({ game }: { game: GameState }) {
     }
     if (selected && legalKeys.has(posKey(pos))) {
       dispatch({ type: "marketMove", dest: pos });
+      audio.play("click", game.settings);
     }
   };
 
@@ -61,7 +63,10 @@ export function MarketView({ game }: { game: GameState }) {
       <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-[#c9a227]">Market capture</div>
-          <div className="font-display text-2xl">{product?.name ?? "Product"} vs {rival}</div>
+          <div className="font-display text-2xl">
+            {product?.name ?? "Product"} vs {rival}
+            <span className="ml-2 font-mono text-xs text-[#9aa3b2]">{competitorDefs.find((c) => c.id === battle.competitorId)?.founder}</span>
+          </div>
         </div>
         <div className="flex gap-6 font-mono text-sm">
           <div>You {pct(share.player)}</div>
@@ -119,7 +124,10 @@ export function MarketView({ game }: { game: GameState }) {
               type="button"
               className="bg-[#c4622d] px-3 py-2 text-white disabled:opacity-40"
               disabled={!selected || selected.owner !== "player" || selected.moves <= 0}
-              onClick={() => dispatch({ type: "marketCapture" })}
+              onClick={() => {
+                audio.play("capture", game.settings);
+                dispatch({ type: "marketCapture" });
+              }}
             >
               Capture this tile
             </button>

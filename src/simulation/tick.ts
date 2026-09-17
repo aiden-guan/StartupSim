@@ -206,10 +206,15 @@ function onboard(state: GameState): void {
     }
     if (step.after && !state.onboarding.finished.includes(step.after)) continue;
     state.pendingMentor = step.id;
+    state.onboarding.slideIndex = 0;
     state.clock.paused = true;
     state.clock.reasonPaused = "Mentor";
     break;
   }
+}
+
+export function checkOnboarding(state: GameState): void {
+  onboard(state);
 }
 
 const TERMINAL = new Set(["bankruptcy", "board-out", "automated-ceo", "safety-crisis", "monopoly", "unknown"]);

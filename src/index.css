@@ -16,6 +16,11 @@
   --color-panel-2: #1b2433;
   --color-fog: #d8d1c4;
   --color-gold: #c9a227;
+  --color-screen: #1a2330;
+  --ease-game: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 140ms;
+  --duration-panel: 220ms;
+  --duration-cine: 900ms;
 }
 
 html,
@@ -23,7 +28,7 @@ body,
 #root {
   height: 100%;
   margin: 0;
-  background: #d9d0c2;
+  background: #cbb9a1;
   color: var(--color-ink);
   font-family: var(--font-ui);
 }
@@ -62,4 +67,35 @@ textarea {
 .panel-scroll {
   scrollbar-width: thin;
   scrollbar-color: #6d7788 transparent;
+}
+
+.game-panel {
+  background: color-mix(in srgb, var(--color-panel-2) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-paper) 12%, transparent);
+  color: var(--color-paper);
+}
+
+.game-btn {
+  transition: background var(--duration-fast) var(--ease-game), color var(--duration-fast) var(--ease-game);
+}
+
+.tutorial-pulse {
+  animation: tutorial-pulse 1.4s var(--ease-game) infinite;
+  box-shadow: 0 0 0 2px var(--color-copper);
+}
+
+@keyframes tutorial-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+
+.term-sheet {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1px solid var(--color-line);
 }

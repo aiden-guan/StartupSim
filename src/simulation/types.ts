@@ -83,8 +83,32 @@ export type DepartmentId =
   | "research"
   | "management";
 
-export type HairStyle = "short" | "long" | "bun" | "fade" | "messy" | "shaved";
+export type HairStyle =
+  | "buzz"
+  | "fade"
+  | "short"
+  | "messy"
+  | "side-part"
+  | "curly"
+  | "long"
+  | "bun"
+  | "ponytail"
+  | "swept"
+  | "bald"
+  | "textured"
+  | "shaved";
+
 export type BodyType = "slim" | "average" | "broad";
+export type HeightId = "short" | "avg" | "tall";
+export type TopId = "tee" | "hoodie" | "sweater" | "overshirt" | "blazer" | "vest" | "jacket" | "labcoat" | "techjacket";
+export type PantsId = "jeans" | "chinos" | "joggers" | "trousers";
+export type ShoesId = "sneakers" | "dress" | "boots" | "runners";
+export type GlassesId = "none" | "round" | "rect";
+export type AccessoryId = "none" | "badge" | "headphones" | "scarf" | "watch" | "coffee" | "phone" | "notebook" | "backpack";
+export type FaceId = "default" | "round" | "angular";
+export type ExpressionId = "neutral" | "happy" | "stressed" | "angry" | "tired" | "confident" | "surprised";
+export type BrandMark = "wordmark" | "circle" | "bars" | "spark";
+export type GraphicsQuality = "low" | "medium" | "high";
 
 export interface CharacterLook {
   skin: string;
@@ -94,9 +118,20 @@ export interface CharacterLook {
   pants: string;
   shoes: string;
   glasses: boolean;
-  accessory: "none" | "badge" | "headphones" | "scarf";
+  accessory: AccessoryId;
   body: BodyType;
   archetype: string;
+  topId: TopId;
+  pantsId: PantsId;
+  shoesId: ShoesId;
+  glassesId: GlassesId;
+  height: HeightId;
+  faceId: FaceId;
+}
+
+export interface CompanyBrand {
+  color: string;
+  mark: BrandMark;
 }
 
 export interface CalendarDate {
@@ -341,6 +376,8 @@ export interface Unlocks {
 export interface OnboardingState {
   finished: string[];
   tutorialEnabled: boolean;
+  slideIndex: number;
+  revealDone: boolean;
 }
 
 export interface Stats {
@@ -405,6 +442,7 @@ export interface ClockState {
 
 export interface CompanyState {
   name: string;
+  brand: CompanyBrand;
   cash: number;
   officeLevel: number;
   hype: number;
@@ -489,5 +527,14 @@ export interface GameState {
   settings: {
     reducedMotion: boolean;
     mute: boolean;
+    masterVolume: number;
+    musicVolume: number;
+    sfxVolume: number;
+    ambientVolume: number;
+    graphics: GraphicsQuality;
+    npcDensity: number;
+    pauseOnEvents: boolean;
+    autosave: boolean;
+    uiScale: number;
   };
 }
