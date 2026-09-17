@@ -7,6 +7,7 @@ import { GTM_STRATEGIES } from "../data/gtm";
 import type { GameState, LaunchStat, Product, ProductPoints } from "./types";
 import { uid, type Rng } from "./rng";
 import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from "./gtm";
+import { isModelAvailable } from "./effects";
 
 const epsilon = 1e-12;
 
@@ -30,6 +31,9 @@ export function createProduct(state: GameState, a: string, b: string, rng: Rng):
   const revenueScore =
     pa.difficulty * (ea + 1) + pb.difficulty * (eb + 1) * (recipe ? recipe.innovation : 0.55);
   const name = recipe?.name ?? `${pa.name} ${pb.name}`;
+  const modelId = isModelAvailable(state, state.currentModelId)
+    ? state.currentModelId
+    : state.ownedModels.find((candidate) => isModelAvailable(state, candidate)) ?? state.currentModelId;
   return {
     id: uid(rng, "prd"),
     name,
@@ -47,7 +51,7 @@ export function createProduct(state: GameState, a: string, b: string, rng: Rng):
     riskTags: recipe?.riskTags ?? ["slop"],
     businessModel: "freemium",
     gtmStrategy: recipe?.vertical === "developer" ? "developer-first" : "product-led",
-    modelId: state.currentModelId,
+    modelId,
     marketShare: 0,
     weeklyRevenue: 0,
     weeklyInference: 0,
@@ -195,12 +199,13 @@ export function setProductEconomics(
   );
 }
 
-export function harvestProduct(product: Product, rng: Rng): { revenue: number; inference: number; operations: number } {
+export function harvestProduct(product: Product, rng: Rng, serviceMultiplier = 1): { revenue: number; inference: number; operations: number } {
   if (product.status !== "active" && product.status !== "mature" && product.status !== "declining") {
     return { revenue: 0, inference: 0, operations: 0 };
   }
   const range = product.weeklyRevenue * 0.1;
-  const revenue = Math.max(0, rng.float(product.weeklyRevenue - range, product.weeklyRevenue + range));
+  const collected = Math.max(0, rng.float(product.weeklyRevenue - range, product.weeklyRevenue + range));
+  const revenue = Math.round(collected * Math.max(0, Math.min(1, serviceMultiplier)));
   const operations = product.weeklyOperatingCost;
   const change = product.ageWeeks < product.rampWeeks ? 1 + product.weeklyGrowthRate : product.retentionRate;
   product.weeklyRevenue *= change;

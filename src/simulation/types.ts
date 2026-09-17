@@ -267,6 +267,16 @@ export interface Condition {
   val: number | string | boolean;
 }
 
+export type GameplayEventKind =
+  | "people"
+  | "cost"
+  | "outage"
+  | "crisis"
+  | "market-shift"
+  | "reputation"
+  | "decision"
+  | "recovery";
+
 export interface Mail {
   id: string;
   at: CalendarDate;
@@ -276,6 +286,8 @@ export interface Mail {
   choices?: MailChoice[];
   context?: { label: string; value: string }[];
   warning?: string;
+  eventKind?: GameplayEventKind;
+  impact?: string;
   createdTick?: number;
   eventId?: string;
   read: boolean;
@@ -335,6 +347,12 @@ export interface ComputeState {
   energyContracts: number;
   monthlyCloudBill: number;
   trainingReserved: number;
+}
+
+export interface ProviderOutage {
+  provider: string;
+  startedTick: number;
+  untilTick: number;
 }
 
 export interface WorldState {
@@ -554,6 +572,7 @@ export interface GameState {
   products: Product[];
   tasks: Task[];
   compute: ComputeState;
+  providerOutages: ProviderOutage[];
   currentModelId: string;
   ownedModels: string[];
   world: WorldState;

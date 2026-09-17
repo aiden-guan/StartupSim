@@ -1,4 +1,4 @@
-import type { Condition, Effect, MailChoice } from "../simulation/types";
+import type { Condition, Effect, GameplayEventKind, MailChoice } from "../simulation/types";
 
 export interface EventDef {
   id: string;
@@ -9,6 +9,8 @@ export interface EventDef {
   cooldownDays: number;
   repeatable: boolean;
   conditions: Condition[];
+  eventKind?: GameplayEventKind;
+  impact?: string;
   effects?: Effect[];
   choices?: MailChoice[];
   crisis?: {
@@ -43,6 +45,8 @@ export const events: EventDef[] = [
     cooldownDays: 90,
     repeatable: true,
     conditions: [{ type: "productsLaunched", op: "ge", val: 1 }],
+    eventKind: "market-shift",
+    impact: "AI capability rises +3 and company hype rises +4 immediately; buyers expect cheaper AI features.",
     effects: [{ type: "world", value: { meter: "aiCapability", amount: 3 } }, { type: "hype", value: 4 }],
   },
   {
@@ -54,6 +58,8 @@ export const events: EventDef[] = [
     cooldownDays: 50,
     repeatable: true,
     conditions: [{ type: "employees", op: "ge", val: 3 }],
+    eventKind: "people",
+    impact: "Choose whether to increase payroll to keep a trained employee or lose that employee immediately.",
     choices: [
       { id: "match", label: "Match the offer", effects: [{ type: "morale", value: 6 }] },
       { id: "let-go", label: "Let them walk", effects: [{ type: "loseEmployee", value: 1 }, { type: "competitorBoost", value: 1 }], consequences: ["Employee leaves immediately", "A competitor gains technical capability"] },
@@ -63,32 +69,26 @@ export const events: EventDef[] = [
     id: "api-hike",
     title: "OpenBrain is raising API prices",
     from: "compute",
-    body: "Your provider is moving the newest model family to a premium tier next month. Cached-input discounts remain, but uncached inference rises 12% across every active product using the API.",
+    body: "Your provider is moving the newest model family to a premium tier next month. Cached-input discounts remain, but your fixed cloud bill rises 12% immediately.",
     weight: 5,
     cooldownDays: 70,
     repeatable: true,
     conditions: [{ type: "activeProducts", op: "ge", val: 1 }],
+    eventKind: "cost",
+    impact: "Your fixed monthly cloud bill rises 12% immediately. Review the Compute panel or add self-hosted capacity.",
     effects: [{ type: "computeCost", value: 0.12 }],
   },
   {
-    id: "outage",
-    title: "Provider outage",
+    id: "provider-outage",
+    title: "A model provider is offline",
     from: "compute",
-    body: "A regional control-plane failure has left inference requests retrying across two zones. Enterprise status pages are now screenshotting your latency graph.",
-    weight: 4,
-    cooldownDays: 80,
+    body: "A provider incident is affecting deployed products. Decide whether to migrate those products or absorb a temporary service hit.",
+    weight: 6,
+    cooldownDays: 120,
     repeatable: true,
     conditions: [{ type: "activeProducts", op: "ge", val: 1 }],
-    crisis: {
-      name: "Stabilize inference",
-      dueWeeks: 3,
-      skill: "engineering",
-      need: 40,
-      successBody: "You failed over. The postmortem is already a template.",
-      failureBody: "Twelve hours down. Trust is a renewable resource, in theory.",
-      success: [{ type: "hype", value: 2 }],
-      failure: [{ type: "trust", value: -8 }, { type: "backlash", value: 6 }],
-    },
+    eventKind: "outage",
+    impact: "Affected products collect 45% less weekly revenue while the provider is unavailable. Migrate from the event brief or wait for recovery.",
   },
   {
     id: "copyright",
@@ -99,6 +99,8 @@ export const events: EventDef[] = [
     cooldownDays: 100,
     repeatable: true,
     conditions: [{ type: "hasTag", op: "has", val: "copyright" }],
+    eventKind: "crisis",
+    impact: "A response task is added. Meet its skill threshold before the deadline or take the larger cash and backlash hit.",
     crisis: {
       name: "Copyright response",
       dueWeeks: 5,
@@ -119,6 +121,8 @@ export const events: EventDef[] = [
     cooldownDays: 60,
     repeatable: true,
     conditions: [{ type: "activeProducts", op: "ge", val: 1 }],
+    eventKind: "reputation",
+    impact: "Backlash rises +8 immediately and the incident becomes part of your company history.",
     effects: [{ type: "backlash", value: 8 }, { type: "hype", value: 3 }],
   },
   {
@@ -130,6 +134,8 @@ export const events: EventDef[] = [
     cooldownDays: 110,
     repeatable: true,
     conditions: [{ type: "officeLevel", op: "ge", val: 1 }],
+    eventKind: "cost",
+    impact: "Your fixed monthly cloud bill rises 8% immediately. Self-hosted coverage becomes more valuable.",
     effects: [{ type: "computeCost", value: 0.08 }],
   },
   {
@@ -141,6 +147,8 @@ export const events: EventDef[] = [
     cooldownDays: 90,
     repeatable: true,
     conditions: [{ type: "productsLaunched", op: "ge", val: 1 }],
+    eventKind: "market-shift",
+    impact: "Active products gain +40% users now and the company gains +22 hype, increasing both opportunity and load.",
     effects: [{ type: "hype", value: 22 }, { type: "usersSpike", value: 1.4 }],
   },
   {
@@ -152,7 +160,9 @@ export const events: EventDef[] = [
     cooldownDays: 140,
     repeatable: true,
     conditions: [{ type: "year", op: "ge", val: 2024 }],
-    effects: [{ type: "world", value: { meter: "aiAdoption", amount: 5 } }, { type: "pricePressure", value: 0.12 }],
+    eventKind: "market-shift",
+    impact: "AI adoption rises +5, while the world inference-cost index drops by 0.06 for everyone.",
+    effects: [{ type: "world", value: { meter: "aiAdoption", amount: 5 } }, { type: "world", value: { meter: "inferenceCostIndex", amount: -0.06 } }],
   },
   {
     id: "board-nudge",
@@ -163,6 +173,8 @@ export const events: EventDef[] = [
     cooldownDays: 80,
     repeatable: true,
     conditions: [{ type: "hasBoard", op: "eq", val: true }],
+    eventKind: "people",
+    impact: "Board approval falls by 4 immediately. Improve the next operating review before approval reaches the game-over threshold.",
     effects: [{ type: "boardPressure", value: 4 }],
   },
   {
@@ -174,7 +186,9 @@ export const events: EventDef[] = [
     cooldownDays: 120,
     repeatable: true,
     conditions: [{ type: "automation", op: "ge", val: 35 }],
-    effects: [{ type: "computeWaste", value: 0.18 }, { type: "hype", value: 6 }],
+    eventKind: "cost",
+    impact: "The fixed monthly cloud bill rises 18% and hype rises +6; automation is now spending money without supervision.",
+    effects: [{ type: "computeCost", value: 0.18 }, { type: "hype", value: 6 }],
   },
   {
     id: "safety-near-miss",
@@ -185,6 +199,8 @@ export const events: EventDef[] = [
     cooldownDays: 150,
     repeatable: true,
     conditions: [{ type: "hasTag", op: "has", val: "safety" }],
+    eventKind: "crisis",
+    impact: "A response task is added. Missing its research threshold costs trust, adds backlash, and raises systemic risk.",
     crisis: {
       name: "Contain the agent",
       dueWeeks: 4,
@@ -205,6 +221,8 @@ export const events: EventDef[] = [
     cooldownDays: 200,
     repeatable: true,
     conditions: [{ type: "arr", op: "ge", val: 2_000_000 }],
+    eventKind: "decision",
+    impact: "Choose whether to end the company story through an acquisition or take a hype and morale boost to stay independent.",
     choices: [
       { id: "sell", label: "Take the meeting to sell", effects: [{ type: "ending", value: "acquisition" }] },
       { id: "no", label: "Stay independent", effects: [{ type: "hype", value: 8 }, { type: "morale", value: 4 }] },
@@ -219,6 +237,62 @@ export const events: EventDef[] = [
     cooldownDays: 130,
     repeatable: true,
     conditions: [{ type: "year", op: "ge", val: 2023 }],
+    eventKind: "market-shift",
+    impact: "Regulatory pressure rises +5. Future policy and enterprise events become more consequential.",
     effects: [{ type: "world", value: { meter: "regulation", amount: 5 } }],
+  },
+  {
+    id: "support-surge",
+    title: "The support queue overflowed",
+    from: "support",
+    body: "A customer workflow started retrying in a loop. The queue is growing faster than your team can answer it, and the next renewal is waiting on a credible response.",
+    weight: 4,
+    cooldownDays: 120,
+    repeatable: true,
+    conditions: [{ type: "activeProducts", op: "ge", val: 1 }],
+    eventKind: "decision",
+    impact: "Pay for a focused response to protect trust, or accept an immediate 10% demand loss across active products.",
+    choices: [
+      {
+        id: "staff-response",
+        label: "Fund the response",
+        effects: [{ type: "cash", value: -12000 }, { type: "trust", value: 5 }],
+        consequences: ["-$12,000 cash", "+5 company trust", "Active-product demand is protected"],
+      },
+      {
+        id: "accept-churn",
+        label: "Ship a holding note",
+        effects: [{ type: "demand", value: { multiplier: 0.9 } }, { type: "backlash", value: 5 }],
+        consequences: ["Active products lose 10% users and weekly revenue", "+5 backlash", "No cash is spent"],
+        warning: "The demand loss is applied immediately and persists through the affected products' remaining life.",
+      },
+    ],
+  },
+  {
+    id: "enterprise-review",
+    title: "A serious buyer wants an audit trail",
+    from: "sales",
+    body: "A large customer is ready to expand, but procurement wants evaluation records, an incident owner, and a model provenance packet before it signs.",
+    weight: 3,
+    cooldownDays: 150,
+    repeatable: true,
+    conditions: [{ type: "activeProducts", op: "ge", val: 1 }],
+    eventKind: "decision",
+    impact: "Spend $30,000 to preserve enterprise access and gain trust, or ship without the packet and lose 15% demand across active products.",
+    choices: [
+      {
+        id: "build-audit-trail",
+        label: "Build the audit trail",
+        effects: [{ type: "cash", value: -30000 }, { type: "trust", value: 6 }, { type: "world", value: { meter: "complianceCostIndex", amount: -0.04 } }],
+        consequences: ["-$30,000 cash", "+6 company trust", "Enterprise access is preserved"],
+      },
+      {
+        id: "ship-without-audit",
+        label: "Ship without it",
+        effects: [{ type: "demand", value: { multiplier: 0.85 } }, { type: "backlash", value: 4 }],
+        consequences: ["Active products lose 15% users and weekly revenue", "+4 backlash", "Keep the $30,000"],
+        warning: "The demand loss is immediate and not automatically restored.",
+      },
+    ],
   },
 ];

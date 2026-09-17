@@ -6,10 +6,11 @@ export function FeelLayer() {
   const officeCaption = useGame((s) => s.officeCaption);
   const setEventFrame = useGame((s) => s.setEventFrame);
   const setOfficeCaption = useGame((s) => s.setOfficeCaption);
+  const setDrawer = useGame((s) => s.setDrawer);
 
   useEffect(() => {
     if (!eventFrame) return;
-    const t = window.setTimeout(() => setEventFrame(null), 4200);
+    const t = window.setTimeout(() => setEventFrame(null), eventFrame.surface === "gameplay" ? 6000 : 4200);
     return () => window.clearTimeout(t);
   }, [eventFrame, setEventFrame]);
 
@@ -21,7 +22,31 @@ export function FeelLayer() {
 
   return (
     <>
-      {eventFrame ? (
+      {eventFrame?.surface === "gameplay" ? (
+        <div className="game-event-layer" role={eventFrame.requiresResponse ? "alert" : "status"} aria-live={eventFrame.requiresResponse ? "assertive" : "polite"} aria-atomic="true">
+          <article className="game-event-card" aria-label="Company event">
+            <header className="game-event-header">
+              <div className="game-event-mark" aria-hidden="true">!</div>
+              <div>
+                <span className="game-event-kicker">Company event · {eventFrame.requiresResponse ? "Decision required" : "Applied now"}</span>
+                <h3>{eventFrame.headline}</h3>
+              </div>
+            </header>
+            {eventFrame.impact ? (
+              <div className="game-event-impact">
+                <span>Effect on your company</span>
+                <strong>{eventFrame.impact}</strong>
+              </div>
+            ) : null}
+            <p className="game-event-body">{eventFrame.body}</p>
+            <footer className="game-event-footer">
+              <span>{eventFrame.requiresResponse ? "Paused until you respond" : "State updated"}</span>
+              {eventFrame.mailId ? <button onClick={() => { setDrawer("inbox"); setEventFrame(null); }}>Open event brief →</button> : null}
+            </footer>
+          </article>
+        </div>
+      ) : null}
+      {eventFrame?.surface === "news" ? (
         <div className="news-flash-layer" role="status" aria-live="polite" aria-atomic="true">
           <article className="news-post" aria-label="News flash">
             <header className="news-post-header">
@@ -39,6 +64,7 @@ export function FeelLayer() {
             <div className="news-post-copy">
               <h3>{eventFrame.headline}</h3>
               <p>{eventFrame.body}</p>
+              {eventFrame.impact ? <div className="news-post-impact"><span>World impact</span>{eventFrame.impact}</div> : null}
             </div>
             <footer className="news-post-actions" aria-hidden="true">
               <span className="news-post-action">

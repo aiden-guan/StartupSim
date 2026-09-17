@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { BALANCE } from "../config/balance";
 import { availableGtmStrategies, GTM_STRATEGIES } from "../data/gtm";
 import { NEWS_CHAINS } from "../data/news";
+import { events } from "../data/events";
 import { calculateMarketEntryResult, startMarketSession } from "../market/marketMap";
-import { applyEffect } from "./effects";
+import { applyEffect, isModelAvailable, providerOutageFor } from "./effects";
 import { monthlyCompanyOperations } from "./derived";
 import { gtmFitAnalysis } from "./gtm";
 import { createNewGame } from "./newGame";
 import { createProduct } from "./products";
 import { Rng } from "./rng";
-import { buildPoachMail } from "./tick";
+import { buildPoachMail, buildProviderOutageMail } from "./tick";
+import { harvestProduct } from "./products";
+import type { Mail } from "./types";
 
 function readyProduct(verticalCombo: [string, string] = ["chat", "writing"]) {
   const state = createNewGame({ founderName: "Ada", companyName: "North", cofounderId: "reya", seed: 21, skipTutorial: true });
@@ -105,5 +109,60 @@ describe("scaling pressure and event effects", () => {
     expect(NEWS_CHAINS.some((chain) => chain.stages.length >= 3)).toBe(true);
     expect(NEWS_CHAINS.every((chain) => chain.stages.some((stage) => stage.effects?.length))).toBe(true);
     expect(NEWS_CHAINS.flatMap((chain) => chain.stages).some((stage) => stage.effects?.some((effect) => effect.type === "demand" || effect.type === "inferenceMultiplier"))).toBe(true);
+  });
+
+  it("makes provider outages constrain model choices and gives products a migration path", () => {
+    const { state, product } = readyProduct();
+    product.status = "active";
+    product.modelId = "claudius-instant";
+    product.weeklyRevenue = 10_000;
+    product.weeklyInference = 200;
+    state.currentModelId = "claudius-instant";
+
+    applyEffect(state, { type: "providerOutage", value: { provider: "Claudius Labs", durationDays: 21 } });
+    expect(providerOutageFor(state, "Claudius Labs")).toMatchObject({ provider: "Claudius Labs", untilTick: 21 });
+    expect(isModelAvailable(state, "claudius-instant")).toBe(false);
+    expect(isModelAvailable(state, "openbrain-o3")).toBe(true);
+
+    const normal = harvestProduct(structuredClone(product), new Rng(7), 1);
+    const degraded = harvestProduct(structuredClone(product), new Rng(7), 0.55);
+    expect(degraded.revenue).toBeLessThan(normal.revenue);
+
+    applyEffect(state, { type: "migrateProducts", value: { fromProvider: "Claudius Labs", modelId: "openbrain-o3" } });
+    expect(product.modelId).toBe("openbrain-o3");
+    expect(state.currentModelId).toBe("openbrain-o3");
+    expect(product.weeklyInference).toBe(600);
+  });
+
+  it("builds an outage event around a clear migration-or-wait decision", () => {
+    const { state, product, rng } = readyProduct();
+    product.status = "active";
+    product.modelId = "claudius-instant";
+    const mail: Mail = {
+      id: "outage-test",
+      at: { ...state.clock.date },
+      from: "compute",
+      subject: "Provider incident",
+      body: "",
+      read: false,
+      requiresResponse: true,
+    };
+
+    expect(buildProviderOutageMail(state, rng, mail)).toBe(true);
+    expect(mail.subject).toContain("Claudius Labs is down");
+    expect(mail.impact).toContain("45% less weekly revenue");
+    expect(mail.context?.map((item) => item.label)).toEqual(["Provider status", "Recovery window", "Products exposed", "While down"]);
+    expect(mail.choices?.some((choice) => choice.label.startsWith("Migrate to "))).toBe(true);
+    expect(mail.choices?.at(-1)?.label).toBe("Wait for recovery");
+    expect(providerOutageFor(state, "Claudius Labs")).toBeTruthy();
+  });
+
+  it("labels gameplay events separately from background news", () => {
+    expect(BALANCE.NEWS_FLASH_CHANCE_PER_WEEK).toBeLessThan(BALANCE.GAMEPLAY_EVENT_CHANCE_PER_WEEK);
+    expect(BALANCE.GAMEPLAY_EVENT_COOLDOWN_DAYS).toBeGreaterThanOrEqual(28);
+    expect(events.filter((event) => event.eventKind).length).toBeGreaterThanOrEqual(10);
+    expect(events.find((event) => event.id === "provider-outage")).toMatchObject({ eventKind: "outage" });
+    expect(events.find((event) => event.id === "support-surge")).toMatchObject({ eventKind: "decision" });
+    expect(events.filter((event) => event.eventKind).every((event) => event.impact)).toBe(true);
   });
 });

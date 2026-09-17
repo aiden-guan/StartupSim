@@ -8,6 +8,7 @@ import { availableGtmStrategies, GTM_STRATEGIES } from '../../data/gtm';
 import { currentTutorialSlide } from '../../simulation/tutorial';
 import { canAffordStat, launchCosts, requiredFor } from '../../simulation/products';
 import { taskEstimate } from '../../simulation/tasks';
+import { isModelAvailable, providerForModel } from '../../simulation/effects';
 import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from '../../simulation/gtm';
 import type { BusinessModel, GameState, LaunchStat, Product } from '../../simulation/types';
 import { useGame } from '../../state/store';
@@ -224,10 +225,12 @@ export function ProductsPanel({game}:{game:GameState}) {
               {models.filter(m => game.ownedModels.includes(m.id)).map(m => (
                 <button
                   key={m.id}
+                  disabled={!isModelAvailable(game, m.id)}
+                  title={isModelAvailable(game, m.id) ? `Use ${m.name}` : `${providerForModel(m.id) ?? m.provider} is currently unavailable`}
                   aria-pressed={p.modelId === m.id}
                   onClick={() => dispatch({ type: 'setModel', productId: p.id, modelId: m.id })}
                 >
-                  {m.name} ({money(m.costPerMTok)}/MTok)
+                  {m.name} ({money(m.costPerMTok)}/MTok){!isModelAvailable(game, m.id) ? ' · offline' : ''}
                 </button>
               ))}
             </div>

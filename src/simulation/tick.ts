@@ -2,12 +2,13 @@ import { produce } from "immer";
 import { BALANCE } from "../config/balance";
 import { events } from "../data/events";
 import { NEWS_CHAINS, type NewsChain, type NewsStage } from "../data/news";
+import { modelById, models } from "../data/models";
 import { reconcileTutorial, recordTutorialEvent, updateUnlocks } from "./tutorial";
 import { setPause } from "./pause";
 import { specialProjects } from "../data/specialProjects";
 import { techById } from "../data/technologies";
 import { applyMarketEntryResults } from "../market/marketMap";
-import { applyEffects } from "./effects";
+import { applyEffects, isProviderAvailable, providerForModel } from "./effects";
 import { allSatisfied, monthlyArr } from "./conditions";
 import { addDays, isMonthStart, isQuarterStart, isWeekStart, isYearStart } from "./date";
 import { fixedComputeCost, inferenceCoverage, monthlyBurn, monthlyCompanyOperations, monthlyPayroll, monthlyRent, valuationOf } from "./derived";
@@ -117,53 +118,145 @@ export function buildPoachMail(state: GameState, r: Rng, mail: Mail): Mail | nul
     { id: "match", label: "Match the offer", effects: [{ type: "setSalary", value: { employeeId: employee.id, salary: offer } }, { type: "morale", value: 6 }], consequences: [`Salary becomes $${offer.toLocaleString()}/yr`, `Monthly payroll increases by $${Math.round(increase / 12).toLocaleString()}`], warning: mail.warning },
     { id: "let-go", label: "Let them walk", effects: [{ type: "loseEmployee", value: employee.id }, { type: "competitorBoost", value: 1 }], consequences: [`${employee.name} leaves immediately`, "A competitor gains technical capability"] },
   ];
+  mail.impact = `Choose between ${employee.name}'s higher payroll or losing a trained employee immediately.`;
   mail.requiresResponse = true;
   return mail;
 }
 
-function maybeEvents(state: GameState, r: Rng): void {
-  if (!state.company.seenMarket || state.pendingMentor || state.marketResult) return;
-  for (const ev of events) {
-    if (!allSatisfied(ev.conditions, state)) continue;
-    const previous = state.inbox.find((m) => m.eventId === ev.id || m.subject === ev.title);
-    if (!ev.repeatable && previous) continue;
-    if (ev.repeatable && previous?.createdTick !== undefined && state.clock.tick - previous.createdTick < ev.cooldownDays) continue;
-    if (!r.chance(0.08 * (ev.weight / 10))) continue;
-    const mail: Mail = {
+const SERVICE_PRODUCT_STATUSES = new Set(["active", "mature", "declining"]);
+
+export function buildProviderOutageMail(state: GameState, r: Rng, mail: Mail): boolean {
+  const affectedProducts = state.products.filter((product) => {
+    if (!SERVICE_PRODUCT_STATUSES.has(product.status)) return false;
+    const provider = providerForModel(product.modelId);
+    return Boolean(provider && (state.providerOutages ?? []).every((outage) => outage.provider !== provider || outage.untilTick <= state.clock.tick));
+  });
+  const providers = [...new Set(affectedProducts.map((product) => providerForModel(product.modelId)).filter((provider): provider is string => Boolean(provider)))];
+  const provider = r.pick(providers);
+  if (!provider) return false;
+  const affected = affectedProducts.filter((product) => providerForModel(product.modelId) === provider);
+  if (!affected.length) return false;
+  const durationDays = r.int(21, 35);
+  const fallbackModels = models
+    .filter((model) => model.provider !== provider && (model.provider !== "You" || state.ownedModels.includes(model.id)))
+    .filter((model) => isProviderAvailable(state, model.provider))
+    .slice(0, 4);
+  if (!fallbackModels.length) return false;
+  const names = affected.map((product) => product.name);
+  const productLabel = names.length === 1 ? names[0]! : `${names.length} active products`;
+  mail.subject = `${provider} is down — ${productLabel} affected`;
+  mail.body = `${provider} has taken its inference API offline for an incident window. Your deployed products using this provider are still running, but requests are failing and only a fraction of weekly revenue will be collected until you migrate or service returns.`;
+  mail.context = [
+    { label: "Provider status", value: `${provider} · unavailable now` },
+    { label: "Recovery window", value: `${durationDays} days` },
+    { label: "Products exposed", value: names.join(", ") },
+    { label: "While down", value: "45% less weekly revenue collected" },
+  ];
+  mail.warning = `Models from ${provider} are disabled while the incident is active. New products cannot select them.`;
+  mail.impact = `${productLabel} collects 45% less weekly revenue while ${provider} is unavailable. Migrate now or absorb the outage for about ${durationDays} days.`;
+  mail.choices = fallbackModels.map((model) => {
+    const previousModels = affected.map((product) => modelById[product.modelId]).filter(Boolean);
+    const strongestPrevious = Math.max(...previousModels.map((previous) => previous!.capability));
+    const capability = model.capability >= strongestPrevious ? "capability holds or improves" : "capability steps down slightly";
+    return {
+      id: `migrate-${model.id}`,
+      label: `Migrate to ${model.name}`,
+      effects: [{ type: "migrateProducts", value: { fromProvider: provider, modelId: model.id } }],
+      consequences: [
+        `Move ${productLabel} to ${model.name}`,
+        `Inference price resets to ${model.costPerMTok}/MTok`,
+        `Model ${capability}; the provider lockout is bypassed now`,
+      ],
+    };
+  });
+  mail.choices.push({
+    id: "wait-for-recovery",
+    label: "Wait for recovery",
+    effects: [],
+    consequences: [
+      `Keep ${productLabel} on ${provider}`,
+      `Collect 45% less weekly revenue for about ${durationDays} days`,
+      "The original models become selectable when service returns",
+    ],
+    warning: "No migration happens now; the revenue penalty applies at each weekly collection while the provider is down.",
+  });
+  mail.requiresResponse = true;
+  applyEffects(state, [{ type: "providerOutage", value: { provider, durationDays } }]);
+  return true;
+}
+
+function releaseExpiredProviderOutages(state: GameState, r: Rng): void {
+  const outages = state.providerOutages ?? [];
+  const expired = outages.filter((outage) => outage.untilTick <= state.clock.tick);
+  if (!expired.length) return;
+  state.providerOutages = outages.filter((outage) => outage.untilTick > state.clock.tick);
+  for (const outage of expired) {
+    state.inbox.unshift({
       id: uid(r, "mail"),
       at: { ...state.clock.date },
-      from: ev.from,
-      subject: ev.title,
-      body: ev.body,
-      choices: ev.choices ? structuredClone(ev.choices) : undefined,
-      read: false,
-      requiresResponse: Boolean(ev.choices?.length),
+      from: "compute",
+      subject: `${outage.provider} service restored`,
+      body: `${outage.provider} has cleared the incident. Its models are available again for new products and product migrations.`,
+      eventKind: "recovery",
+      impact: `Models from ${outage.provider} are selectable again. Products that stayed on the provider recover their normal revenue collection.`,
       createdTick: state.clock.tick,
-      eventId: ev.id,
-    };
-    if (ev.id === "poach") {
-      if (!buildPoachMail(state, r, mail)) continue;
-    }
-    state.inbox.unshift(mail);
-    applyEffects(state, ev.effects);
-    if (ev.crisis) {
-      const t = makeTask(r, {
-        type: "crisis",
-        name: ev.crisis.name,
-        requiredProgress: ev.crisis.dueWeeks,
-        skillTarget: ev.crisis.skill,
-        skillNeed: ev.crisis.need,
-        skillVal: 0,
-        dueWeeks: ev.crisis.dueWeeks,
-        successEffects: ev.crisis.success,
-        failureEffects: ev.crisis.failure,
-        successBody: ev.crisis.successBody,
-        failureBody: ev.crisis.failureBody,
-      });
-      state.tasks.push(t);
-      setPause(state, "manual", true);
-    }
-    break;
+      read: false,
+      requiresResponse: false,
+    });
+  }
+}
+
+function maybeEvents(state: GameState, r: Rng): void {
+  if (!state.company.seenMarket || state.pendingMentor || state.marketResult || state.marketBattle) return;
+  if (state.inbox.some((mail) => mail.requiresResponse) || state.tasks.some((task) => task.type === "crisis")) return;
+  const lastEventTick = state.inbox.reduce((latest, mail) => mail.eventId && mail.createdTick !== undefined ? Math.max(latest, mail.createdTick) : latest, -1);
+  if (lastEventTick >= state.clock.tick - BALANCE.GAMEPLAY_EVENT_COOLDOWN_DAYS) return;
+  if (!r.chance(BALANCE.GAMEPLAY_EVENT_CHANCE_PER_WEEK)) return;
+
+  const eligible = events.filter((ev) => {
+    if (!ev.eventKind && !ev.effects?.length && !ev.choices?.length && !ev.crisis) return false;
+    if (!allSatisfied(ev.conditions, state)) return false;
+    const previous = state.inbox.find((mail) => mail.eventId === ev.id || mail.subject === ev.title);
+    if (!ev.repeatable && previous) return false;
+    return !(ev.repeatable && previous?.createdTick !== undefined && state.clock.tick - previous.createdTick < ev.cooldownDays);
+  });
+  if (!eligible.length) return;
+  const weighted = eligible.flatMap((ev) => Array.from({ length: Math.max(1, ev.weight) }, () => ev));
+  const ev = r.pick(weighted);
+  const mail: Mail = {
+    id: uid(r, "mail"),
+    at: { ...state.clock.date },
+    from: ev.from,
+    subject: ev.title,
+    body: ev.body,
+    eventKind: ev.eventKind,
+    impact: ev.impact,
+    choices: ev.choices ? structuredClone(ev.choices) : undefined,
+    read: false,
+    requiresResponse: Boolean(ev.choices?.length),
+    createdTick: state.clock.tick,
+    eventId: ev.id,
+  };
+  if (ev.id === "poach" && !buildPoachMail(state, r, mail)) return;
+  if (ev.id === "provider-outage" && !buildProviderOutageMail(state, r, mail)) return;
+  state.inbox.unshift(mail);
+  applyEffects(state, ev.effects);
+  if (ev.crisis) {
+    const t = makeTask(r, {
+      type: "crisis",
+      name: ev.crisis.name,
+      requiredProgress: ev.crisis.dueWeeks,
+      skillTarget: ev.crisis.skill,
+      skillNeed: ev.crisis.need,
+      skillVal: 0,
+      dueWeeks: ev.crisis.dueWeeks,
+      successEffects: ev.crisis.success,
+      failureEffects: ev.crisis.failure,
+      successBody: ev.crisis.successBody,
+      failureBody: ev.crisis.failureBody,
+    });
+    state.tasks.push(t);
+    setPause(state, "manual", true);
   }
 }
 
@@ -239,7 +332,7 @@ function newsTick(state: GameState, r: Rng): void {
     }
   }
 
-  if (!r.chance(0.32)) return;
+  if (!r.chance(BALANCE.NEWS_FLASH_CHANCE_PER_WEEK)) return;
   const eligible = NEWS_CHAINS.filter((chain) => chain.minYear <= state.clock.date.year && !state.news.some((item) => item.chainId === chain.id));
   if (!eligible.length) return;
   const weighted = eligible.flatMap((chain) => Array.from({ length: chain.weight }, () => chain));
@@ -268,6 +361,7 @@ export function tickDay(state: GameState): GameState {
     const r = rng(draft);
     draft.clock.date = addDays(draft.clock.date, 1);
     draft.clock.tick += 1;
+    releaseExpiredProviderOutages(draft, r);
     draft.hiring.cooldownDays = Math.max(0, draft.hiring.cooldownDays - 1);
     draft.funding.cooldownDays = Math.max(0, draft.funding.cooldownDays - 1);
 
@@ -290,7 +384,9 @@ export function tickDay(state: GameState): GameState {
       let inf = 0;
       let operations = 0;
       for (const p of draft.products) {
-        const h = harvestProduct(p, r);
+        const provider = providerForModel(p.modelId);
+        const serviceMultiplier = provider && !isProviderAvailable(draft, provider) ? 0.55 : 1;
+        const h = harvestProduct(p, r, serviceMultiplier);
         rev += h.revenue;
         inf += h.inference;
         operations += h.operations;

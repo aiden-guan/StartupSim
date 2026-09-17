@@ -16,6 +16,10 @@ export interface EventFrame {
   id: string;
   headline: string;
   body: string;
+  surface: "news" | "gameplay";
+  impact?: string;
+  mailId?: string;
+  requiresResponse?: boolean;
 }
 
 export interface Departure {
@@ -135,8 +139,27 @@ export const useGame = create<AppState>((set, get) => ({
       const office = offices[next.company.officeLevel];
       if (office) patch.officeCaption = `${office.name.toUpperCase()} · CAPACITY ${office.capacity}`;
     }
-    if (next && prev && next.news[0] && next.news[0].id !== prev.news[0]?.id && next.company.seenMarket && !next.pendingMentor) {
-      patch.eventFrame = { id: next.news[0].id, headline: next.news[0].headline, body: next.news[0].body };
+    if (next && prev && next.company.seenMarket && !next.pendingMentor) {
+      const gameplayMail = next.inbox.find((mail) => mail.eventKind && !prev.inbox.some((previousMail) => previousMail.id === mail.id));
+      if (gameplayMail) {
+        patch.eventFrame = {
+          id: gameplayMail.id,
+          headline: gameplayMail.subject,
+          body: gameplayMail.body,
+          surface: "gameplay",
+          impact: gameplayMail.impact,
+          mailId: gameplayMail.id,
+          requiresResponse: gameplayMail.requiresResponse,
+        };
+      } else if (next.news[0] && next.news[0].id !== prev.news[0]?.id) {
+        patch.eventFrame = {
+          id: next.news[0].id,
+          headline: next.news[0].headline,
+          body: next.news[0].body,
+          surface: "news",
+          impact: next.news[0].impact,
+        };
+      }
     }
     if (next && prev) {
       if (next.products.length > prev.products.length) patch.drawer = 'tasks';

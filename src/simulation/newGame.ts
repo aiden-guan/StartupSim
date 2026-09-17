@@ -184,6 +184,7 @@ export function createNewGame(input: NewGameInput): GameState {
       monthlyCloudBill: 400,
       trainingReserved: 0,
     },
+    providerOutages: [],
     currentModelId: "claudius-instant",
     ownedModels: ["claudius-instant", "openbrain-o3", "metamind-34b"],
     world: {

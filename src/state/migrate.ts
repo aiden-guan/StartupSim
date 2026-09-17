@@ -29,6 +29,7 @@ export function migrateGameState(raw: GameState): GameState {
   state.world.developerDemandIndex ??= 1;
   state.world.complianceCostIndex ??= 1;
   state.world.openSourcePressure ??= 0;
+  state.providerOutages ??= [];
   for (const product of state.products) {
     product.gtmStrategy ??= product.vertical === "developer" ? "developer-first" : product.businessModel === "enterprise" ? "enterprise-sales" : "product-led";
     product.weeklyOperatingCost ??= 0;

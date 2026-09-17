@@ -23,7 +23,7 @@ import {
   shouldEndSession,
   startMarketSession,
 } from "../market/marketMap";
-import { applyEffects } from "./effects";
+import { applyEffects, isModelAvailable } from "./effects";
 import { monthlyArr } from "./conditions";
 import { generateEmployee } from "./names";
 import { buyLaunchStat, createProduct, refundLaunchStat, requiredProgress } from "./products";
@@ -215,7 +215,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       }
       case "setModel": {
         const p = draft.products.find((x) => x.id === command.productId);
-        if (p?.status === "ready" && !draft.marketBattle && draft.ownedModels.includes(command.modelId)) p.modelId = command.modelId;
+        if (p?.status === "ready" && !draft.marketBattle && draft.ownedModels.includes(command.modelId) && isModelAvailable(draft, command.modelId)) p.modelId = command.modelId;
         break;
       }
       case "setBusinessModel": {
@@ -627,7 +627,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         draft.compute.ownedCluster += 4;
         break;
       case "setCompanyModel":
-        if (draft.ownedModels.includes(command.modelId) || models.some((m) => m.id === command.modelId && m.provider !== "You")) {
+        if (isModelAvailable(draft, command.modelId) && (draft.ownedModels.includes(command.modelId) || models.some((m) => m.id === command.modelId && m.provider !== "You"))) {
           draft.currentModelId = command.modelId;
           if (!draft.ownedModels.includes(command.modelId)) draft.ownedModels.push(command.modelId);
         }
