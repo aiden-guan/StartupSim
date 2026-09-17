@@ -100,7 +100,7 @@ function Scene() {
       ) : null}
       {screen === "setup" && setup.step === "company" ? (
         <group>
-          <Apartment onObject={() => undefined} perks={[]} brand={setup.brand} />
+          <Apartment onObject={() => undefined} perks={[]} brand={setup.brand} interactive={false} />
         </group>
       ) : null}
       {screen === "title" || (screen === "playing" && view) ? office : null}

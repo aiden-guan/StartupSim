@@ -6,7 +6,7 @@ import type { CompanyBrand } from '../../simulation/types';
 import { apartmentLayout } from '../navigation/layout';
 import { assetUrl, KitOrGltf } from '../assets/useKitOrGltf';
 
-export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeCount=2}:{onObject:(id:string)=>void;perks?:{id:string;level:number}[];brand:CompanyBrand;standingDesks?:boolean;employeeCount?:number}) {
+export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeCount=2,interactive=true}:{onObject:(id:string)=>void;perks?:{id:string;level:number}[];brand:CompanyBrand;standingDesks?:boolean;employeeCount?:number;interactive?:boolean}) {
   const desktop=standingDesks?.99:.78;
   return <group>
     <KitOrGltf id="env_apartment_shell" path={assetUrl('environments','env_apartment_shell.glb')} fallback={<group>
@@ -52,10 +52,12 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
     <CardboardBox position={[-4.46,.21,-4.12]} scale={1.2}/>
     <CardboardBox position={[-3.86,.21,-4.04]}/>
     <Bevel position={[.3,.005,4.65]} size={[1.48,.018,.72]} color="#829386" radius={.008}/>
-    <Hotspot id="founderDesk" position={[-2.35,1,-2.1]} label="Founder desk" onClick={onObject} size={[1.5,1.2,1]}/>
-    <Hotspot id="coffee" position={[4.2,1,1.7]} label="Kitchen" onClick={onObject}/>
-    <Hotspot id="board" position={[-.15,1.4,3.6]} label="Whiteboard" onClick={onObject} size={[2.2,1.4,.4]}/>
-    <Hotspot id="plant" position={[4.7,.8,-3.6]} label="Company" onClick={onObject}/>
+    {interactive ? <>
+      <Hotspot id="founderDesk" position={[-2.35,1,-2.1]} label="Founder desk" onClick={onObject} size={[1.5,1.2,1]}/>
+      <Hotspot id="coffee" position={[4.2,1,1.7]} label="Kitchen" onClick={onObject}/>
+      <Hotspot id="board" position={[-.15,1.4,3.6]} label="Whiteboard" onClick={onObject} size={[2.2,1.4,.4]}/>
+      <Hotspot id="plant" position={[4.7,.8,-3.6]} label="Company" onClick={onObject}/>
+    </> : null}
     <PerkSet perks={perks} level={0}/>
   </group>;
 }
