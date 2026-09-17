@@ -1,4 +1,5 @@
 import { offices } from "../data/offices";
+import { BALANCE } from "../config/balance";
 import type { GameState } from "./types";
 import { monthlyArr } from "./conditions";
 
@@ -24,8 +25,23 @@ export function monthlyCompute(state: GameState): number {
   return Math.max(0, weekly-inferenceCoverage(state))*4.33 + fixedComputeCost(state);
 }
 
+export function monthlyProductOperations(state: GameState): number {
+  return state.products
+    .filter((p) => ["active", "mature", "declining"].includes(p.status))
+    .reduce((sum, p) => sum + (p.weeklyOperatingCost ?? 0) * 4.33, 0);
+}
+
+export function monthlyCompanyOperations(state: GameState): number {
+  const headcount = state.employees.length;
+  const activeProducts = state.products.filter((p) => ["active", "mature", "declining"].includes(p.status)).length;
+  const peopleComplexity = headcount <= 6 ? 0 : Math.pow(headcount - 6, 1.35) * BALANCE.COMPLEXITY_COST_PER_EMPLOYEE;
+  const portfolioComplexity = activeProducts <= 1 ? 0 : Math.pow(activeProducts - 1, 1.45) * BALANCE.COMPLEXITY_COST_PER_PRODUCT;
+  const managementRelief = state.employees.filter((w) => w.department === "management" && w.role === "employee").length * 0.08;
+  return Math.round((peopleComplexity + portfolioComplexity) * Math.max(0.6, 1 - managementRelief));
+}
+
 export function monthlyBurn(state: GameState): number {
-  const costs = monthlyPayroll(state) + monthlyRent(state) + monthlyCompute(state);
+  const costs = monthlyPayroll(state) + monthlyRent(state) + monthlyCompute(state) + monthlyProductOperations(state) + monthlyCompanyOperations(state);
   const rev = monthlyArr(state);
   return Math.max(0, costs - rev);
 }

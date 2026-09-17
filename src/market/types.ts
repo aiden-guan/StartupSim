@@ -111,7 +111,9 @@ export interface MarketEntryResult {
   users: number;
   revenue: number;
   inference: number;
+  operatingCost: number;
   grossProfit: number;
+  netContribution: number;
   hype: number;
   outcome: string;
   outcomeType: "routed" | "weak" | "foothold" | "competitive" | "strong" | "leader" | "market-rout";

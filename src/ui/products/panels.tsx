@@ -4,9 +4,11 @@ import { models, modelById } from '../../data/models';
 import { primitives, primitiveById } from '../../data/primitives';
 import { findRecipe } from '../../data/recipes';
 import { PRICING_MODELS } from '../../data/pricing';
+import { availableGtmStrategies, GTM_STRATEGIES } from '../../data/gtm';
 import { currentTutorialSlide } from '../../simulation/tutorial';
 import { canAffordStat, launchCosts, requiredFor } from '../../simulation/products';
 import { taskEstimate } from '../../simulation/tasks';
+import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from '../../simulation/gtm';
 import type { BusinessModel, GameState, LaunchStat, Product } from '../../simulation/types';
 import { useGame } from '../../state/store';
 import { money, pct } from '../format';
@@ -100,6 +102,10 @@ export function TasksPanel({game}:{game:GameState}) {
 }
 function projectLaunchEconomics(p: Product, game: GameState) {
   const pricing = PRICING_MODELS[p.businessModel] ?? PRICING_MODELS.freemium;
+  const strategy = GTM_STRATEGIES[p.gtmStrategy] ?? GTM_STRATEGIES['product-led'];
+  const fit = gtmFitAnalysis(game, p, strategy.id);
+  const execution = gtmExecutionMultiplier(fit.score);
+  const demand = marketDemandMultiplier(game, p);
   const model = modelById[p.modelId];
   const pa = primitiveById[p.combo[0]];
   const pb = primitiveById[p.combo[1]];
@@ -108,13 +114,13 @@ function projectLaunchEconomics(p: Product, game: GameState) {
 
   // Typical competitive beachhead + expansion foothold projection (~7,000 baseline users)
   const scaleMult = 1 + p.levels.deployment * 0.15;
-  const estUsers = Math.max(100, Math.round(7_000 * pricing.userMultiplier * scaleMult * 0.8));
+  const estUsers = Math.max(100, Math.round(7_000 * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand * scaleMult * 0.8));
 
   const baseTokens = BALANCE.BASE_TOKENS_PER_USER_WEEK ?? 7_000;
   const tokens = estUsers * baseTokens * pricing.tokenMultiplier * weight * agenty;
   const price = model?.costPerMTok ?? 8;
   const efficiency = 1 + (game.company.technologies.includes('efficient-inference') ? -0.12 : 0);
-  const estInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency));
+  const estInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency) * game.world.inferenceCostIndex);
 
   // Baseline competitive revenue projection
   const baseRevenue =
@@ -130,7 +136,7 @@ function projectLaunchEconomics(p: Product, game: GameState) {
   const trust = Math.max(0.6, game.company.trust / 70);
 
   let calculatedRev = Math.round(
-    baseRevenue * pricing.revenueMultiplier * hypeMult * disc * loc * trust * 0.55 * 0.85,
+    baseRevenue * pricing.revenueMultiplier * strategy.revenueMultiplier * strategy.rampMultiplier * execution * demand * hypeMult * disc * loc * trust * 0.55 * 0.85,
   );
 
   if (pricing.costPlusMargin !== null && estInference > 0) {
@@ -139,17 +145,19 @@ function projectLaunchEconomics(p: Product, game: GameState) {
   }
 
   const estRevenue = Math.max(0, calculatedRev);
-  const estGrossProfit = estRevenue - estInference;
-  const estMargin = estRevenue > 0 ? Math.round((estGrossProfit / estRevenue) * 100) : 0;
+  const estOperations = calculateWeeklyProductOperations(game, p, estUsers, estRevenue, fit.score);
 
   return {
     pricing,
+    strategy,
+    fit,
     model,
     estUsers,
     estRevenue,
     estInference,
-    estGrossProfit,
-    estMargin,
+    estOperations,
+    revenueRange: [Math.round(estRevenue * 0.68), Math.round(estRevenue * 1.32)] as const,
+    costRange: [Math.round((estInference + estOperations) * 0.88), Math.round((estInference + estOperations) * 1.22)] as const,
   };
 }
 
@@ -158,10 +166,10 @@ function ProductEconomics({product:p}:{product:Product}) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0 6px' }}>
-        <span className="eyebrow" style={{ fontSize: 10 }}>Active Economics · {modelDef?.name ?? p.businessModel}</span>
-        <span style={{ fontSize: 10, color: '#4a6755', fontWeight: 600 }}>{modelDef?.tagline}</span>
+        <span className="eyebrow" style={{ fontSize: 10 }}>Active Economics · {GTM_STRATEGIES[p.gtmStrategy]?.name ?? p.gtmStrategy}</span>
+        <span style={{ fontSize: 10, color: '#4a6755', fontWeight: 600 }}>{modelDef?.name ?? p.businessModel} · {modelDef?.tagline}</span>
       </div>
-      <div className="economics-grid" data-tutorial="product-economics">{[['Revenue / week',money(p.weeklyRevenue)],['Inference / week',money(p.weeklyInference)],['Gross profit / week',money(p.weeklyRevenue-p.weeklyInference)],['Customers',Math.round(p.users).toLocaleString()],['Market share',pct(p.marketShare)],['Lifetime revenue',money(p.earnedRevenue)]].map(([label,value])=><div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
+      <div className="economics-grid" data-tutorial="product-economics">{[['Revenue / week',money(p.weeklyRevenue)],['Compute / week',money(p.weeklyInference)],['GTM + support / week',money(p.weeklyOperatingCost)],['Net contribution / week',money(p.weeklyRevenue-p.weeklyInference-p.weeklyOperatingCost)],['Customers',Math.round(p.users).toLocaleString()],['Retention / week',pct(p.retentionRate*100)],['Market share',pct(p.marketShare)],['Lifetime revenue',money(p.earnedRevenue)]].map(([label,value])=><div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
     </div>
   );
 }
@@ -225,75 +233,31 @@ export function ProductsPanel({game}:{game:GameState}) {
             </div>
           </div>
         </div>
+        <section className="gtm-strategy-selector">
+          <div className="gtm-heading"><div><span className="eyebrow">Go-to-market strategy</span><h4>Choose the motion your company can execute.</h4></div><small>Options reflect this product and market.</small></div>
+          <div className="gtm-card-grid">{availableGtmStrategies(p).map(strategy=>{
+            const analysis=gtmFitAnalysis(game,p,strategy.id);
+            return <button key={strategy.id} aria-pressed={p.gtmStrategy===strategy.id} onClick={()=>dispatch({type:'setGtmStrategy',productId:p.id,strategy:strategy.id})}>
+              <span><strong>{strategy.name}</strong><em>{analysis.label}</em></span>
+              <small>{strategy.tagline}</small>
+              <p>{strategy.description}</p>
+              <dl><div><dt>Time to revenue</dt><dd>{strategy.timeToRevenue}</dd></div><div><dt>Retention</dt><dd>{strategy.retention}</dd></div><div><dt>Acquisition cost</dt><dd>{strategy.acquisitionCost}</dd></div><div><dt>Scale</dt><dd>{strategy.scalePotential}</dd></div><div><dt>Sales complexity</dt><dd>{strategy.salesComplexity}</dd></div><div><dt>Key risk</dt><dd>{strategy.risk}</dd></div></dl>
+              {(analysis.strengths[0]||analysis.risks[0])&&<footer>{analysis.strengths[0]&&<span>+ {analysis.strengths[0]}</span>}{analysis.risks[0]&&<span>− {analysis.risks[0]}</span>}</footer>}
+            </button>;
+          })}</div>
+        </section>
         {(() => {
           const proj = projectLaunchEconomics(p, game);
-          const isHealthy = proj.estGrossProfit >= 0 && proj.estMargin >= 40;
-          const isWarning = proj.estGrossProfit < 0;
-          const profitColor = isWarning ? '#b55333' : isHealthy ? '#316847' : '#8a652a';
-          const bgColor = isWarning ? '#fbf0ed' : '#edf3e8';
-          const borderColor = isWarning ? '#e6cfc7' : '#cedbc5';
-
           return (
-            <div
-              className="launch-economics-projection"
-              style={{
-                padding: '12px 16px',
-                background: bgColor,
-                border: `1px solid ${borderColor}`,
-                margin: '12px 0',
-                borderRadius: 3,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span className="eyebrow" style={{ fontSize: 10, color: isWarning ? '#964835' : '#4f6c56', margin: 0 }}>
-                  Projected Launch Economics · <strong>{proj.pricing.name}</strong>
-                </span>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: 3,
-                    background: isWarning ? '#e45f44' : isHealthy ? '#447854' : '#b88939',
-                    color: '#fff',
-                  }}
-                >
-                  {isWarning ? 'Negative Margins' : `${proj.estMargin}% Projected Margin`}
-                </span>
+            <div className="launch-economics-projection">
+              <div className="projection-heading"><span className="eyebrow">Launch forecast · {proj.strategy.name} + {proj.pricing.name}</span><b>{proj.fit.label}</b></div>
+              <div className="projection-grid">
+                <div><small>First-year revenue range</small><strong>{money(proj.revenueRange[0]*52)}–{money(proj.revenueRange[1]*52)}</strong></div>
+                <div><small>Customers at launch</small><strong>{Math.round(proj.estUsers*.7).toLocaleString()}–{Math.round(proj.estUsers*1.3).toLocaleString()}</strong></div>
+                <div><small>Variable cost / week</small><strong>{money(proj.costRange[0])}–{money(proj.costRange[1])}</strong></div>
+                <div><small>Time to revenue</small><strong>{proj.strategy.timeToRevenue}</strong></div>
               </div>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, 1fr)',
-                  gap: 10,
-                  fontSize: 11,
-                  textAlign: 'left',
-                }}
-              >
-                <div>
-                  <small style={{ display: 'block', color: '#68776b', fontSize: 10 }}>Est. Customers</small>
-                  <strong style={{ fontSize: 13, color: '#27382d' }}>~{proj.estUsers.toLocaleString()}</strong>
-                </div>
-                <div>
-                  <small style={{ display: 'block', color: '#68776b', fontSize: 10 }}>Est. Revenue / wk</small>
-                  <strong style={{ fontSize: 13, color: '#27382d' }}>{money(proj.estRevenue)}</strong>
-                </div>
-                <div>
-                  <small style={{ display: 'block', color: '#68776b', fontSize: 10 }}>Est. Compute / wk</small>
-                  <strong style={{ fontSize: 13, color: '#68453b' }}>{money(proj.estInference)}</strong>
-                </div>
-                <div>
-                  <small style={{ display: 'block', color: '#68776b', fontSize: 10 }}>Est. Gross Profit / wk</small>
-                  <strong style={{ fontSize: 13, color: profitColor }}>{money(proj.estGrossProfit)}</strong>
-                </div>
-              </div>
-              <p style={{ fontSize: 11, margin: '8px 0 0', color: isWarning ? '#873d2d' : '#45594b', lineHeight: 1.4 }}>
-                {isWarning
-                  ? 'Warning: High compute burn will produce ongoing weekly losses under this pricing model and AI engine. Consider switching to Usage-Based, Subscription, or a more efficient model.'
-                  : proj.pricing.costPlusMargin
-                  ? 'Protected margin: Usage-based metered pricing guarantees positive cash flow by scaling with token usage.'
-                  : `Solid unit economics: ${proj.pricing.name} pricing is projected to generate steady positive cash flow for your company.`}
-              </p>
+              <p>Range assumes a competitive market entry. Outcome depends on segment capture, team execution, demand, reliability, and competition. It is not a profit guarantee.</p>
             </div>
           );
         })()}

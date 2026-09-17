@@ -1,4 +1,4 @@
-import type { Condition, Effect } from "../simulation/types";
+import type { Condition, Effect, MailChoice } from "../simulation/types";
 
 export interface EventDef {
   id: string;
@@ -10,7 +10,7 @@ export interface EventDef {
   repeatable: boolean;
   conditions: Condition[];
   effects?: Effect[];
-  choices?: { id: string; label: string; effects: Effect[] }[];
+  choices?: MailChoice[];
   crisis?: {
     name: string;
     dueWeeks: number;
@@ -38,7 +38,7 @@ export const events: EventDef[] = [
     id: "openbrain-drop",
     title: "OpenBrain shipped something with a number in the name",
     from: "news",
-    body: "Investors are using the word 'existential' and also 'allocation'. Your wrappers just got cheaper and more necessary.",
+    body: "OpenBrain cut input-token prices by 45% and deprecated its oldest chat endpoint on the same day. Migration guides are trending; customers now expect every AI feature to become cheaper by the quarter.",
     weight: 6,
     cooldownDays: 90,
     repeatable: true,
@@ -49,21 +49,21 @@ export const events: EventDef[] = [
     id: "poach",
     title: "A recruiter is in your engineer's DMs",
     from: "people",
-    body: "OpenBrain offered someone on your team a number that looks like a bug. You can match, promote, or wish them well.",
+    body: "A frontier lab has made a written offer to one of your engineers. The compensation and runway impact are available before you decide.",
     weight: 5,
     cooldownDays: 50,
     repeatable: true,
     conditions: [{ type: "employees", op: "ge", val: 3 }],
     choices: [
-      { id: "match", label: "Match the offer", effects: [{ type: "cash", value: -180000 }, { type: "morale", value: 6 }] },
-      { id: "let-go", label: "Let them walk", effects: [{ type: "loseEmployee", value: 1 }, { type: "competitorBoost", value: 1 }] },
+      { id: "match", label: "Match the offer", effects: [{ type: "morale", value: 6 }] },
+      { id: "let-go", label: "Let them walk", effects: [{ type: "loseEmployee", value: 1 }, { type: "competitorBoost", value: 1 }], consequences: ["Employee leaves immediately", "A competitor gains technical capability"] },
     ],
   },
   {
     id: "api-hike",
     title: "OpenBrain is raising API prices",
     from: "compute",
-    body: "The model that powers your product would like more money now. You may eat it, pass it on, or migrate in a hurry.",
+    body: "Your provider is moving the newest model family to a premium tier next month. Cached-input discounts remain, but uncached inference rises 12% across every active product using the API.",
     weight: 5,
     cooldownDays: 70,
     repeatable: true,
@@ -74,7 +74,7 @@ export const events: EventDef[] = [
     id: "outage",
     title: "Provider outage",
     from: "compute",
-    body: "The status page is a novel. Your users are writing it in real time.",
+    body: "A regional control-plane failure has left inference requests retrying across two zones. Enterprise status pages are now screenshotting your latency graph.",
     weight: 4,
     cooldownDays: 80,
     repeatable: true,
@@ -94,7 +94,7 @@ export const events: EventDef[] = [
     id: "copyright",
     title: "A letter from a studio",
     from: "legal",
-    body: "They believe your image model has strong opinions about their catalog. They would like money, and also for you to stop.",
+    body: "A studio's counsel identified recognizable frames in generated output and requested training-data provenance, an indemnity clause, and a preservation hold.",
     weight: 4,
     cooldownDays: 100,
     repeatable: true,
@@ -114,7 +114,7 @@ export const events: EventDef[] = [
     id: "hallucination",
     title: "The model invented a law firm",
     from: "support",
-    body: "A customer followed the citation. There was no citation. There is now a journalist.",
+    body: "A customer followed a fabricated citation into a nonexistent case. Their legal team has frozen the rollout while a reporter asks who approved the retrieval settings.",
     weight: 5,
     cooldownDays: 60,
     repeatable: true,
@@ -125,7 +125,7 @@ export const events: EventDef[] = [
     id: "gpu-shortage",
     title: "Lead times",
     from: "compute",
-    body: "The GPUs you wanted exist. They also exist on someone else's purchase order.",
+    body: "Cloud resellers moved current-generation accelerators to allocation-only. Customers with twelve-month capacity commitments get priority; on-demand queues now stretch into next quarter.",
     weight: 4,
     cooldownDays: 110,
     repeatable: true,
@@ -147,7 +147,7 @@ export const events: EventDef[] = [
     id: "opensource-peer",
     title: "A free model showed up",
     from: "world",
-    body: "MetaMind dropped weights that are 95% as good as what you were going to charge for. The comments are unkind in a technical way.",
+    body: "MetaMind released weights within striking distance of last quarter's closed models. Developers are publishing migration benchmarks, and hosted inference vendors have started a price war.",
     weight: 4,
     cooldownDays: 140,
     repeatable: true,
@@ -214,7 +214,7 @@ export const events: EventDef[] = [
     id: "regulation-talk",
     title: "A hearing, in the abstract",
     from: "policy",
-    body: "Someone in a suit said 'guardrails' on television. Enterprise buyers heard it. So did your lawyer.",
+    body: "A draft bill would require developers above a compute threshold to publish standardized safety evaluations. Enterprise procurement teams are already asking vendors to map model providers against the proposed rule.",
     weight: 4,
     cooldownDays: 130,
     repeatable: true,

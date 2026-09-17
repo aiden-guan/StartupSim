@@ -35,7 +35,7 @@ export function MentorCard() {
   if (!step || !slide) return null;
 
   return (
-    <div className="mentor-card" role="dialog" aria-label="Mentor">
+    <div className="mentor-card" role="dialog" aria-label="Mentor" data-tutorial-card>
       <div className="term-sheet flex gap-3 p-3 shadow-2xl">
         <CharacterPortrait look={MENTOR_LOOK} className="h-24 w-20 shrink-0" />
         <div className="min-w-0 flex-1">
@@ -97,22 +97,131 @@ export function Spotlight() {
       setRect(null);
       return;
     }
-    const update = () => {
-      const el = document.querySelector(`[data-tutorial="${slide.highlightUI}"]`);
-      if (!(el instanceof HTMLElement || el instanceof SVGElement)) {setRect(null);return;}
-      const r = el.getBoundingClientRect();
-      const style = getComputedStyle(el);
-      const visible = r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth && style.visibility !== 'hidden' && style.display !== 'none' && !el.closest('[hidden]');
-      setRect(visible ? r : null);
+    let cancelled = false;
+    let target: HTMLElement | SVGElement | null = null;
+    let observer: ResizeObserver | null = null;
+    let frame = 0;
+    let resizeTimer = 0;
+    const restored = new Map<HTMLElement, { overflowY: string; scrollBehavior: string; overscrollBehavior: string }>();
+    const scrollingKeys = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
+    const blockScroll = (event: Event) => event.preventDefault();
+    const blockKeyScroll = (event: KeyboardEvent) => {
+      const active = document.activeElement;
+      if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || active instanceof HTMLSelectElement) return;
+      if (scrollingKeys.has(event.key)) event.preventDefault();
     };
-    update();
-    const t = window.setInterval(update, 240);
-    window.addEventListener("resize", update);
+    const scrollParents = (element: Element) => {
+      const parents: HTMLElement[] = [];
+      let parent = element.parentElement;
+      while (parent) {
+        const style = getComputedStyle(parent);
+        if (/(auto|scroll)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight + 2) parents.push(parent);
+        parent = parent.parentElement;
+      }
+      return parents;
+    };
+    const unlockContainers = () => {
+      for (const [node, styles] of restored) {
+        node.style.overflowY = styles.overflowY;
+        node.style.scrollBehavior = styles.scrollBehavior;
+        node.style.overscrollBehavior = styles.overscrollBehavior;
+      }
+      restored.clear();
+    };
+    const lockContainers = (parents: HTMLElement[]) => {
+      for (const node of parents) {
+        if (!restored.has(node)) restored.set(node, { overflowY: node.style.overflowY, scrollBehavior: node.style.scrollBehavior, overscrollBehavior: node.style.overscrollBehavior });
+        node.style.overflowY = "hidden";
+        node.style.overscrollBehavior = "contain";
+      }
+    };
+    const availableBounds = (elementRect: DOMRect, container?: HTMLElement) => {
+      const base = container?.getBoundingClientRect();
+      let top = Math.max(12, base?.top ?? 0) + 14;
+      let bottom = Math.min(window.innerHeight - 12, base?.bottom ?? window.innerHeight) - 14;
+      const hud = document.querySelector(".hud-bar")?.getBoundingClientRect();
+      const dock = document.querySelector(".game-dock")?.getBoundingClientRect();
+      const mentor = document.querySelector("[data-tutorial-card]")?.getBoundingClientRect();
+      const overlapsX = (rect?: DOMRect) => Boolean(rect && rect.left < elementRect.right + 20 && rect.right > elementRect.left - 20);
+      if (hud && overlapsX(hud)) top = Math.max(top, hud.bottom + 12);
+      if (dock && overlapsX(dock)) bottom = Math.min(bottom, dock.top - 12);
+      if (mentor && overlapsX(mentor)) bottom = Math.min(bottom, mentor.top - 12);
+      return { top, bottom };
+    };
+    const placeTarget = () => {
+      unlockContainers();
+      setRect(null);
+      target = document.querySelector(`[data-tutorial="${slide.highlightUI}"]`);
+      if (!(target instanceof HTMLElement || target instanceof SVGElement)) {
+        if (!cancelled) frame = window.requestAnimationFrame(placeTarget);
+        return;
+      }
+      const style = getComputedStyle(target);
+      if (style.display === "none" || style.visibility === "hidden" || target.closest("[hidden]")) {
+        frame = window.requestAnimationFrame(placeTarget);
+        return;
+      }
+      if (slide.advance.type === "playerAction") target.classList.add("tutorial-actionable");
+      const parents = scrollParents(target);
+      for (const parent of parents) {
+        const current = target.getBoundingClientRect();
+        const bounds = availableBounds(current, parent);
+        const available = Math.max(80, bounds.bottom - bounds.top);
+        const desiredTop = bounds.top + Math.max(0, (available - Math.min(current.height, available)) / 2);
+        const delta = current.top - desiredTop;
+        if (Math.abs(delta) > 3) {
+          if (!restored.has(parent)) restored.set(parent, { overflowY: parent.style.overflowY, scrollBehavior: parent.style.scrollBehavior, overscrollBehavior: parent.style.overscrollBehavior });
+          parent.style.overflowY = "auto";
+          parent.style.scrollBehavior = "smooth";
+          parent.scrollTo({ top: parent.scrollTop + delta, behavior: "smooth" });
+        }
+      }
+      let lastTop = target.getBoundingClientRect().top;
+      let stableFrames = 0;
+      const settle = () => {
+        if (cancelled || !target) return;
+        const next = target.getBoundingClientRect();
+        stableFrames = Math.abs(next.top - lastTop) < 0.35 ? stableFrames + 1 : 0;
+        lastTop = next.top;
+        if (stableFrames >= 4) {
+          lockContainers(parents);
+          setRect(next);
+          observer?.disconnect();
+          observer = new ResizeObserver(() => {
+            window.clearTimeout(resizeTimer);
+            resizeTimer = window.setTimeout(placeTarget, 80);
+          });
+          observer.observe(target);
+          return;
+        }
+        frame = window.requestAnimationFrame(settle);
+      };
+      frame = window.requestAnimationFrame(settle);
+    };
+    const onResize = () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(placeTarget, 120);
+    };
+    document.documentElement.classList.add("tutorial-scroll-locked");
+    document.addEventListener("wheel", blockScroll, { capture: true, passive: false });
+    document.addEventListener("touchmove", blockScroll, { capture: true, passive: false });
+    document.addEventListener("keydown", blockKeyScroll, true);
+    window.addEventListener("resize", onResize);
+    placeTarget();
     return () => {
-      window.clearInterval(t);
-      window.removeEventListener("resize", update);
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(resizeTimer);
+      observer?.disconnect();
+      target?.classList.remove("tutorial-actionable");
+      unlockContainers();
+      document.documentElement.classList.remove("tutorial-scroll-locked");
+      document.removeEventListener("wheel", blockScroll, true);
+      document.removeEventListener("touchmove", blockScroll, true);
+      document.removeEventListener("keydown", blockKeyScroll, true);
+      window.removeEventListener("resize", onResize);
     };
-  }, [slide?.highlightUI, slide?.id]);
+  }, [slide?.highlightUI, slide?.id, slide?.advance.type]);
 
   if (!slide?.highlightUI || !rect) return null;
   const pad = 8;

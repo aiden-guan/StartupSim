@@ -19,6 +19,24 @@ export function migrateGameState(raw: GameState): GameState {
   if (!state.company.brand) state.company.brand = { ...DEFAULT_BRAND };
   if (!state.company.brand.color) state.company.brand.color = DEFAULT_BRAND.color;
   if (!state.company.brand.mark) state.company.brand.mark = DEFAULT_BRAND.mark;
+  const emptyBreakdown = () => ({ revenue: 0, inference: 0, productOperations: 0, payroll: 0, office: 0, fixedCompute: 0, companyOperations: 0 });
+  state.company.currentMonthBreakdown = { ...emptyBreakdown(), ...(state.company.currentMonthBreakdown ?? {}) };
+  state.company.lastMonthlyBreakdown = { ...emptyBreakdown(), ...(state.company.lastMonthlyBreakdown ?? {}) };
+  state.world.inferenceCostIndex ??= 1;
+  state.world.talentCostIndex ??= 1;
+  state.world.enterpriseDemandIndex ??= 1;
+  state.world.consumerDemandIndex ??= 1;
+  state.world.developerDemandIndex ??= 1;
+  state.world.complianceCostIndex ??= 1;
+  state.world.openSourcePressure ??= 0;
+  for (const product of state.products) {
+    product.gtmStrategy ??= product.vertical === "developer" ? "developer-first" : product.businessModel === "enterprise" ? "enterprise-sales" : "product-led";
+    product.weeklyOperatingCost ??= 0;
+    product.retentionRate ??= BALANCE.REVENUE_DECAY;
+    product.gtmFit ??= 50;
+    product.weeklyGrowthRate ??= 0;
+    product.rampWeeks ??= 0;
+  }
   state.onboarding = {
     ...state.onboarding,
     version: 2,

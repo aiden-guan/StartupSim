@@ -51,7 +51,7 @@ describe("character looks", () => {
     expect(g.founder.look.hairStyle).toBe("messy");
     expect(g.founder.look.topId).toBe("hoodie");
     expect(g.company.brand.mark).toBe("spark");
-    expect(g.meta.schemaVersion).toBe(3);
+    expect(g.meta.schemaVersion).toBe(4);
   });
 
   it("lookFromSeed is deterministic", () => {

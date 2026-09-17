@@ -3,8 +3,10 @@ import { competitors as competitorDefs, type CompetitorDef } from "../data/compe
 import { modelById } from "../data/models";
 import { primitiveById } from "../data/primitives";
 import { PRICING_MODELS } from "../data/pricing";
+import { GTM_STRATEGIES } from "../data/gtm";
 import type { GameState, LaunchLevels, Product } from "../simulation/types";
 import { launchCosts, requiredFor } from "../simulation/products";
+import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from "../simulation/gtm";
 import type { Rng } from "../simulation/rng";
 import { uid } from "../simulation/rng";
 import { MARKET_SEGMENTS, selectTemplateForProduct } from "./templates";
@@ -947,13 +949,17 @@ export function calculateMarketEntryResult(
 
   // Pricing model
   const pricing = PRICING_MODELS[product.businessModel] ?? PRICING_MODELS.freemium;
+  const strategy = GTM_STRATEGIES[product.gtmStrategy] ?? GTM_STRATEGIES["product-led"];
+  const fit = gtmFitAnalysis(state, product, strategy.id);
+  const execution = gtmExecutionMultiplier(fit.score);
+  const demand = marketDemandMultiplier(state, product);
 
   // Economics: Users
   const rawUsers = segments.reduce((sum, seg) => {
     return sum + seg.userPotential * (seg.playerShare / 100);
   }, 0);
   const scaleMult = 1 + product.levels.deployment * 0.15;
-  const users = Math.max(0, Math.round(rawUsers * pricing.userMultiplier * scaleMult * userOutcomeMult));
+  const users = Math.max(0, Math.round(rawUsers * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand * scaleMult * userOutcomeMult));
 
   // Inference cost
   const model = modelById[product.modelId];
@@ -965,7 +971,7 @@ export function calculateMarketEntryResult(
   const tokens = users * baseTokensPerUser * pricing.tokenMultiplier * weight * agenty;
   const price = model?.costPerMTok ?? 8;
   const efficiency = 1 + (state.company.technologies.includes("efficient-inference") ? -0.12 : 0);
-  const weeklyInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency));
+  const weeklyInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency) * state.world.inferenceCostIndex);
 
   // Economics: Revenue
   const baseRevenue = segments.reduce((sum, seg) => {
@@ -1007,7 +1013,7 @@ export function calculateMarketEntryResult(
   // Base outcome normalization factor
   const outcomeNorm = 0.55;
   let calculatedRevenue = Math.round(
-    baseRevenue * pricing.revenueMultiplier * hypeMult * disc * econMultiplier * loc * trust * outcomeNorm * outcomeMult,
+    baseRevenue * pricing.revenueMultiplier * strategy.revenueMultiplier * strategy.rampMultiplier * execution * demand * hypeMult * disc * econMultiplier * loc * trust * outcomeNorm * outcomeMult,
   );
 
   // If usage-based, enforce guaranteed cost-plus gross margin floor over inference
@@ -1017,7 +1023,9 @@ export function calculateMarketEntryResult(
   }
 
   const weeklyRevenue = Math.max(0, calculatedRevenue);
+  const operatingCost = calculateWeeklyProductOperations(state, product, users, weeklyRevenue, fit.score);
   const grossProfit = weeklyRevenue - weeklyInference;
+  const netContribution = grossProfit - operatingCost;
 
   // Hype change
   let hype = pricing.hypeBonus;
@@ -1038,7 +1046,9 @@ export function calculateMarketEntryResult(
     users,
     revenue: weeklyRevenue,
     inference: weeklyInference,
+    operatingCost,
     grossProfit,
+    netContribution,
     hype,
     outcome: outcomeText,
     outcomeType,
@@ -1062,6 +1072,7 @@ export function applyMarketEntryResults(
   product.users = result.users;
   product.weeklyRevenue = result.revenue;
   product.weeklyInference = result.inference;
+  product.weeklyOperatingCost = result.operatingCost;
   product.status = "active";
   product.competitorId = session.competitorId;
 
@@ -1071,6 +1082,12 @@ export function applyMarketEntryResults(
     0.98,
     0.5 + product.points.engineering / 400 + (model?.reliability ?? 5) / 20,
   );
+  const strategy = GTM_STRATEGIES[product.gtmStrategy] ?? GTM_STRATEGIES["product-led"];
+  const fit = gtmFitAnalysis(state, product, strategy.id);
+  product.gtmFit = fit.score;
+  product.retentionRate = Math.min(0.998, strategy.weeklyRetention + (product.reliability - 0.7) * 0.02 + (state.company.trust - 60) / 10_000);
+  product.weeklyGrowthRate = strategy.weeklyGrowthRate;
+  product.rampWeeks = strategy.rampWeeks;
 
   // Store compact market segment distribution on product
   product.marketSegments = result.segments.map((s) => ({

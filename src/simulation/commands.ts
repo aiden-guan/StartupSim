@@ -60,6 +60,7 @@ export type GameCommand =
   | { type: "refundStat"; productId: string; stat: LaunchStat }
   | { type: "setModel"; productId: string; modelId: string }
   | { type: "setBusinessModel"; productId: string; model: GameState["products"][0]["businessModel"] }
+  | { type: "setGtmStrategy"; productId: string; strategy: GameState["products"][0]["gtmStrategy"] }
   | { type: "enterMarket"; productId: string }
   | { type: "selectMarketNode"; nodeId: string | null }
   | { type: "marketAction"; nodeId: string; action?: "expand" | "reinforce" }
@@ -220,6 +221,11 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       case "setBusinessModel": {
         const p = draft.products.find((x) => x.id === command.productId);
         if (p?.status === "ready" && !draft.marketBattle) p.businessModel = command.model;
+        break;
+      }
+      case "setGtmStrategy": {
+        const p = draft.products.find((x) => x.id === command.productId);
+        if (p?.status === "ready" && !draft.marketBattle) p.gtmStrategy = command.strategy;
         break;
       }
       case "enterMarket": {

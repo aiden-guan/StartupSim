@@ -22,6 +22,17 @@ export { FinancePanel, FundingPanel } from './Finance';
 
 export { ComputePanel } from './Compute';
 
+function knownConsequence(effect:{type:string;value:unknown}):string|null {
+  if(effect.type==='cash') return `${Number(effect.value)>=0?'+':''}${money(Number(effect.value))} cash`;
+  if(effect.type==='hype') return `${Number(effect.value)>=0?'+':''}${effect.value} hype`;
+  if(effect.type==='trust') return `${Number(effect.value)>=0?'+':''}${effect.value} trust`;
+  if(effect.type==='backlash') return `${Number(effect.value)>=0?'+':''}${effect.value} backlash`;
+  if(effect.type==='morale') return `${Number(effect.value)>=0?'+':''}${effect.value} team morale`;
+  if(effect.type==='loseEmployee') return 'One employee leaves immediately';
+  if(effect.type==='ending') return 'This can end the company story';
+  return null;
+}
+
 export function PerksPanel({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   return (
@@ -78,22 +89,25 @@ export function PerksPanel({ game }: { game: GameState }) {
 export function WorldPanel({ game }: { game: GameState }) {
   const [tab,setTab]=useState("news");
   const dispatch = useGame((s) => s.dispatch);
+  const worldMeters=(['aiCapability','aiAdoption','automation','publicTrust','regulation','computeDemand','energyDemand','scientificProgress','economicDisruption','systemicRisk','openSourcePressure'] as const);
+  const marketIndexes=[['Inference cost',game.world.inferenceCostIndex],['Talent cost',game.world.talentCostIndex],['Enterprise demand',game.world.enterpriseDemandIndex],['Consumer demand',game.world.consumerDemandIndex],['Developer demand',game.world.developerDemandIndex],['Compliance cost',game.world.complianceCostIndex]] as const;
   return (
     <div className="space-y-4">
       <nav className="world-tabs">{["news","competitors","economy","expansion"].map(id=><button key={id} aria-pressed={tab===id} onClick={()=>setTab(id)}>{id}</button>)}</nav>
-      {tab==="news"&&<div className="news-wire">{game.news.map(n=><article key={n.id}><span className="eyebrow">{formatDate(n.at)} / {n.tone}</span><h3>{n.headline}</h3><p>{n.body}</p></article>)}{!game.news.length&&<p>The wire is quiet. News arrives as company time passes.</p>}</div>}
-      {tab==="economy"&&<><h3 className="economy-title">{game.economy}</h3><p className="economy-caption">The economy affects customer spending and company valuations.</p>
-      {Object.entries(game.world).map(([k, v]) => (
+      {tab==="news"&&<div className="news-wire">{game.news.map(n=><article key={n.id}><span className="eyebrow">{formatDate(n.at)} / {n.tone}{n.chainStage!==undefined?` / development ${n.chainStage+1}`:''}</span><h3>{n.headline}</h3><p>{n.body}</p>{n.impact&&<aside><strong>Simulation impact</strong>{n.impact}</aside>}</article>)}{!game.news.length&&<p>The wire is quiet. News arrives as company time passes.</p>}</div>}
+      {tab==="economy"&&<><h3 className="economy-title">{game.economy}</h3><p className="economy-caption">Macro conditions change demand, costs, hiring, and valuations. Index 100 is the starting market.</p>
+      {worldMeters.map((k) => (
         <div key={k}>
           <div className="flex justify-between font-mono text-[10px] uppercase">
-            <span>{k}</span>
-            <span>{v.toFixed(0)}</span>
+            <span>{k.replace(/([A-Z])/g,' $1')}</span>
+            <span>{game.world[k].toFixed(0)}</span>
           </div>
           <div className="h-1 bg-white/10">
-            <div className="h-full bg-gold" style={{ width: `${Math.min(100, v)}%` }} />
+            <div className="h-full bg-gold" style={{ width: `${Math.min(100, game.world[k])}%` }} />
           </div>
         </div>
       ))}
+      <div className="market-index-grid">{marketIndexes.map(([label,value])=><div key={label}><small>{label}</small><strong>{Math.round(value*100)}</strong><span>{value>1.02?'Above baseline':value<.98?'Below baseline':'Baseline'}</span></div>)}</div>
       </>}
       {tab==="competitors"&&game.competitors.map((c) => (
         <div key={c.id} className="flex gap-3 border border-white/10 p-2">
@@ -191,7 +205,7 @@ export function InboxPanel({ game }: { game: GameState }) {
   const [id,setId]=useState(game.inbox[0]?.id);
   const mail=game.inbox.find(m=>m.id===id)??game.inbox[0];
   const dispatch=useGame(s=>s.dispatch);
-  return <div className="mail-workspace"><div className="mail-list"><div className="mail-list-heading">{game.inbox.filter(m=>!m.read).length} unread / {game.inbox.length} messages</div>{game.inbox.map(m=><button key={m.id} className={`${m.id===mail?.id?'selected':''} ${m.read?'':'unread'}`} onClick={()=>{setId(m.id);dispatch({type:'readMail',mailId:m.id});}}><small>{m.from} · {formatDate(m.at)}</small><strong>{m.subject}</strong><span>{m.requiresResponse?'Response needed':m.body.slice(0,65)}</span></button>)}</div>{mail?<article className="mail-letter"><span className="eyebrow">From {mail.from}</span><h3>{mail.subject}</h3><small>{formatDate(mail.at)}</small><p>{mail.body}</p><div>{mail.choices?.map(c=><GameButton key={c.id} tone="primary" onClick={()=>dispatch({type:'mailChoice',mailId:mail.id,choiceId:c.id})}>{c.label}</GameButton>)}</div>{!mail.read&&<button className="mark-read" onClick={()=>dispatch({type:'readMail',mailId:mail.id})}>Mark as read</button>}</article>:<div className="empty-state">The inbox is quiet.</div>}</div>;
+  return <div className="mail-workspace"><div className="mail-list"><div className="mail-list-heading">{game.inbox.filter(m=>!m.read).length} unread / {game.inbox.length} messages</div>{game.inbox.map(m=><button key={m.id} className={`${m.id===mail?.id?'selected':''} ${m.read?'':'unread'}`} onClick={()=>{setId(m.id);dispatch({type:'readMail',mailId:m.id});}}><small>{m.from} · {formatDate(m.at)}</small><strong>{m.subject}</strong><span>{m.requiresResponse?'Response needed':m.body.slice(0,65)}</span></button>)}</div>{mail?<article className="mail-letter"><span className="eyebrow">From {mail.from}</span><h3>{mail.subject}</h3><small>{formatDate(mail.at)}</small><p>{mail.body}</p>{mail.context?.length?<dl className="decision-context">{mail.context.map(item=><div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl>:null}{mail.warning&&<p className="decision-warning">⚠ {mail.warning}</p>}<div className="decision-choices">{mail.choices?.map(c=>{const cashEffect=c.effects.filter(e=>e.type==='cash').reduce((sum,e)=>sum+Number(e.value),0);const bankrupt=cashEffect<0&&game.company.cash+cashEffect<0;const consequences=c.consequences??c.effects.map(knownConsequence).filter(Boolean) as string[];return <section key={c.id}><GameButton tone="primary" onClick={()=>dispatch({type:'mailChoice',mailId:mail.id,choiceId:c.id})}>{c.label}</GameButton>{consequences.length?<ul>{consequences.map(text=><li key={text}>{text}</li>)}</ul>:null}{(c.warning||bankrupt)&&<p className="decision-warning">⚠ {c.warning??'This choice will reduce cash below $0.'}</p>}</section>;})}</div>{!mail.read&&<button className="mark-read" onClick={()=>dispatch({type:'readMail',mailId:mail.id})}>Mark as read</button>}</article>:<div className="empty-state">The inbox is quiet.</div>}</div>;
 }
 
 export function CompanyPanel({ game }: { game: GameState }) {

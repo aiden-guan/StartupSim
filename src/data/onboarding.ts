@@ -23,15 +23,15 @@ export const onboarding: OnboardDef[] = [
     {id:'intro-2',text:'This is headquarters.',focus:{type:'camera',id:'overview'},workspace:null,advance:next},
     {id:'intro-3',text:'This is your cofounder.',focus:{type:'employee',id:'cofounder'},workspace:null,advance:next},
     {id:'intro-4',text:'For now, this is the whole company.',focus:{type:'officeObject',id:'founderDesk'},workspace:null,advance:next},
-    {id:'open-lab',text:'Companies usually work better when they have something to sell.',focus:{type:'camera',id:'overview'},highlightUI:'new-product',advance:action('openedProductLab')},
+    {id:'open-lab',text:'Companies usually work better when they have something to sell. Open Products.',focus:{type:'camera',id:'overview'},highlightUI:'new-product',advance:action('openedProductLab')},
     {id:'primitives',text:'Products start by combining two technologies.',workspace:'tasks',highlightUI:'primitives',advance:next},
     {id:'choose-chat',text:'Choose Chat.',workspace:'tasks',highlightUI:'primitive-chat',advance:action('selectedPrimitiveA')},
     {id:'choose-writing',text:'Now combine it with Writing.',workspace:'tasks',highlightUI:'primitive-writing',advance:action('selectedPrimitiveB')},
-    {id:'start-first',text:'Good enough for venture capital.',workspace:'tasks',highlightUI:'start-product',advance:action('startedFirstProduct')},
+    {id:'start-first',text:'The combination is ready. Start development.',workspace:'tasks',highlightUI:'start-product',advance:action('startedFirstProduct')},
   ]},
   {id:'assign',after:'intro',slides:[
-    {id:'assign-founder',text:'A product without people is a slide deck.',workspace:'tasks',highlightUI:'assign-founder',advance:action('assignedFounder')},
-    {id:'assign-cofounder',text:'Your cofounder is probably worth using too.',workspace:'tasks',highlightUI:'assign-cofounder',advance:action('assignedCofounder')},
+    {id:'assign-founder',text:'A product without people is a slide deck. Assign yourself.',workspace:'tasks',highlightUI:'assign-founder',advance:action('assignedFounder')},
+    {id:'assign-cofounder',text:'Your cofounder can accelerate the build. Assign them too.',workspace:'tasks',highlightUI:'assign-cofounder',advance:action('assignedCofounder')},
     {id:'team-ready',text:'Now they can actually build it.',workspace:'tasks',highlightUI:'speed-controls',advance:next},
   ]},
   {id:'clock',after:'assign',slides:[
@@ -42,7 +42,7 @@ export const onboarding: OnboardDef[] = [
     {id:'deployment',text:'Scale determines how much of the market you can support at once.',workspace:'products',highlightUI:'stat-deployment',advance:next},
     {id:'capability',text:'Capability determines how strongly customers prefer the product once they try it.',workspace:'products',highlightUI:'stat-capability',advance:next},
     {id:'distribution',text:'Distribution determines how easily the product spreads between customer groups.',workspace:'products',highlightUI:'stat-distribution',advance:next},
-    {id:'spend-points',text:'Spend your points.',workspace:'products',highlightUI:'designer',advance:action('spentLaunchPoint')},
+    {id:'spend-points',text:'Shape the launch. Spend at least one launch point.',workspace:'products',highlightUI:'designer',advance:action('spentLaunchPoint')},
     {id:'enter-market',text:'Ready. Enter the market map to establish customer footholds.',workspace:'products',highlightUI:'enter-market',advance:action('enteredFirstMarket')},
   ]},
   {id:'market',after:'designer',slides:[

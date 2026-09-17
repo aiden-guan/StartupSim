@@ -45,6 +45,14 @@ export type BusinessModel =
   | "api"
   | "ads";
 
+export type GtmStrategy =
+  | "product-led"
+  | "direct-consumer"
+  | "smb-sales"
+  | "enterprise-sales"
+  | "developer-first"
+  | "partnerships";
+
 export type EconomyState =
   | "boom"
   | "normal"
@@ -206,10 +214,16 @@ export interface Product {
   vertical: string;
   riskTags: string[];
   businessModel: BusinessModel;
+  gtmStrategy: GtmStrategy;
   modelId: string;
   marketShare: number;
   weeklyRevenue: number;
   weeklyInference: number;
+  weeklyOperatingCost: number;
+  retentionRate: number;
+  gtmFit: number;
+  weeklyGrowthRate: number;
+  rampWeeks: number;
   users: number;
   reliability: number;
   ageWeeks: number;
@@ -259,9 +273,21 @@ export interface Mail {
   from: string;
   subject: string;
   body: string;
-  choices?: { id: string; label: string; effects: Effect[] }[];
+  choices?: MailChoice[];
+  context?: { label: string; value: string }[];
+  warning?: string;
+  createdTick?: number;
+  eventId?: string;
   read: boolean;
   requiresResponse: boolean;
+}
+
+export interface MailChoice {
+  id: string;
+  label: string;
+  effects: Effect[];
+  consequences?: string[];
+  warning?: string;
 }
 
 export interface NewsItem {
@@ -270,6 +296,10 @@ export interface NewsItem {
   headline: string;
   body: string;
   tone: "hype" | "neutral" | "panic" | "markets";
+  chainId?: string;
+  chainStage?: number;
+  createdTick?: number;
+  impact?: string;
 }
 
 export interface Candidate {
@@ -318,6 +348,13 @@ export interface WorldState {
   scientificProgress: number;
   economicDisruption: number;
   systemicRisk: number;
+  inferenceCostIndex: number;
+  talentCostIndex: number;
+  enterpriseDemandIndex: number;
+  consumerDemandIndex: number;
+  developerDemandIndex: number;
+  complianceCostIndex: number;
+  openSourcePressure: number;
 }
 
 export interface CompetitorState {
@@ -485,9 +522,21 @@ export interface CompanyState {
   monthlyCosts: number;
   lastMonthlyRevenue: number;
   lastMonthlyCosts: number;
+  currentMonthBreakdown: FinancialBreakdown;
+  lastMonthlyBreakdown: FinancialBreakdown;
   productsLaunched: number;
   seenMarket: boolean;
   ceoAutomated: boolean;
+}
+
+export interface FinancialBreakdown {
+  revenue: number;
+  inference: number;
+  productOperations: number;
+  payroll: number;
+  office: number;
+  fixedCompute: number;
+  companyOperations: number;
 }
 
 export interface GameState {

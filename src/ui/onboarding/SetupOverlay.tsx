@@ -116,7 +116,7 @@ export function SetupOverlay() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex">
-      <div key={setup.step} className="pointer-events-auto m-4 ml-auto flex w-[min(440px,calc(100vw-2rem))] flex-col justify-between overflow-auto term-sheet p-4 shadow-2xl sm:m-6 sm:w-[min(440px,calc(100vw-3rem))] sm:p-6">
+      <div key={setup.step} style={{ marginLeft: "auto" }} className="pointer-events-auto m-4 flex w-[min(440px,calc(100vw-2rem))] flex-col justify-between overflow-auto term-sheet p-4 shadow-2xl sm:m-6 sm:w-[min(440px,calc(100vw-3rem))] sm:p-6">
         {setup.step === "founder" ? (
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-copper">01 · Founder</p>

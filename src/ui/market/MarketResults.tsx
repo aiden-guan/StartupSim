@@ -12,6 +12,8 @@ export function MarketResults({ game }: { game: GameState }) {
 
   const grossProfit = r.revenue - r.inference;
   const grossMargin = r.revenue > 0 ? Math.round((grossProfit / r.revenue) * 100) : 0;
+  const operatingCost = p?.weeklyOperatingCost ?? 0;
+  const netContribution = grossProfit - operatingCost;
 
   const outcomeTitle =
     r.outcomeType === "market-rout"
@@ -90,6 +92,14 @@ export function MarketResults({ game }: { game: GameState }) {
             <strong style={{ color: grossProfit >= 0 ? "#3d7854" : "#b55333" }}>
               {money(grossProfit)} ({grossMargin}%)
             </strong>
+          </div>
+          <div>
+            <span>GTM, Support & Maintenance / Week</span>
+            <strong>{money(operatingCost)}</strong>
+          </div>
+          <div>
+            <span>Net Contribution / Week</span>
+            <strong style={{ color: netContribution >= 0 ? "#3d7854" : "#b55333" }}>{money(netContribution)}</strong>
           </div>
           <div>
             <span>Hype Impact</span>

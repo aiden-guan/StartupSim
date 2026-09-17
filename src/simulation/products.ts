@@ -3,8 +3,10 @@ import { primitiveById } from "../data/primitives";
 import { findRecipe } from "../data/recipes";
 import { modelById } from "../data/models";
 import { PRICING_MODELS } from "../data/pricing";
+import { GTM_STRATEGIES } from "../data/gtm";
 import type { GameState, LaunchStat, Product, ProductPoints } from "./types";
 import { uid, type Rng } from "./rng";
+import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from "./gtm";
 
 const epsilon = 1e-12;
 
@@ -44,10 +46,16 @@ export function createProduct(state: GameState, a: string, b: string, rng: Rng):
     vertical: recipe?.vertical ?? "consumer",
     riskTags: recipe?.riskTags ?? ["slop"],
     businessModel: "freemium",
+    gtmStrategy: recipe?.vertical === "developer" ? "developer-first" : "product-led",
     modelId: state.currentModelId,
     marketShare: 0,
     weeklyRevenue: 0,
     weeklyInference: 0,
+    weeklyOperatingCost: 0,
+    retentionRate: BALANCE.REVENUE_DECAY,
+    gtmFit: 50,
+    weeklyGrowthRate: 0,
+    rampWeeks: 0,
     users: 0,
     reliability: 0.55,
     ageWeeks: 0,
@@ -139,6 +147,10 @@ export function setProductEconomics(
   influencers: number,
 ): void {
   const pricing = PRICING_MODELS[product.businessModel] ?? PRICING_MODELS.freemium;
+  const strategy = GTM_STRATEGIES[product.gtmStrategy] ?? GTM_STRATEGIES["product-led"];
+  const fit = gtmFitAnalysis(state, product, strategy.id);
+  const execution = gtmExecutionMultiplier(fit.score);
+  const demand = marketDemandMultiplier(state, product);
   const hypeMult = 1 + Math.max(0, Math.sqrt(state.company.hype) * BALANCE.HYPE_MULTIPLIER_SCALE);
   const infMult = 1 + influencers * 0.45;
   const disc = product.newDiscovery ? BALANCE.NEW_PRODUCT_MULTIPLIER : 1;
@@ -149,7 +161,7 @@ export function setProductEconomics(
   const model = modelById[product.modelId];
   const users = Math.max(
     0,
-    Math.round((product.marketShare / 100) * 12_000 * (1 + product.levels.deployment * 0.12) * pricing.userMultiplier),
+    Math.round((product.marketShare / 100) * 12_000 * (1 + product.levels.deployment * 0.12) * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand),
   );
   product.users = users;
 
@@ -161,16 +173,21 @@ export function setProductEconomics(
   const tokens = users * baseTokens * pricing.tokenMultiplier * weight * agenty;
   const price = model?.costPerMTok ?? 8;
   const efficiency = 1 + (state.company.technologies.includes("efficient-inference") ? -0.12 : 0);
-  product.weeklyInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency));
+  product.weeklyInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency) * state.world.inferenceCostIndex);
 
   let calculatedRevenue = Math.round(
-    (base / 3.2) * pricing.revenueMultiplier * hypeMult * infMult * disc * economyMult(state) * loc * trust,
+    (base / 3.2) * pricing.revenueMultiplier * strategy.revenueMultiplier * strategy.rampMultiplier * execution * demand * hypeMult * infMult * disc * economyMult(state) * loc * trust,
   );
   if (pricing.costPlusMargin !== null && product.weeklyInference > 0) {
     const minCostPlus = Math.round(product.weeklyInference / (1 - pricing.costPlusMargin));
     calculatedRevenue = Math.max(calculatedRevenue, minCostPlus);
   }
   product.weeklyRevenue = Math.max(0, calculatedRevenue);
+  product.gtmFit = fit.score;
+  product.retentionRate = Math.min(0.998, strategy.weeklyRetention + (product.reliability - 0.7) * 0.02 + (state.company.trust - 60) / 10_000);
+  product.weeklyGrowthRate = strategy.weeklyGrowthRate;
+  product.rampWeeks = strategy.rampWeeks;
+  product.weeklyOperatingCost = calculateWeeklyProductOperations(state, product, users, product.weeklyRevenue, fit.score);
 
   product.reliability = Math.min(
     0.98,
@@ -178,19 +195,22 @@ export function setProductEconomics(
   );
 }
 
-export function harvestProduct(product: Product, rng: Rng): { revenue: number; inference: number } {
+export function harvestProduct(product: Product, rng: Rng): { revenue: number; inference: number; operations: number } {
   if (product.status !== "active" && product.status !== "mature" && product.status !== "declining") {
-    return { revenue: 0, inference: 0 };
+    return { revenue: 0, inference: 0, operations: 0 };
   }
   const range = product.weeklyRevenue * 0.1;
   const revenue = Math.max(0, rng.float(product.weeklyRevenue - range, product.weeklyRevenue + range));
-  product.weeklyRevenue *= BALANCE.REVENUE_DECAY;
-  product.users = Math.max(0, Math.round(product.users * BALANCE.REVENUE_DECAY));
-  product.weeklyInference *= BALANCE.REVENUE_DECAY;
+  const operations = product.weeklyOperatingCost;
+  const change = product.ageWeeks < product.rampWeeks ? 1 + product.weeklyGrowthRate : product.retentionRate;
+  product.weeklyRevenue *= change;
+  product.users = Math.max(0, Math.round(product.users * change));
+  product.weeklyInference *= change;
+  product.weeklyOperatingCost *= change;
   product.earnedRevenue += revenue;
   product.ageWeeks += 1;
   if (product.ageWeeks > 16) product.status = "mature";
   if (product.weeklyRevenue < 400 && product.ageWeeks > 8) product.status = "declining";
   if (product.weeklyRevenue < 40 && product.ageWeeks > 12) product.status = "deprecated";
-  return { revenue, inference: product.weeklyInference };
+  return { revenue, inference: product.weeklyInference, operations };
 }

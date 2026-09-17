@@ -1,7 +1,7 @@
 import { produce } from "immer";
 import { BALANCE } from "../config/balance";
 import { events } from "../data/events";
-import { fillerNews, newsTemplates } from "../data/news";
+import { NEWS_CHAINS, type NewsChain, type NewsStage } from "../data/news";
 import { reconcileTutorial, recordTutorialEvent, updateUnlocks } from "./tutorial";
 import { setPause } from "./pause";
 import { specialProjects } from "../data/specialProjects";
@@ -10,7 +10,7 @@ import { applyMarketEntryResults } from "../market/marketMap";
 import { applyEffects } from "./effects";
 import { allSatisfied, monthlyArr } from "./conditions";
 import { addDays, isMonthStart, isQuarterStart, isWeekStart, isYearStart } from "./date";
-import { fixedComputeCost, inferenceCoverage, monthlyPayroll, monthlyRent, valuationOf } from "./derived";
+import { fixedComputeCost, inferenceCoverage, monthlyBurn, monthlyCompanyOperations, monthlyPayroll, monthlyRent, valuationOf } from "./derived";
 import { harvestProduct } from "./products";
 import { Rng, uid } from "./rng";
 import { developTask, makeTask, unassignAll } from "./tasks";
@@ -95,11 +95,39 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
   }
 }
 
+export function buildPoachMail(state: GameState, r: Rng, mail: Mail): Mail | null {
+  const employee = r.pick(state.employees.filter((worker) => worker.role === "employee"));
+  if (!employee) return null;
+  const offer = Math.round(Math.max(employee.salary * 1.38, employee.salary + 60_000) / 1_000) * 1_000;
+  const increase = offer - employee.salary;
+  const currentBurn = Math.max(1, monthlyBurn(state));
+  const nextBurn = currentBurn + increase / 12;
+  const currentRunway = state.company.cash / currentBurn;
+  const nextRunway = state.company.cash / nextBurn;
+  mail.subject = `${employee.name} received an outside offer`;
+  mail.body = `${employee.name} received a written offer from a frontier lab. They will stay if you match the base salary. No signing bonus is due today.`;
+  mail.context = [
+    { label: "Current salary", value: `$${Math.round(employee.salary).toLocaleString()}/yr` },
+    { label: "Competing offer", value: `$${offer.toLocaleString()}/yr` },
+    { label: "Added payroll", value: `+$${increase.toLocaleString()}/yr` },
+    { label: "Runway impact", value: `${currentRunway.toFixed(1)} mo → ${nextRunway.toFixed(1)} mo` },
+  ];
+  mail.warning = nextRunway < 2.5 ? "Matching leaves less than 2.5 months of runway at the current burn rate." : undefined;
+  mail.choices = [
+    { id: "match", label: "Match the offer", effects: [{ type: "setSalary", value: { employeeId: employee.id, salary: offer } }, { type: "morale", value: 6 }], consequences: [`Salary becomes $${offer.toLocaleString()}/yr`, `Monthly payroll increases by $${Math.round(increase / 12).toLocaleString()}`], warning: mail.warning },
+    { id: "let-go", label: "Let them walk", effects: [{ type: "loseEmployee", value: employee.id }, { type: "competitorBoost", value: 1 }], consequences: [`${employee.name} leaves immediately`, "A competitor gains technical capability"] },
+  ];
+  mail.requiresResponse = true;
+  return mail;
+}
+
 function maybeEvents(state: GameState, r: Rng): void {
   if (!state.company.seenMarket || state.pendingMentor || state.marketResult) return;
   for (const ev of events) {
     if (!allSatisfied(ev.conditions, state)) continue;
-    if (!ev.repeatable && state.inbox.some((m) => m.subject === ev.title)) continue;
+    const previous = state.inbox.find((m) => m.eventId === ev.id || m.subject === ev.title);
+    if (!ev.repeatable && previous) continue;
+    if (ev.repeatable && previous?.createdTick !== undefined && state.clock.tick - previous.createdTick < ev.cooldownDays) continue;
     if (!r.chance(0.08 * (ev.weight / 10))) continue;
     const mail: Mail = {
       id: uid(r, "mail"),
@@ -107,10 +135,15 @@ function maybeEvents(state: GameState, r: Rng): void {
       from: ev.from,
       subject: ev.title,
       body: ev.body,
-      choices: ev.choices,
+      choices: ev.choices ? structuredClone(ev.choices) : undefined,
       read: false,
       requiresResponse: Boolean(ev.choices?.length),
+      createdTick: state.clock.tick,
+      eventId: ev.id,
     };
+    if (ev.id === "poach") {
+      if (!buildPoachMail(state, r, mail)) continue;
+    }
     state.inbox.unshift(mail);
     applyEffects(state, ev.effects);
     if (ev.crisis) {
@@ -179,18 +212,39 @@ function competitorTick(state: GameState, r: Rng): void {
 }
 
 function newsTick(state: GameState, r: Rng): void {
-  if (!r.chance(0.35)) return;
-  const c = r.pick(state.competitors);
-  const tmpl = r.pick(newsTemplates);
-  const product = r.pick(c.products);
-  state.news.unshift({
-    id: uid(r, "news"),
-    at: { ...state.clock.date },
-    headline: tmpl.headline.replace("{{company}}", c.name).replace("{{product}}", product),
-    body: r.pick(fillerNews),
-    tone: tmpl.tone,
-  });
-  state.news = state.news.slice(0, 40);
+  const publish = (chain: NewsChain, stage: NewsStage, index: number) => {
+    state.news.unshift({
+      id: uid(r, "news"),
+      at: { ...state.clock.date },
+      headline: stage.headline,
+      body: stage.body,
+      tone: stage.tone,
+      chainId: chain.id,
+      chainStage: index,
+      createdTick: state.clock.tick,
+      impact: stage.impact,
+    });
+    applyEffects(state, stage.effects);
+    state.news = state.news.slice(0, 60);
+  };
+
+  for (const chain of NEWS_CHAINS) {
+    const latest = state.news.find((item) => item.chainId === chain.id);
+    if (!latest || latest.chainStage === undefined || latest.createdTick === undefined) continue;
+    const nextIndex = latest.chainStage + 1;
+    const next = chain.stages[nextIndex];
+    if (next && state.clock.tick - latest.createdTick >= next.delayWeeks * 7) {
+      publish(chain, next, nextIndex);
+      return;
+    }
+  }
+
+  if (!r.chance(0.32)) return;
+  const eligible = NEWS_CHAINS.filter((chain) => chain.minYear <= state.clock.date.year && !state.news.some((item) => item.chainId === chain.id));
+  if (!eligible.length) return;
+  const weighted = eligible.flatMap((chain) => Array.from({ length: chain.weight }, () => chain));
+  const chain = r.pick(weighted);
+  publish(chain, chain.stages[0]!, 0);
 }
 
 export function checkOnboarding(state: GameState): void {
@@ -234,14 +288,17 @@ export function tickDay(state: GameState): GameState {
     if (isWeekStart(draft.clock.date)) {
       let rev = 0;
       let inf = 0;
+      let operations = 0;
       for (const p of draft.products) {
         const h = harvestProduct(p, r);
         rev += h.revenue;
         inf += h.inference;
+        operations += h.operations;
       }
       draft.company.cash += rev;
       draft.company.lifetimeRevenue += rev;
       draft.company.monthlyRevenue += rev;
+      draft.company.currentMonthBreakdown.revenue += rev;
       draft.stats.computeConsumed += inf;
       inf = Math.max(0, inf - inferenceCoverage(draft));
       if (draft.compute.apiCredits > 0) {
@@ -253,6 +310,11 @@ export function tickDay(state: GameState): GameState {
       draft.company.cash -= inf;
       draft.company.lifetimeCosts += inf;
       draft.company.monthlyCosts += inf;
+      draft.company.currentMonthBreakdown.inference += inf;
+      draft.company.cash -= operations;
+      draft.company.lifetimeCosts += operations;
+      draft.company.monthlyCosts += operations;
+      draft.company.currentMonthBreakdown.productOperations += operations;
 
       draft.company.hype *= BALANCE.HYPE_DECAY;
       draft.company.backlash *= BALANCE.BACKLASH_DECAY;
@@ -270,14 +332,21 @@ export function tickDay(state: GameState): GameState {
       const pay = monthlyPayroll(draft);
       const rent = monthlyRent(draft);
       const compute = fixedComputeCost(draft);
-      const cost = pay + rent + compute;
+      const operations = monthlyCompanyOperations(draft);
+      const cost = pay + rent + compute + operations;
       draft.company.cash -= cost;
       draft.company.lifetimeCosts += cost;
       draft.company.monthlyCosts += cost;
+      draft.company.currentMonthBreakdown.payroll += pay;
+      draft.company.currentMonthBreakdown.office += rent;
+      draft.company.currentMonthBreakdown.fixedCompute += compute;
+      draft.company.currentMonthBreakdown.companyOperations += operations;
       draft.company.lastMonthlyRevenue = draft.company.monthlyRevenue;
       draft.company.lastMonthlyCosts = draft.company.monthlyCosts;
+      draft.company.lastMonthlyBreakdown = { ...draft.company.currentMonthBreakdown };
       draft.company.monthlyRevenue = 0;
       draft.company.monthlyCosts = 0;
+      draft.company.currentMonthBreakdown = { revenue: 0, inference: 0, productOperations: 0, payroll: 0, office: 0, fixedCompute: 0, companyOperations: 0 };
       draft.company.valuation = valuationOf(draft);
       draft.stats.peakValuation = Math.max(draft.stats.peakValuation, draft.company.valuation);
       draft.stats.peakEmployees = Math.max(draft.stats.peakEmployees, draft.employees.length);

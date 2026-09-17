@@ -34,6 +34,31 @@ export function applyEffect(state: GameState, effect: Effect): void {
     case "computeCost":
       state.compute.monthlyCloudBill *= 1 + Number(v);
       break;
+    case "inferenceMultiplier":
+      for (const product of state.products) {
+        if (["active", "mature", "declining"].includes(product.status)) product.weeklyInference *= Number(v);
+      }
+      break;
+    case "demand": {
+      const change = v as { verticals?: string[]; strategies?: string[]; riskTags?: string[]; multiplier: number };
+      for (const product of state.products) {
+        const exposed = (!change.verticals?.length || change.verticals.includes(product.vertical)) &&
+          (!change.strategies?.length || change.strategies.includes(product.gtmStrategy)) &&
+          (!change.riskTags?.length || change.riskTags.some((tag) => product.riskTags.includes(tag)));
+        if (!exposed || !["active", "mature", "declining"].includes(product.status)) continue;
+        product.users *= change.multiplier;
+        product.weeklyRevenue *= change.multiplier;
+        product.weeklyInference *= change.multiplier;
+        product.weeklyOperatingCost *= Math.max(0.75, change.multiplier);
+      }
+      break;
+    }
+    case "setSalary": {
+      const salary = v as { employeeId: string; salary: number };
+      const employee = state.employees.find((worker) => worker.id === salary.employeeId);
+      if (employee && Number.isFinite(salary.salary)) employee.salary = Math.max(0, salary.salary);
+      break;
+    }
     case "researchCost":
     case "researchSpeed":
     case "energyCost":
@@ -85,7 +110,7 @@ export function applyEffect(state: GameState, effect: Effect): void {
       }
       break;
     case "loseEmployee": {
-      const extra = state.employees.find((e) => e.role === "employee");
+      const extra = typeof v === "string" ? state.employees.find((e) => e.id === v && e.role === "employee") : state.employees.find((e) => e.role === "employee");
       if (extra) {
         extra.offMarketDays = 21;
         state.employees = state.employees.filter((e) => e.id !== extra.id);
