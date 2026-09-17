@@ -2,6 +2,7 @@ import { BALANCE } from "../config/balance";
 import { primitiveById } from "../data/primitives";
 import { findRecipe } from "../data/recipes";
 import { modelById } from "../data/models";
+import { PRICING_MODELS } from "../data/pricing";
 import type { GameState, LaunchStat, Product, ProductPoints } from "./types";
 import { uid, type Rng } from "./rng";
 
@@ -137,30 +138,40 @@ export function setProductEconomics(
   capturedIncome: { income: number }[],
   influencers: number,
 ): void {
+  const pricing = PRICING_MODELS[product.businessModel] ?? PRICING_MODELS.freemium;
   const hypeMult = 1 + Math.max(0, Math.sqrt(state.company.hype) * BALANCE.HYPE_MULTIPLIER_SCALE);
   const infMult = 1 + influencers * 0.45;
   const disc = product.newDiscovery ? BALANCE.NEW_PRODUCT_MULTIPLIER : 1;
   const loc = 1 + state.company.locations.length * BALANCE.LOCATION_MULTIPLIER;
   const base = capturedIncome.reduce((s, t) => s + shareToRevenue(t.income, product), 0);
   const trust = Math.max(0.6, state.company.trust / 70);
-  product.weeklyRevenue = Math.max(
-    0,
-    (base / 4) * hypeMult * infMult * disc * economyMult(state) * loc * trust,
-  );
+
   const model = modelById[product.modelId];
   const users = Math.max(
     0,
-    (product.marketShare / 100) * 12_000 * (1 + product.levels.deployment * 0.12) * (product.businessModel === "free" ? 1.6 : 1),
+    Math.round((product.marketShare / 100) * 12_000 * (1 + product.levels.deployment * 0.12) * pricing.userMultiplier),
   );
   product.users = users;
+
   const pa = primitiveById[product.combo[0]];
   const pb = primitiveById[product.combo[1]];
   const weight = (pa?.computeWeight ?? 1) * (pb?.computeWeight ?? 1);
-  const agenty = product.combo.includes("agent") || product.combo.includes("computer-use") ? 2.2 : 1;
-  const tokens = users * 28_000 * weight * agenty;
+  const agenty = product.combo.includes("agent") || product.combo.includes("computer-use") ? 1.8 : 1;
+  const baseTokens = BALANCE.BASE_TOKENS_PER_USER_WEEK ?? 7_000;
+  const tokens = users * baseTokens * pricing.tokenMultiplier * weight * agenty;
   const price = model?.costPerMTok ?? 8;
   const efficiency = 1 + (state.company.technologies.includes("efficient-inference") ? -0.12 : 0);
-  product.weeklyInference = (tokens * price) / 1_000_000 * Math.max(0.35, efficiency);
+  product.weeklyInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency));
+
+  let calculatedRevenue = Math.round(
+    (base / 3.2) * pricing.revenueMultiplier * hypeMult * infMult * disc * economyMult(state) * loc * trust,
+  );
+  if (pricing.costPlusMargin !== null && product.weeklyInference > 0) {
+    const minCostPlus = Math.round(product.weeklyInference / (1 - pricing.costPlusMargin));
+    calculatedRevenue = Math.max(calculatedRevenue, minCostPlus);
+  }
+  product.weeklyRevenue = Math.max(0, calculatedRevenue);
+
   product.reliability = Math.min(
     0.98,
     0.5 + product.points.engineering / 400 + (model?.reliability ?? 5) / 20,
@@ -174,6 +185,8 @@ export function harvestProduct(product: Product, rng: Rng): { revenue: number; i
   const range = product.weeklyRevenue * 0.1;
   const revenue = Math.max(0, rng.float(product.weeklyRevenue - range, product.weeklyRevenue + range));
   product.weeklyRevenue *= BALANCE.REVENUE_DECAY;
+  product.users = Math.max(0, Math.round(product.users * BALANCE.REVENUE_DECAY));
+  product.weeklyInference *= BALANCE.REVENUE_DECAY;
   product.earnedRevenue += revenue;
   product.ageWeeks += 1;
   if (product.ageWeeks > 16) product.status = "mature";

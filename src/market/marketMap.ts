@@ -2,6 +2,7 @@ import { BALANCE } from "../config/balance";
 import { competitors as competitorDefs, type CompetitorDef } from "../data/competitors";
 import { modelById } from "../data/models";
 import { primitiveById } from "../data/primitives";
+import { PRICING_MODELS } from "../data/pricing";
 import type { GameState, LaunchLevels, Product } from "../simulation/types";
 import { launchCosts, requiredFor } from "../simulation/products";
 import type { Rng } from "../simulation/rng";
@@ -944,18 +945,32 @@ export function calculateMarketEntryResult(
       break;
   }
 
+  // Pricing model
+  const pricing = PRICING_MODELS[product.businessModel] ?? PRICING_MODELS.freemium;
+
   // Economics: Users
   const rawUsers = segments.reduce((sum, seg) => {
     return sum + seg.userPotential * (seg.playerShare / 100);
   }, 0);
-  const modelMult = product.businessModel === "free" ? 1.6 : 1;
   const scaleMult = 1 + product.levels.deployment * 0.15;
-  const users = Math.max(0, Math.round(rawUsers * modelMult * scaleMult * userOutcomeMult));
+  const users = Math.max(0, Math.round(rawUsers * pricing.userMultiplier * scaleMult * userOutcomeMult));
+
+  // Inference cost
+  const model = modelById[product.modelId];
+  const pa = primitiveById[product.combo[0]];
+  const pb = primitiveById[product.combo[1]];
+  const weight = (pa?.computeWeight ?? 1) * (pb?.computeWeight ?? 1);
+  const agenty = product.combo.includes("agent") || product.combo.includes("computer-use") ? 1.8 : 1;
+  const baseTokensPerUser = BALANCE.BASE_TOKENS_PER_USER_WEEK ?? 7_000;
+  const tokens = users * baseTokensPerUser * pricing.tokenMultiplier * weight * agenty;
+  const price = model?.costPerMTok ?? 8;
+  const efficiency = 1 + (state.company.technologies.includes("efficient-inference") ? -0.12 : 0);
+  const weeklyInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency));
 
   // Economics: Revenue
   const baseRevenue = segments.reduce((sum, seg) => {
     const shareFraction = seg.playerShare / 100;
-    const segValMultiplier = Math.pow(seg.value, 1.6);
+    const segValMultiplier = Math.pow(seg.value, 1.5);
     return (
       sum +
       segValMultiplier *
@@ -963,7 +978,7 @@ export function calculateMarketEntryResult(
         (BALANCE.BASE_REVENUE_PER_SHARE +
           BALANCE.EXTRA_REVENUE_PER_DIFFICULTY * (product.difficulty - 2)) *
         product.revenueScore *
-        (product.recipeId === "generic" ? 0.6 : 1.1)
+        (product.recipeId === "generic" ? 0.7 : 1.15)
     );
   }, 0);
 
@@ -989,32 +1004,29 @@ export function calculateMarketEntryResult(
       break;
   }
 
-  const weeklyRevenue = Math.max(
-    0,
-    Math.round(baseRevenue * hypeMult * disc * econMultiplier * loc * trust * 0.4 * outcomeMult),
+  // Base outcome normalization factor
+  const outcomeNorm = 0.55;
+  let calculatedRevenue = Math.round(
+    baseRevenue * pricing.revenueMultiplier * hypeMult * disc * econMultiplier * loc * trust * outcomeNorm * outcomeMult,
   );
 
-  // Inference cost
-  const model = modelById[product.modelId];
-  const pa = primitiveById[product.combo[0]];
-  const pb = primitiveById[product.combo[1]];
-  const weight = (pa?.computeWeight ?? 1) * (pb?.computeWeight ?? 1);
-  const agenty = product.combo.includes("agent") || product.combo.includes("computer-use") ? 2.2 : 1;
-  const tokens = users * 28_000 * weight * agenty;
-  const price = model?.costPerMTok ?? 8;
-  const efficiency = 1 + (state.company.technologies.includes("efficient-inference") ? -0.12 : 0);
-  const weeklyInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency));
+  // If usage-based, enforce guaranteed cost-plus gross margin floor over inference
+  if (pricing.costPlusMargin !== null && weeklyInference > 0) {
+    const minCostPlusRevenue = Math.round(weeklyInference / (1 - pricing.costPlusMargin));
+    calculatedRevenue = Math.max(calculatedRevenue, minCostPlusRevenue);
+  }
 
+  const weeklyRevenue = Math.max(0, calculatedRevenue);
   const grossProfit = weeklyRevenue - weeklyInference;
 
   // Hype change
-  let hype = 0;
-  if (outcomeType === "market-rout") hype = 14;
-  else if (outcomeType === "leader") hype = 10;
-  else if (outcomeType === "strong") hype = 6;
-  else if (outcomeType === "competitive") hype = 3;
-  else if (outcomeType === "weak") hype = -2;
-  else if (outcomeType === "routed") hype = -5;
+  let hype = pricing.hypeBonus;
+  if (outcomeType === "market-rout") hype += 14;
+  else if (outcomeType === "leader") hype += 10;
+  else if (outcomeType === "strong") hype += 6;
+  else if (outcomeType === "competitive") hype += 3;
+  else if (outcomeType === "weak") hype += -2;
+  else if (outcomeType === "routed") hype += -5;
 
   const comp = competitorDefs.find((c) => c.id === session.competitorId);
 

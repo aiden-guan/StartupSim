@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { BALANCE } from '../../config/balance';
-import { models } from '../../data/models';
+import { models, modelById } from '../../data/models';
 import { primitives, primitiveById } from '../../data/primitives';
 import { findRecipe } from '../../data/recipes';
+import { PRICING_MODELS } from '../../data/pricing';
 import { currentTutorialSlide } from '../../simulation/tutorial';
 import { canAffordStat, launchCosts, requiredFor } from '../../simulation/products';
 import { taskEstimate } from '../../simulation/tasks';
@@ -13,7 +14,7 @@ import { GameButton } from '../shared/controls';
 import { CharacterPortrait } from '../shared/CharacterPortrait';
 import { GameIcon } from '../shared/Icons';
 const STATS:LaunchStat[]=['deployment','capability','distribution'];
-const MODELS:BusinessModel[]=['free','freemium','subscription','usage','enterprise','api','ads'];
+const MODELS:BusinessModel[]=['freemium','subscription','enterprise','usage','api','ads','free'];
 
 function getLaunchProfile(levels: { deployment: number; capability: number; distribution: number }) {
   const cap = levels.capability;
@@ -97,8 +98,72 @@ export function TasksPanel({game}:{game:GameState}) {
     {!game.tasks.length&&!showLab&&!intro&&<div className="empty-state"><h3>The studio is clear.</h3><p>Ready products are waiting in Products & launches.</p><GameButton onClick={()=>useGame.getState().setDrawer('products')}>View products →</GameButton></div>}
   </div>;
 }
+function projectLaunchEconomics(p: Product, game: GameState) {
+  const pricing = PRICING_MODELS[p.businessModel] ?? PRICING_MODELS.freemium;
+  const model = modelById[p.modelId];
+  const pa = primitiveById[p.combo[0]];
+  const pb = primitiveById[p.combo[1]];
+  const weight = (pa?.computeWeight ?? 1) * (pb?.computeWeight ?? 1);
+  const agenty = p.combo.includes('agent') || p.combo.includes('computer-use') ? 1.8 : 1;
+
+  // Typical competitive beachhead + expansion foothold projection (~7,000 baseline users)
+  const scaleMult = 1 + p.levels.deployment * 0.15;
+  const estUsers = Math.max(100, Math.round(7_000 * pricing.userMultiplier * scaleMult * 0.8));
+
+  const baseTokens = BALANCE.BASE_TOKENS_PER_USER_WEEK ?? 7_000;
+  const tokens = estUsers * baseTokens * pricing.tokenMultiplier * weight * agenty;
+  const price = model?.costPerMTok ?? 8;
+  const efficiency = 1 + (game.company.technologies.includes('efficient-inference') ? -0.12 : 0);
+  const estInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency));
+
+  // Baseline competitive revenue projection
+  const baseRevenue =
+    2.8 *
+    0.6 *
+    (BALANCE.BASE_REVENUE_PER_SHARE + BALANCE.EXTRA_REVENUE_PER_DIFFICULTY * (p.difficulty - 2)) *
+    p.revenueScore *
+    (p.recipeId === 'generic' ? 0.7 : 1.15);
+
+  const hypeMult = 1 + Math.max(0, Math.sqrt(game.company.hype) * BALANCE.HYPE_MULTIPLIER_SCALE);
+  const disc = p.newDiscovery ? BALANCE.NEW_PRODUCT_MULTIPLIER : 1;
+  const loc = 1 + game.company.locations.length * BALANCE.LOCATION_MULTIPLIER;
+  const trust = Math.max(0.6, game.company.trust / 70);
+
+  let calculatedRev = Math.round(
+    baseRevenue * pricing.revenueMultiplier * hypeMult * disc * loc * trust * 0.55 * 0.85,
+  );
+
+  if (pricing.costPlusMargin !== null && estInference > 0) {
+    const minCostPlus = Math.round(estInference / (1 - pricing.costPlusMargin));
+    calculatedRev = Math.max(calculatedRev, minCostPlus);
+  }
+
+  const estRevenue = Math.max(0, calculatedRev);
+  const estGrossProfit = estRevenue - estInference;
+  const estMargin = estRevenue > 0 ? Math.round((estGrossProfit / estRevenue) * 100) : 0;
+
+  return {
+    pricing,
+    model,
+    estUsers,
+    estRevenue,
+    estInference,
+    estGrossProfit,
+    estMargin,
+  };
+}
+
 function ProductEconomics({product:p}:{product:Product}) {
-  return <div className="economics-grid" data-tutorial="product-economics">{[['Revenue / week',money(p.weeklyRevenue)],['Inference / week',money(p.weeklyInference)],['Gross profit / week',money(p.weeklyRevenue-p.weeklyInference)],['Customers',Math.round(p.users).toLocaleString()],['Market share',pct(p.marketShare)],['Lifetime revenue',money(p.earnedRevenue)]].map(([label,value])=><div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>;
+  const modelDef = PRICING_MODELS[p.businessModel];
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0 6px' }}>
+        <span className="eyebrow" style={{ fontSize: 10 }}>Active Economics · {modelDef?.name ?? p.businessModel}</span>
+        <span style={{ fontSize: 10, color: '#4a6755', fontWeight: 600 }}>{modelDef?.tagline}</span>
+      </div>
+      <div className="economics-grid" data-tutorial="product-economics">{[['Revenue / week',money(p.weeklyRevenue)],['Inference / week',money(p.weeklyInference)],['Gross profit / week',money(p.weeklyRevenue-p.weeklyInference)],['Customers',Math.round(p.users).toLocaleString()],['Market share',pct(p.marketShare)],['Lifetime revenue',money(p.earnedRevenue)]].map(([label,value])=><div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
+    </div>
+  );
 }
 export function ProductsPanel({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch);
@@ -121,7 +186,117 @@ export function ProductsPanel({game}:{game:GameState}) {
           const prof=getLaunchProfile(p.levels);
           return <div className="launch-profile" style={{padding:'12px 16px',background:'#ebf0e4',border:'1px solid #ced8c5',margin:'14px 0',borderRadius:3}}><span className="eyebrow" style={{fontSize:10,color:'#5a755d',textTransform:'uppercase',letterSpacing:'0.08em'}}>Launch Profile · <strong>{prof.descriptor}</strong></span><p style={{fontSize:11,margin:'4px 0 0',color:'#405345',lineHeight:1.5}}>{prof.notes}</p></div>;
         })()}
-        <div className="launch-options"><div><span className="eyebrow">Business model</span><div className="choice-row">{MODELS.map(model=><button key={model} aria-pressed={p.businessModel===model} onClick={()=>dispatch({type:'setBusinessModel',productId:p.id,model})}>{model}</button>)}</div></div><div><span className="eyebrow">Powered by</span><div className="choice-row">{models.filter(m=>game.ownedModels.includes(m.id)).map(m=><button key={m.id} aria-pressed={p.modelId===m.id} onClick={()=>dispatch({type:'setModel',productId:p.id,modelId:m.id})}>{m.name}</button>)}</div></div></div>
+        <div className="launch-options">
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <span className="eyebrow">Business model</span>
+              <span style={{ fontSize: 10, color: '#3d6854', fontWeight: 600 }}>
+                Target margin: {PRICING_MODELS[p.businessModel]?.marginTarget ?? '50-70%'}
+              </span>
+            </div>
+            <div className="choice-row">
+              {MODELS.map(model => (
+                <button
+                  key={model}
+                  aria-pressed={p.businessModel === model}
+                  onClick={() => dispatch({ type: 'setBusinessModel', productId: p.id, model })}
+                >
+                  {PRICING_MODELS[model]?.name ?? model}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: '#4d5d52', margin: '6px 0 0', lineHeight: 1.4 }}>
+              <strong>{PRICING_MODELS[p.businessModel]?.tagline}:</strong>{' '}
+              {PRICING_MODELS[p.businessModel]?.description}
+            </div>
+          </div>
+          <div>
+            <span className="eyebrow">Powered by</span>
+            <div className="choice-row">
+              {models.filter(m => game.ownedModels.includes(m.id)).map(m => (
+                <button
+                  key={m.id}
+                  aria-pressed={p.modelId === m.id}
+                  onClick={() => dispatch({ type: 'setModel', productId: p.id, modelId: m.id })}
+                >
+                  {m.name} ({money(m.costPerMTok)}/MTok)
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {(() => {
+          const proj = projectLaunchEconomics(p, game);
+          const isHealthy = proj.estGrossProfit >= 0 && proj.estMargin >= 40;
+          const isWarning = proj.estGrossProfit < 0;
+          const profitColor = isWarning ? '#b55333' : isHealthy ? '#316847' : '#8a652a';
+          const bgColor = isWarning ? '#fbf0ed' : '#edf3e8';
+          const borderColor = isWarning ? '#e6cfc7' : '#cedbc5';
+
+          return (
+            <div
+              className="launch-economics-projection"
+              style={{
+                padding: '12px 16px',
+                background: bgColor,
+                border: `1px solid ${borderColor}`,
+                margin: '12px 0',
+                borderRadius: 3,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span className="eyebrow" style={{ fontSize: 10, color: isWarning ? '#964835' : '#4f6c56', margin: 0 }}>
+                  Projected Launch Economics · <strong>{proj.pricing.name}</strong>
+                </span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 3,
+                    background: isWarning ? '#e45f44' : isHealthy ? '#447854' : '#b88939',
+                    color: '#fff',
+                  }}
+                >
+                  {isWarning ? 'Negative Margins' : `${proj.estMargin}% Projected Margin`}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 10,
+                  fontSize: 11,
+                  textAlign: 'left',
+                }}
+              >
+                <div>
+                  <small style={{ display: 'block', color: '#68776b', fontSize: 10 }}>Est. Customers</small>
+                  <strong style={{ fontSize: 13, color: '#27382d' }}>~{proj.estUsers.toLocaleString()}</strong>
+                </div>
+                <div>
+                  <small style={{ display: 'block', color: '#68776b', fontSize: 10 }}>Est. Revenue / wk</small>
+                  <strong style={{ fontSize: 13, color: '#27382d' }}>{money(proj.estRevenue)}</strong>
+                </div>
+                <div>
+                  <small style={{ display: 'block', color: '#68776b', fontSize: 10 }}>Est. Compute / wk</small>
+                  <strong style={{ fontSize: 13, color: '#68453b' }}>{money(proj.estInference)}</strong>
+                </div>
+                <div>
+                  <small style={{ display: 'block', color: '#68776b', fontSize: 10 }}>Est. Gross Profit / wk</small>
+                  <strong style={{ fontSize: 13, color: profitColor }}>{money(proj.estGrossProfit)}</strong>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, margin: '8px 0 0', color: isWarning ? '#873d2d' : '#45594b', lineHeight: 1.4 }}>
+                {isWarning
+                  ? 'Warning: High compute burn will produce ongoing weekly losses under this pricing model and AI engine. Consider switching to Usage-Based, Subscription, or a more efficient model.'
+                  : proj.pricing.costPlusMargin
+                  ? 'Protected margin: Usage-based metered pricing guarantees positive cash flow by scaling with token usage.'
+                  : `Solid unit economics: ${proj.pricing.name} pricing is projected to generate steady positive cash flow for your company.`}
+              </p>
+            </div>
+          );
+        })()}
         <footer className="launch-footer"><span>Company time pauses in the market.</span><GameButton tone="primary" data-tutorial="enter-market" disabled={game.onboarding.tutorialEnabled&&!game.company.seenMarket&&currentTutorialSlide(game)?.id!=='enter-market'} title={game.pendingMentor==='designer'&&currentTutorialSlide(game)?.id!=='enter-market'?'Finish configuring your first launch with the mentor':'Launch this product'} onClick={()=>dispatch({type:'enterMarket',productId:p.id})}>Enter market →</GameButton>{game.company.productsLaunched>=BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE&&<div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}><span className="eyebrow" style={{fontSize:10,margin:0}}>Delegate:</span><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'balanced'})} title="Delegate launch with balanced strategic weights">Balanced</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'aggressive'})} title="Delegate launch aggressively contesting rival hubs">Aggressive</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'niche'})} title="Delegate launch targeting high-value niche segments">Niche</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'expansion'})} title="Delegate launch expanding network reach">Expansion</GameButton></div>}</footer>
       </>:<><ProductEconomics product={p}/><footer className="launch-footer"><p>{p.description}</p>{p.status!=='deprecated'&&<GameButton tone="danger" onClick={()=>dispatch({type:'killProduct',productId:p.id})}>Sunset product</GameButton>}</footer></>}
     </article>;

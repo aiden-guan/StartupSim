@@ -1,5 +1,5 @@
 import { monthlyArr } from "./conditions";
-import { grossMargin } from "./derived";
+import { grossMargin, monthlyBurn } from "./derived";
 import type { GameState } from "./types";
 
 export const ENDINGS: Record<string, { title: string; line: string }> = {
@@ -31,7 +31,7 @@ export function detectEnding(state: GameState): { id: string; note: string } | n
   const projects = state.company.specialProjects;
   const openish = state.products.filter((p) => p.combo.includes("opensource") && p.status === "active").length;
 
-  if (state.company.cash < 0 && monthlyArr(state) < 1000) {
+  if (state.company.cash < 0 && (monthlyArr(state) < 1000 || state.company.cash < -10_000 || monthlyBurn(state) > 0)) {
     return { id: "bankruptcy", note: ENDINGS.bankruptcy.line };
   }
   if (state.board && state.board.approval <= 12) {
