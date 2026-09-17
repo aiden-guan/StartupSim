@@ -1,6 +1,6 @@
 import { Canvas } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
-import { cofounders } from "../data/cofounders";
+import { resolveCofounder } from "../data/cofounders";
 import { useCameraDirector, TITLE_SHOT, PREVIEW_SHOT, overviewShot } from "./camera/cameraStore";
 import { CameraDirector } from "./camera/CameraDirector";
 import { Character } from "./characters/Character";
@@ -74,7 +74,7 @@ function Scene() {
       <MegaCampus onObject={onObject} perks={view?.perks ?? []} brand={brand} visual={view?.environment} quality={quality}/>
     );
 
-  const cofounder = cofounders.find((c) => c.id === setup.cofounderId) ?? cofounders[0]!;
+  const cofounder = resolveCofounder(setup.cofounderId);
 
   return (
     <>

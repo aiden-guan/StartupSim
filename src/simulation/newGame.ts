@@ -1,6 +1,6 @@
 import { identity } from "../branding/identity";
 import { BALANCE } from "../config/balance";
-import { cofounders } from "../data/cofounders";
+import { resolveCofounder } from "../data/cofounders";
 import { competitors as competitorDefs } from "../data/competitors";
 import type { CompanyBrand, CompanyState, DepartmentId, Employee, GameState, Unlocks } from "./types";
 import { DEFAULT_FOUNDER_LOOK, founderLook, normalizeLook } from "./look";
@@ -68,7 +68,7 @@ export function defaultSettings(): GameState["settings"] {
 export function createNewGame(input: NewGameInput): GameState {
   const seed = input.seed ?? (Math.floor(Math.random() * 1_000_000_000) || 1);
   const rng = new Rng(seed);
-  const cofounderDef = cofounders.find((c) => c.id === input.cofounderId) ?? cofounders[0]!;
+  const cofounderDef = resolveCofounder(input.cofounderId);
   const founder: Employee = {
     id: uid(rng, "fnd"),
     name: input.founderName.trim() || "Founder",
@@ -111,7 +111,7 @@ export function createNewGame(input: NewGameInput): GameState {
     remote: false,
     tenureDays: 0,
     offMarketDays: 0,
-    department: cofounderDef.trait === "paper-machine" ? "research" : cofounderDef.trait === "posts" ? "marketing" : "engineering",
+    department: cofounderDef.department,
   };
   founder.equity = 1 - cofounder.equity - 0.1;
 

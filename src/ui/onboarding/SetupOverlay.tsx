@@ -1,5 +1,5 @@
 import { BRAND_COLORS, identity } from "../../branding/identity";
-import { cofounders } from "../../data/cofounders";
+import { cofounders, resolveCofounder } from "../../data/cofounders";
 import { traitById } from "../../data/traits";
 import { referenceLooks } from "../../game3d/characters/ReferenceLooks";
 import {
@@ -15,6 +15,7 @@ import {
 import type { BrandMark, CharacterLook } from "../../simulation/types";
 import { useGame } from "../../state/store";
 import { GameButton, StatBar } from "../shared/controls";
+import { CharacterPortrait } from "../shared/CharacterPortrait";
 
 const COMPANY_PRESETS = [
   "Northstar Labs",
@@ -109,13 +110,13 @@ export function SetupOverlay() {
   const setScreen = useGame((s) => s.setScreen);
   const look = setup.founderLook;
   const setLook = (next: Partial<CharacterLook>) => patch({ founderLook: { ...look, ...next } });
-  const cofounder = cofounders.find((c) => c.id === setup.cofounderId) ?? cofounders[0]!;
+  const cofounder = resolveCofounder(setup.cofounderId);
   const cofIndex = cofounders.findIndex((c) => c.id === cofounder.id);
   const trait = traitById[cofounder.trait];
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10 flex">
-      <div className="pointer-events-auto m-6 ml-auto flex w-[min(440px,40vw)] flex-col justify-between overflow-auto term-sheet p-6 shadow-2xl">
+      <div key={setup.step} className="pointer-events-auto m-4 ml-auto flex w-[min(440px,calc(100vw-2rem))] flex-col justify-between overflow-auto term-sheet p-4 shadow-2xl sm:m-6 sm:w-[min(440px,calc(100vw-3rem))] sm:p-6">
         {setup.step === "founder" ? (
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-copper">01 · Founder</p>
@@ -183,23 +184,50 @@ export function SetupOverlay() {
         {setup.step === "cofounder" ? (
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-copper">02 · Cofounder</p>
-            <h2 className="mt-1 font-display text-3xl font-semibold">{cofounder.name}</h2>
-            <div className="font-mono text-[11px] uppercase tracking-widest text-copper">{cofounder.title}</div>
-            <p className="mt-3 font-display text-lg italic leading-snug">“{cofounder.quote}”</p>
+            <h2 className="mt-1 font-display text-2xl font-semibold">Choose your cofounder.</h2>
+            <p className="mt-1 text-xs text-muted">Select a card to preview their character and tradeoffs.</p>
+            <div className="mt-3 grid grid-cols-2 gap-1.5" role="group" aria-label="Cofounder options">
+              {cofounders.map((candidate) => {
+                const selected = candidate.id === cofounder.id;
+                return (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => patch({ cofounderId: candidate.id })}
+                    className={`flex min-w-0 items-center gap-2 rounded border p-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-copper ${selected ? "border-copper bg-copper/10 shadow-sm" : "border-line bg-white/60 hover:border-copper hover:bg-white"}`}
+                  >
+                    <CharacterPortrait look={candidate.look} className="h-11 w-10" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-[11px] font-semibold leading-tight text-ink">{candidate.name}</span>
+                      <span className="mt-0.5 block truncate text-[9px] leading-tight text-muted">{candidate.title}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-display text-2xl font-semibold leading-tight">{cofounder.name}</h3>
+                <div className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-copper">{cofounder.title}</div>
+              </div>
+              <span className="shrink-0 font-mono text-[10px] text-muted">{cofIndex + 1} / {cofounders.length}</span>
+            </div>
             <p className="mt-2 text-sm text-muted">{cofounder.pitch}</p>
-            <div className="mt-4 space-y-1.5 rounded border border-line/60 bg-white/40 p-3">
+            <p className="mt-2 text-xs italic text-ink">In-game line: “{cofounder.quote}”</p>
+            <div className="mt-3 space-y-1 rounded border border-line/60 bg-white/40 p-3">
               <StatBar label="Research" value={cofounder.skills.research} />
               <StatBar label="Engineering" value={cofounder.skills.engineering} />
               <StatBar label="Product" value={cofounder.skills.product} />
               <StatBar label="Growth" value={cofounder.skills.growth} />
               <StatBar label="Speed" value={cofounder.skills.productivity} />
             </div>
-            <div className="mt-4 rounded border border-line/60 bg-white/40 p-3 text-sm">
+            <div className="mt-2 rounded border border-line/60 bg-white/40 p-3 text-sm">
               <div className="font-mono text-[10px] uppercase tracking-widest text-gold">Trait · {trait?.name ?? cofounder.trait}</div>
               <p className="mt-0.5 text-xs text-muted">{trait?.description}</p>
               <div className="mt-2 font-mono text-xs font-semibold text-ink">Asks {Math.round(cofounder.equity * 100)}% equity stake</div>
             </div>
-            <div className="mt-6 flex gap-2">
+            <div className="mt-4 flex gap-2">
               <GameButton
                 className="flex-1 border-line text-ink"
                 onClick={() => patch({ cofounderId: cofounders[(cofIndex + cofounders.length - 1) % cofounders.length]!.id })}

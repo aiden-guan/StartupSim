@@ -99,7 +99,7 @@ export function App() {
       useGame.getState().loadGame(createEnvironmentPreviewGame(Number(params.get('world')) || 0));
     }
     if (params.get("market") === "1") {
-      const g = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "reya", skipTutorial: true });
+      const g = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "dustin-moskovitz", skipTutorial: true });
       const p = createProduct(g, "code", "agent", new Rng(1));
       p.levels = { deployment: 1, capability: 2, distribution: 1 };
       p.status = "ready";
@@ -108,7 +108,7 @@ export function App() {
       if (withMarket) useGame.getState().loadGame(withMarket);
     }
     if (params.get("results") === "1") {
-      const g = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "reya", skipTutorial: true });
+      const g = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "dustin-moskovitz", skipTutorial: true });
       const p = createProduct(g, "code", "agent", new Rng(1));
       p.levels = { deployment: 1, capability: 2, distribution: 1 };
       p.status = "ready";

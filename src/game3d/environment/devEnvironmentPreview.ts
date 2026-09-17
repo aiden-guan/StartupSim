@@ -3,7 +3,7 @@ import { createNewGame } from '../../simulation/newGame';
 /** Local, unsaved fixture for visual and interaction QA. Never imported by gameplay rendering. */
 export function createEnvironmentPreviewGame(level:number) {
   const stage=Math.max(0,Math.min(5,Math.floor(level)));
-  const game=createNewGame({founderName:'Ada',companyName:'StartupSim',cofounderId:'reya',seed:42,skipTutorial:true});
+  const game=createNewGame({founderName:'Ada',companyName:'StartupSim',cofounderId:'dustin-moskovitz',seed:42,skipTutorial:true});
   game.company.officeLevel=stage;
   game.settings.autosave=false;
   const original=[...game.employees];
