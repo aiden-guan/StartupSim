@@ -1,3 +1,5 @@
+import type { MarketSession } from "../market/types";
+
 export type SkillName =
   | "research"
   | "engineering"
@@ -214,6 +216,7 @@ export interface Product {
   earnedRevenue: number;
   technicalDebt: number;
   competitorId: string | null;
+  marketSegments?: { id: string; name: string; share: number; value: number }[];
 }
 
 export interface Task {
@@ -408,52 +411,33 @@ export interface HexPos {
   col: number;
 }
 
-export interface MarketTile {
-  id: string;
-  pos: HexPos;
-  kind: "empty" | "customer" | "enterprise" | "influencer" | "data" | "cloud" | "partner" | "regulated" | "government";
-  income: number;
-  owner: "player" | "ai" | null;
-  captured: number;
-  baseCost: number;
-}
-
-export interface MarketPiece {
-  id: string;
-  owner: "player" | "ai";
-  pos: HexPos;
-  health: number;
-  maxHealth: number;
-  moves: number;
-  movement: number;
-  done: boolean;
-}
-
-export interface MarketBattle {
-  productId: string;
-  competitorId: string;
-  turnsLeft: number;
-  totalTurns: number;
-  tiles: MarketTile[];
-  pieces: MarketPiece[];
-  current: "player" | "ai";
-  selectedPieceId: string | null;
-  tutorialStep: number;
-  firstMarket: boolean;
-}
+export type MarketBattle = MarketSession;
 
 export type PauseReason = "manual" | "tutorial" | "market" | "event" | "productReady" | "results" | "settings" | "ended";
 
 export interface MarketResult {
   productId: string;
   share: number;
-  capturedTiles: number;
-  tileValue: number;
+  penetration?: number;
+  capturedTiles?: number;
+  tileValue?: number;
   revenue: number;
   inference: number;
   users: number;
   hype: number;
   outcome: string;
+  outcomeType?: "routed" | "weak" | "foothold" | "competitive" | "strong" | "leader" | "market-rout";
+  topSegment?: string;
+  rivalShare?: number;
+  rivalName?: string;
+  segments?: {
+    id: string;
+    name: string;
+    playerShare: number;
+    rivalShare: number;
+    value: number;
+    userPotential: number;
+  }[];
 }
 
 export interface ClockState {

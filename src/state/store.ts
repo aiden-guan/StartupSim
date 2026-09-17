@@ -128,7 +128,7 @@ export const useGame = create<AppState>((set, get) => ({
     }
     if (next?.marketBattle || next?.marketResult) patch.screen = "market";
     if (cmd.type === "continueMarketResults" && next && !next.marketResult) { patch.screen = "playing"; patch.drawer = "products"; }
-    if ((cmd.type === "marketEndTurn" || cmd.type === "delegateMarket") && next && !next.marketBattle && !next.marketResult) {
+    if (get().screen === "market" && next && !next.marketBattle && !next.marketResult) {
       patch.screen = "playing";
     }
     if (next?.endingId) patch.screen = "ended";

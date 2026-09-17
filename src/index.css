@@ -312,14 +312,12 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .market-layout { display:flex;height:calc(100% - 105px); }
 .tactical-board { flex:1;min-width:0;position:relative;padding:30px 35px 55px;background:radial-gradient(ellipse at center,#3c5758,#243d43); }
 .tactical-board>svg { height:100%;width:100%;overflow:visible; }
-.market-tile { cursor:pointer;outline:none; }
-.market-tile:focus-visible polygon,.market-tile:hover polygon:last-of-type { stroke:#fff4c7;stroke-width:2; }
-.market-tile text { pointer-events:none; }
-.market-piece { cursor:pointer;transition:transform .24s var(--ease-game); }
-.market-piece:hover { filter:brightness(1.15); }
-.market-piece:focus-visible { outline:2px solid #eebb74; }
-.board-legend { position:absolute;bottom:20px;left:0;right:0;display:flex;justify-content:center;gap:25px;font-size:10px;color:#a9c1b7; }
-.board-legend i { display:inline-block;width:7px;height:7px;margin-right:6px; }
+.market-node { cursor:pointer;outline:none;transition:transform .2s var(--ease-game),filter .2s var(--ease-game); }
+.market-node:hover { filter:brightness(1.15); }
+.market-node:focus-visible circle:nth-of-type(2) { stroke:#fff4c7;stroke-width:3; }
+.market-node text { pointer-events:none;user-select:none; }
+.board-legend { position:absolute;bottom:20px;left:0;right:0;display:flex;justify-content:center;gap:20px;font-size:10px;color:#a9c1b7; }
+.board-legend i { display:inline-block;width:8px;height:8px;margin-right:6px;vertical-align:middle;border-radius:50%; }
 .market-orders { width:300px;flex-shrink:0;padding:24px;background:#f1edde;color:#294747;overflow:auto; }
 .rival-identity { display:flex;gap:12px;align-items:center;margin-bottom:26px; }
 .rival-identity .character-portrait { width:48px;height:58px; }
@@ -339,19 +337,19 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .end-turn:disabled { opacity:.5; }
 .market-help { padding-top:25px;margin-top:24px;border-top:1px solid #bdcbb5;font-size:10px; }
 .market-help p { line-height:1.7;margin-top:7px;color:#7b8a72; }
-.market-results { height:100%;overflow:auto;background:#294247;display:grid;place-items:center;padding:24px; }
-.market-results article { width:min(650px,90vw);background:#f5efdf;padding:34px 58px;color:#2e4b43;box-shadow:0 24px 80px #102b383b;text-align:center;animation:workspace-in .4s var(--ease-game); }
-.result-mark { width:46px;margin:20px auto 14px;color:#b76a40; }
-.market-results h1 { font:37px var(--font-display);margin-bottom:8px; }
+.market-results { height:100%;overflow:auto;background:#294247;display:grid;place-items:center;padding:12px; }
+.market-results article { width:min(600px,92vw);background:#f5efdf;padding:18px 38px;color:#2e4b43;box-shadow:0 24px 80px #102b383b;text-align:center;animation:workspace-in .4s var(--ease-game); }
+.result-mark { width:32px;margin:6px auto 4px;color:#b76a40; }
+.market-results h1 { font:28px var(--font-display);margin-bottom:4px; }
 .market-results article>p { font-size:11px;color:#7e8b71; }
-.result-share { display:flex;flex-direction:column;margin:20px 0; }
-.result-share strong { font:61px var(--font-display); }
+.result-share { display:flex;flex-direction:column;margin:8px 0; }
+.result-share strong { font:46px var(--font-display); }
 .result-share span { text-transform:uppercase;letter-spacing:.15em;font-size:10px; }
-.result-ledger { border-top:2px solid #90a88a;border-bottom:1px solid #b4c4a8;margin:24px 0; }
-.result-ledger>div { display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid #d5dcc8;font-size:12px; }
+.result-ledger { border-top:2px solid #90a88a;border-bottom:1px solid #b4c4a8;margin:10px 0; }
+.result-ledger>div { display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #d5dcc8;font-size:11px; }
 .result-ledger>div:nth-child(5) { color:#3d7854;font-weight:600; }
-.result-note { margin:18px 0;line-height:1.6; }
-.market-results article>small { display:block;font-size:9px;margin-top:10px;color:#8a927d; }
+.result-note { margin:8px 0;line-height:1.4;font-size:10px; }
+.market-results article>small { display:block;font-size:9px;margin-top:4px;color:#8a927d; }
 .warning { color:#e4a880; }
 @keyframes workspace-in { from {opacity:0;transform:translateY(9px)} to {opacity:1;transform:translateY(0)} }
 @media(min-width:1600px) { .workspace {right:40px;width:1080px;top:120px;bottom:120px;} .mentor-card{width:340px;left:40px;bottom:125px;} .hud-bar{left:30px;right:30px;} }

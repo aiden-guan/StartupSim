@@ -6,7 +6,7 @@ import { reconcileTutorial, recordTutorialEvent, updateUnlocks } from "./tutoria
 import { setPause } from "./pause";
 import { specialProjects } from "../data/specialProjects";
 import { techById } from "../data/technologies";
-import { applyBattleResults } from "../market/battle";
+import { applyMarketEntryResults } from "../market/marketMap";
 import { applyEffects } from "./effects";
 import { allSatisfied, monthlyArr } from "./conditions";
 import { addDays, isMonthStart, isQuarterStart, isWeekStart, isYearStart } from "./date";
@@ -338,7 +338,7 @@ export function applyBattleToState(state: GameState): GameState {
   return produce(state, (draft) => {
     if (!draft.marketBattle) return;
     const r = rng(draft);
-    applyBattleResults(draft, draft.marketBattle, r);
+    applyMarketEntryResults(draft, draft.marketBattle, r);
     draft.marketBattle = null;
     setPause(draft, "market", false);
     setPause(draft, "results", true);

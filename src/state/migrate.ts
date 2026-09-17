@@ -63,7 +63,28 @@ export function migrateGameState(raw: GameState): GameState {
     state.pendingMentor = null;
     state.onboarding.slideIndex = 0;
   }
-  if (state.marketBattle) {
+  // Migrate legacy hex battle to clean ready product
+  if (state.marketBattle && !("nodes" in state.marketBattle)) {
+    const legacyPid = (state.marketBattle as any).productId;
+    const prod = state.products.find((p) => p.id === legacyPid);
+    if (prod && prod.status !== "active") {
+      prod.status = "ready";
+    }
+    state.marketBattle = null;
+    if (state.inbox) {
+      state.inbox.unshift({
+        id: `market-migration-${Date.now()}`,
+        at: { ...state.clock.date },
+        from: "Advisor",
+        subject: "Market Entry System Updated",
+        body: "Market entry system updated. Your product is ready to relaunch.",
+        read: false,
+        requiresResponse: false,
+      });
+    }
+  }
+
+  if (state.marketBattle && "nodes" in state.marketBattle) {
     state.onboarding.finished = [...new Set([...state.onboarding.finished,"intro","assign","clock","designer"])];
     if (state.pendingMentor !== "market") state.pendingMentor = null;
   }

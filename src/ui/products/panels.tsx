@@ -14,6 +14,47 @@ import { CharacterPortrait } from '../shared/CharacterPortrait';
 import { GameIcon } from '../shared/Icons';
 const STATS:LaunchStat[]=['deployment','capability','distribution'];
 const MODELS:BusinessModel[]=['free','freemium','subscription','usage','enterprise','api','ads'];
+
+function getLaunchProfile(levels: { deployment: number; capability: number; distribution: number }) {
+  const cap = levels.capability;
+  const dist = levels.distribution;
+  const scale = levels.deployment;
+
+  if (cap >= 2 && dist <= 1 && scale <= 1) {
+    return {
+      descriptor: "Niche Dominator",
+      notes: "Heavy conversion power for taking and defending high-value segments, but narrow reach.",
+    };
+  }
+  if (dist >= 2 && scale >= 2 && cap <= 1) {
+    return {
+      descriptor: "Viral Expansion",
+      notes: "Rapid network spread across low-resistance segments and hubs, but vulnerable in contested markets.",
+    };
+  }
+  if (cap >= 2 && dist >= 1 && scale >= 1) {
+    return {
+      descriptor: "Enterprise Wedge",
+      notes: "Strong product preference paired with enough reach to penetrate toward high-value enterprise accounts.",
+    };
+  }
+  if (cap >= 1 && dist >= 1 && scale >= 1) {
+    return {
+      descriptor: "Balanced Entry",
+      notes: "Flexible multi-segment foothold capable of expanding or reinforcing as competitor moves dictate.",
+    };
+  }
+  if (scale >= 2 && cap <= 1 && dist <= 1) {
+    return {
+      descriptor: "Broad Capacity",
+      notes: "High market load capacity, ready to sustain multiple segments once footholds are established.",
+    };
+  }
+  return {
+    descriptor: "Emerging Foothold",
+    notes: "Early configuration. Invest launch points to define product reach and market conversion power.",
+  };
+}
 export function TasksPanel({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch);
   const [showLab,setShowLab]=useState(game.tasks.length===0);
@@ -70,11 +111,18 @@ export function ProductsPanel({game}:{game:GameState}) {
         <div className="launch-points"><span>Launch points</span>{(['engineering','product','growth'] as const).map(k=><div key={k}><small>{k}</small><strong>{Math.floor(p.points[k])}</strong></div>)}</div>
         <div className="designer-grid" data-tutorial="designer">{STATS.map(stat=>{
           const reason=p.levels[stat]>=BALANCE.MAX_LAUNCH_LEVEL?'Maximum level':!canAffordStat(p,stat)?`Need ${Math.ceil(costs[stat])} ${requiredFor(stat).join(' + ')} points`:'';
-          const amount=p.levels[stat]+(stat==='capability'?2:1);
-          return <section key={stat} className="launch-stat" data-tutorial={`stat-${stat}`}><span className="eyebrow">{stat}</span><strong>{amount}<small>{stat==='deployment'?'pieces':stat==='capability'?'strength':'moves / turn'}</small></strong><p>{stat==='deployment'?'Cover more ground.':stat==='capability'?'Capture faster. Survive combat.':'Reach the valuable customers.'}</p><div className="stat-controls"><GameButton aria-label={`Refund ${stat}`} disabled={!p.levels[stat]} title={!p.levels[stat]?'No points invested':'Refund last upgrade'} onClick={()=>dispatch({type:'refundStat',productId:p.id,stat})}>−</GameButton><GameButton aria-label={`Increase ${stat}`} disabled={!!reason} title={reason||'Buy one upgrade'} onClick={()=>dispatch({type:'buyStat',productId:p.id,stat})}>+</GameButton></div><small className="stat-cost">{reason||`${Math.ceil(costs[stat])} ${requiredFor(stat).join(' + ')}`}</small></section>;
+          const amount=p.levels[stat]+(stat==='capability'?2:stat==='deployment'?4:1);
+          const statLabel=stat==='deployment'?'scale':stat;
+          const statUnit=stat==='deployment'?'load capacity':stat==='capability'?'conversion power':'network reach';
+          const statDesc=stat==='deployment'?'How much market load you can support without overextension penalty.':stat==='capability'?'How strongly customers convert and resist competitor pressure.':'How easily your product spreads between customer segments.';
+          return <section key={stat} className="launch-stat" data-tutorial={`stat-${stat}`}><span className="eyebrow">{statLabel}</span><strong>{amount}<small>{statUnit}</small></strong><p>{statDesc}</p><div className="stat-controls"><GameButton aria-label={`Refund ${statLabel}`} disabled={!p.levels[stat]} title={!p.levels[stat]?'No points invested':'Refund last upgrade'} onClick={()=>dispatch({type:'refundStat',productId:p.id,stat})}>−</GameButton><GameButton aria-label={`Increase ${statLabel}`} disabled={!!reason} title={reason||'Buy one upgrade'} onClick={()=>dispatch({type:'buyStat',productId:p.id,stat})}>+</GameButton></div><small className="stat-cost">{reason||`${Math.ceil(costs[stat])} ${requiredFor(stat).join(' + ')}`}</small></section>;
         })}</div>
+        {(()=>{
+          const prof=getLaunchProfile(p.levels);
+          return <div className="launch-profile" style={{padding:'12px 16px',background:'#ebf0e4',border:'1px solid #ced8c5',margin:'14px 0',borderRadius:3}}><span className="eyebrow" style={{fontSize:10,color:'#5a755d',textTransform:'uppercase',letterSpacing:'0.08em'}}>Launch Profile · <strong>{prof.descriptor}</strong></span><p style={{fontSize:11,margin:'4px 0 0',color:'#405345',lineHeight:1.5}}>{prof.notes}</p></div>;
+        })()}
         <div className="launch-options"><div><span className="eyebrow">Business model</span><div className="choice-row">{MODELS.map(model=><button key={model} aria-pressed={p.businessModel===model} onClick={()=>dispatch({type:'setBusinessModel',productId:p.id,model})}>{model}</button>)}</div></div><div><span className="eyebrow">Powered by</span><div className="choice-row">{models.filter(m=>game.ownedModels.includes(m.id)).map(m=><button key={m.id} aria-pressed={p.modelId===m.id} onClick={()=>dispatch({type:'setModel',productId:p.id,modelId:m.id})}>{m.name}</button>)}</div></div></div>
-        <footer className="launch-footer"><span>Company time pauses in the market.</span><GameButton tone="primary" data-tutorial="enter-market" disabled={game.onboarding.tutorialEnabled&&!game.company.seenMarket&&currentTutorialSlide(game)?.id!=='enter-market'} title={game.pendingMentor==='designer'&&currentTutorialSlide(game)?.id!=='enter-market'?'Finish configuring your first launch with the mentor':'Launch this product'} onClick={()=>dispatch({type:'enterMarket',productId:p.id})}>Enter market →</GameButton>{game.company.productsLaunched>=BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE&&<GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id})}>Delegate launch</GameButton>}</footer>
+        <footer className="launch-footer"><span>Company time pauses in the market.</span><GameButton tone="primary" data-tutorial="enter-market" disabled={game.onboarding.tutorialEnabled&&!game.company.seenMarket&&currentTutorialSlide(game)?.id!=='enter-market'} title={game.pendingMentor==='designer'&&currentTutorialSlide(game)?.id!=='enter-market'?'Finish configuring your first launch with the mentor':'Launch this product'} onClick={()=>dispatch({type:'enterMarket',productId:p.id})}>Enter market →</GameButton>{game.company.productsLaunched>=BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE&&<div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}><span className="eyebrow" style={{fontSize:10,margin:0}}>Delegate:</span><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'balanced'})} title="Delegate launch with balanced strategic weights">Balanced</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'aggressive'})} title="Delegate launch aggressively contesting rival hubs">Aggressive</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'niche'})} title="Delegate launch targeting high-value niche segments">Niche</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'expansion'})} title="Delegate launch expanding network reach">Expansion</GameButton></div>}</footer>
       </>:<><ProductEconomics product={p}/><footer className="launch-footer"><p>{p.description}</p>{p.status!=='deprecated'&&<GameButton tone="danger" onClick={()=>dispatch({type:'killProduct',productId:p.id})}>Sunset product</GameButton>}</footer></>}
     </article>;
   })}</div>;

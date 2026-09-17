@@ -156,7 +156,7 @@ describe('guided first company',()=>{
     expect(currentTutorialSlide(g)?.id).toBe('hire-open');
   });
 
-  it('restores market combat mid-battle with 100% fidelity on save and reload', () => {
+  it('restores market entry mid-session with 100% fidelity on save and reload', () => {
     const r = run(42);
     r.ready();
     const productId = r.game.products[0]!.id;
@@ -167,12 +167,11 @@ describe('guided first company',()=>{
     expect(r.game.marketBattle).not.toBeNull();
     for (let i = 0; i < 8; i++) r.next(); // clear mentor explanation slides
 
-    // Move player piece and capture
-    const playerPiece = r.game.marketBattle!.pieces.find(p => p.owner === 'player')!;
-    const initialMoves = playerPiece.moves;
-    r.send({ type: 'selectPiece', pieceId: playerPiece.id });
-    r.send({ type: 'marketCapture' });
-    expect(playerPiece.moves).toBeLessThanOrEqual(initialMoves);
+    // Select and expand into a market node
+    const sessionBefore = r.game.marketBattle!;
+    const targetNode = sessionBefore.nodes.find(n => n.id !== sessionBefore.playerBeachhead)!;
+    r.send({ type: 'selectMarketNode', nodeId: targetNode.id });
+    r.send({ type: 'marketAction', nodeId: targetNode.id, action: 'expand' });
 
     const battleBeforeSave = structuredClone(r.game.marketBattle!);
     const rawJson = exportSave(r.game);
@@ -183,27 +182,32 @@ describe('guided first company',()=>{
     expect(restored.marketBattle?.productId).toBe(battleBeforeSave.productId);
     expect(restored.marketBattle?.competitorId).toBe(battleBeforeSave.competitorId);
     expect(restored.marketBattle?.turnsLeft).toBe(battleBeforeSave.turnsLeft);
-    expect(restored.marketBattle?.selectedPieceId).toBe(battleBeforeSave.selectedPieceId);
+    expect(restored.marketBattle?.selectedNodeId).toBe(battleBeforeSave.selectedNodeId);
+    expect(restored.marketBattle?.playerBeachhead).toBe(battleBeforeSave.playerBeachhead);
+    expect(restored.marketBattle?.rivalBeachhead).toBe(battleBeforeSave.rivalBeachhead);
+    expect(restored.marketBattle?.playerScaleUsed).toBe(battleBeforeSave.playerScaleUsed);
+    expect(restored.marketBattle?.rivalScaleUsed).toBe(battleBeforeSave.rivalScaleUsed);
 
-    // Verify pieces fidelity (health, moves, position)
-    expect(restored.marketBattle?.pieces.length).toBe(battleBeforeSave.pieces.length);
-    for (let i = 0; i < battleBeforeSave.pieces.length; i++) {
-      const bPiece = battleBeforeSave.pieces[i]!;
-      const rPiece = restored.marketBattle!.pieces[i]!;
-      expect(rPiece.id).toBe(bPiece.id);
-      expect(rPiece.owner).toBe(bPiece.owner);
-      expect(rPiece.health).toBe(bPiece.health);
-      expect(rPiece.moves).toBe(bPiece.moves);
-      expect(rPiece.pos).toEqual(bPiece.pos);
+    // Verify node fidelity (influence, shares, dominance, isolation)
+    expect(restored.marketBattle?.nodes.length).toBe(battleBeforeSave.nodes.length);
+    for (let i = 0; i < battleBeforeSave.nodes.length; i++) {
+      const bNode = battleBeforeSave.nodes[i]!;
+      const rNode = restored.marketBattle!.nodes[i]!;
+      expect(rNode.id).toBe(bNode.id);
+      expect(rNode.playerInfluence).toBe(bNode.playerInfluence);
+      expect(rNode.rivalInfluence).toBe(bNode.rivalInfluence);
+      expect(rNode.playerShare).toBe(bNode.playerShare);
+      expect(rNode.rivalShare).toBe(bNode.rivalShare);
+      expect(rNode.playerDominated).toBe(bNode.playerDominated);
+      expect(rNode.rivalDominated).toBe(bNode.rivalDominated);
+      expect(rNode.playerIsolated).toBe(bNode.playerIsolated);
+      expect(rNode.rivalIsolated).toBe(bNode.rivalIsolated);
     }
 
-    // Verify tile claim fidelity
-    for (let i = 0; i < battleBeforeSave.tiles.length; i++) {
-      const bTile = battleBeforeSave.tiles[i]!;
-      const rTile = restored.marketBattle!.tiles[i]!;
-      expect(rTile.id).toBe(bTile.id);
-      expect(rTile.captured).toBe(bTile.captured);
-      expect(rTile.owner).toBe(bTile.owner);
+    // Verify edge fidelity
+    expect(restored.marketBattle?.edges.length).toBe(battleBeforeSave.edges.length);
+    for (let i = 0; i < battleBeforeSave.edges.length; i++) {
+      expect(restored.marketBattle!.edges[i]).toEqual(battleBeforeSave.edges[i]);
     }
   });
 

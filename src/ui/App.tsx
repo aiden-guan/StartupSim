@@ -20,6 +20,11 @@ import { RevealCaption } from "./onboarding/RevealCaption";
 import { SetupOverlay } from "./onboarding/SetupOverlay";
 import { TitleOverlay } from "./onboarding/TitleOverlay";
 import { audio } from "../audio/Audio";
+import { startMarketSession, applyMarketEntryResults } from "../market/marketMap";
+import { applyCommand } from "../simulation/commands";
+import { createNewGame } from "../simulation/newGame";
+import { createProduct } from "../simulation/products";
+import { Rng } from "../simulation/rng";
 
 function useTutorialCamera() {
   const pending = useGame((s) => s.game?.pendingMentor);
@@ -89,6 +94,25 @@ export function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("gallery") === "1") setGalleryOpen(true);
+    if (params.get("market") === "1") {
+      const g = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "reya", skipTutorial: true });
+      const p = createProduct(g, "code", "agent", new Rng(1));
+      p.levels = { deployment: 1, capability: 2, distribution: 1 };
+      p.status = "ready";
+      g.products.push(p);
+      const withMarket = applyCommand(g, { type: "enterMarket", productId: p.id });
+      if (withMarket) useGame.getState().loadGame(withMarket);
+    }
+    if (params.get("results") === "1") {
+      const g = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "reya", skipTutorial: true });
+      const p = createProduct(g, "code", "agent", new Rng(1));
+      p.levels = { deployment: 1, capability: 2, distribution: 1 };
+      p.status = "ready";
+      g.products.push(p);
+      const session = startMarketSession(g, p, new Rng(1));
+      applyMarketEntryResults(g, session, new Rng(1));
+      useGame.getState().loadGame(g);
+    }
     if (params.get("debug") === "1" || import.meta.env.DEV) {
       const onKey = (e: KeyboardEvent) => {
         if (e.key === "`") toggleDebug();

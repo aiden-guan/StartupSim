@@ -2,6 +2,7 @@ import { setPause } from "./pause";
 import type { TutorialAction } from "../data/onboarding";
 import { produce } from "immer";
 import { BALANCE } from "../config/balance";
+import { competitors as competitorDefs } from "../data/competitors";
 import { recruitingChannels } from "../data/recruiting";
 import { offices } from "../data/offices";
 import { perks } from "../data/perks";
@@ -13,7 +14,15 @@ import { locations } from "../data/locations";
 import { verticals } from "../data/verticals";
 import { models } from "../data/models";
 import { primitiveById } from "../data/primitives";
-import { aiTakeTurn, applyBattleResults, capture, movePiece, resetTurn, shouldEnd, startBattle, validMoves } from "../market/battle";
+import {
+  applyAction,
+  applyMarketEntryResults,
+  designCompetitorProductLevels,
+  executeRivalTurn,
+  getLegalMoves,
+  shouldEndSession,
+  startMarketSession,
+} from "../market/marketMap";
 import { applyEffects } from "./effects";
 import { monthlyArr } from "./conditions";
 import { generateEmployee } from "./names";
@@ -52,11 +61,15 @@ export type GameCommand =
   | { type: "setModel"; productId: string; modelId: string }
   | { type: "setBusinessModel"; productId: string; model: GameState["products"][0]["businessModel"] }
   | { type: "enterMarket"; productId: string }
+  | { type: "selectMarketNode"; nodeId: string | null }
+  | { type: "marketAction"; nodeId: string; action?: "expand" | "reinforce" }
+  | { type: "marketExpand"; nodeId: string }
+  | { type: "marketReinforce"; nodeId: string }
   | { type: "selectPiece"; pieceId: string | null }
   | { type: "marketMove"; dest: HexPos }
   | { type: "marketCapture" }
   | { type: "marketEndTurn" }
-  | { type: "delegateMarket"; productId: string }
+  | { type: "delegateMarket"; productId: string; strategy?: "balanced" | "aggressive" | "niche" | "expansion" }
   | { type: "recruit"; channelId: string }
   | { type: "hire"; candidateId: string; salary: number }
   | { type: "fire"; workerId: string }
@@ -213,66 +226,175 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         const p = draft.products.find((x) => x.id === command.productId);
         if (!p || p.status !== "ready" || draft.marketBattle || draft.marketResult) break;
         if (draft.onboarding.tutorialEnabled && !draft.company.seenMarket && currentTutorialSlide(draft)?.id !== "enter-market") break;
-        draft.marketBattle = startBattle(draft, p, r);
+        draft.marketBattle = startMarketSession(draft, p, r);
         setPause(draft, "productReady", false);
         setPause(draft, "market", true);
         recordTutorialEvent(draft, "enteredFirstMarket");
         break;
       }
-      case "selectPiece":
-        if (draft.marketBattle && !draft.pendingMentor && draft.marketBattle.pieces.some(p => p.id === command.pieceId && p.owner === "player")) {
-          draft.marketBattle.selectedPieceId = command.pieceId;
+      case "selectMarketNode": {
+        if (draft.marketBattle && !draft.pendingMentor) {
+          draft.marketBattle.selectedNodeId = command.nodeId;
           recordTutorialEvent(draft, "selectedMarketPiece");
         }
         break;
-      case "marketMove": {
+      }
+      case "selectPiece": {
+        if (draft.marketBattle && !draft.pendingMentor) {
+          draft.marketBattle.selectedNodeId = command.pieceId;
+          recordTutorialEvent(draft, "selectedMarketPiece");
+        }
+        break;
+      }
+      case "marketAction":
+      case "marketExpand":
+      case "marketReinforce": {
         const b = draft.marketBattle;
         if (!b || b.current !== "player" || draft.pendingMentor) break;
-        const piece = b.pieces.find((p) => p.id === b.selectedPieceId);
-        if (!piece || piece.owner !== "player") break;
-        if (movePiece(b, piece, command.dest, r) !== "illegal") recordTutorialEvent(draft, "movedMarketPiece");
-        break;
-      }
-      case "marketCapture": {
-        const b = draft.marketBattle;
-        if (!b || draft.pendingMentor || b.current !== "player") break;
-        const piece = b.pieces.find((p) => p.id === b.selectedPieceId);
-        if (piece?.owner === "player" && capture(b, piece)) recordTutorialEvent(draft, "capturedMarketTile");
-        break;
-      }
-      case "marketEndTurn": {
-        const b = draft.marketBattle;
-        if (!b || draft.pendingMentor || b.current !== "player") break;
+        const p = draft.products.find((x) => x.id === b.productId);
+        if (!p) break;
+
+        const targetId = command.nodeId;
+        const legal = getLegalMoves(b, "player", p.levels.distribution);
+        const isExpand = legal.expand.includes(targetId);
+        const isReinforce = legal.reinforce.includes(targetId);
+        if (!isExpand && !isReinforce) break;
+
+        const act = command.type === "marketExpand"
+          ? "expand"
+          : command.type === "marketReinforce"
+          ? "reinforce"
+          : (command.action ?? (isExpand ? "expand" : "reinforce"));
+
+        applyAction(b, targetId, "player", act, p.levels.capability, p.combo);
+        b.selectedNodeId = targetId;
+
         const finish = () => {
-          if (!shouldEnd(b)) return false;
-          applyBattleResults(draft, b, r);
+          if (!shouldEndSession(b)) return false;
+          applyMarketEntryResults(draft, b, r);
           draft.marketBattle = null;
           setPause(draft, "market", false);
           setPause(draft, "results", true);
           recordTutorialEvent(draft, "completedFirstMarket");
           return true;
         };
+
+        if (finish()) break;
+
+        // Rival counter-action
+        const compDef = competitorDefs.find((c) => c.id === b.competitorId);
+        const rivalLevels = designCompetitorProductLevels(p, b.firstMarket ? 0 : compDef?.difficulty ?? 1);
+        executeRivalTurn(b, r, rivalLevels);
+        b.turnsLeft -= 1;
+        b.turn += 1;
+
+        if (finish()) break;
+        break;
+      }
+      case "marketMove": {
+        const b = draft.marketBattle;
+        if (!b || b.current !== "player" || draft.pendingMentor) break;
+        recordTutorialEvent(draft, "movedMarketPiece");
+        break;
+      }
+      case "marketCapture": {
+        const b = draft.marketBattle;
+        if (!b || draft.pendingMentor || b.current !== "player") break;
+        const p = draft.products.find((x) => x.id === b.productId);
+        if (!p) break;
+        const legal = getLegalMoves(b, "player", p.levels.distribution);
+        const targetId = b.selectedNodeId && (legal.expand.includes(b.selectedNodeId) || legal.reinforce.includes(b.selectedNodeId))
+          ? b.selectedNodeId
+          : (legal.expand[0] ?? legal.reinforce[0]);
+        if (targetId) {
+          const act = legal.expand.includes(targetId) ? "expand" : "reinforce";
+          applyAction(b, targetId, "player", act, p.levels.capability, p.combo);
+          b.selectedNodeId = targetId;
+          recordTutorialEvent(draft, "capturedMarketTile");
+        }
+        break;
+      }
+      case "marketEndTurn": {
+        const b = draft.marketBattle;
+        if (!b || draft.pendingMentor || b.current !== "player") break;
+        const p = draft.products.find((x) => x.id === b.productId);
+        if (!p) break;
+
+        const finish = () => {
+          if (!shouldEndSession(b)) return false;
+          applyMarketEntryResults(draft, b, r);
+          draft.marketBattle = null;
+          setPause(draft, "market", false);
+          setPause(draft, "results", true);
+          recordTutorialEvent(draft, "completedFirstMarket");
+          return true;
+        };
+
         if (finish()) break;
         recordTutorialEvent(draft, "endedMarketTurn");
+
+        const compDef = competitorDefs.find((c) => c.id === b.competitorId);
+        const rivalLevels = designCompetitorProductLevels(p, b.firstMarket ? 0 : compDef?.difficulty ?? 1);
+        executeRivalTurn(b, r, rivalLevels);
         b.turnsLeft -= 1;
-        resetTurn(b, "ai");
-        aiTakeTurn(b, r);
+        b.turn += 1;
+
         if (finish()) break;
-        resetTurn(b, "player");
         break;
       }
       case "delegateMarket": {
         const p = draft.products.find((x) => x.id === command.productId);
         if (!p || p.status !== "ready") break;
         if (draft.company.productsLaunched < BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE) break;
-        const share = r.float(18, 55);
-        p.marketShare = share;
-        p.status = "active";
-        p.weeklyRevenue = 4000 * (p.difficulty / 2) * (share / 30);
-        p.weeklyInference = p.weeklyRevenue * 0.35;
-        p.users = 2000 * (share / 20);
-        draft.company.productsLaunched += 1;
-        draft.stats.productsLaunched += 1;
+        const session = startMarketSession(draft, p, r);
+        const compDef = competitorDefs.find((c) => c.id === session.competitorId);
+        const rivalLevels = designCompetitorProductLevels(p, compDef?.difficulty ?? 1);
+        for (let t = 0; t < session.maxTurns; t++) {
+          if (shouldEndSession(session)) break;
+          const pMoves = getLegalMoves(session, "player", p.levels.distribution);
+          const allPMoves = [
+            ...pMoves.expand.map((id) => ({ action: "expand" as const, nodeId: id })),
+            ...pMoves.reinforce.map((id) => ({ action: "reinforce" as const, nodeId: id })),
+          ];
+          const strategy = command.strategy ?? "balanced";
+          if (allPMoves.length) {
+            allPMoves.sort((a, b) => {
+              const na = session.nodes.find((n) => n.id === a.nodeId)!;
+              const nb = session.nodes.find((n) => n.id === b.nodeId)!;
+              let scoreA = na.value * 2 - na.resistance;
+              let scoreB = nb.value * 2 - nb.resistance;
+              if (strategy === "aggressive") {
+                if (na.rivalShare > 0) scoreA += 4;
+                if (nb.rivalShare > 0) scoreB += 4;
+                if (a.action === "reinforce") scoreA += 2;
+                if (b.action === "reinforce") scoreB += 2;
+              } else if (strategy === "niche") {
+                scoreA = na.value * 3;
+                scoreB = nb.value * 3;
+                if (a.action === "reinforce") scoreA += 3;
+                if (b.action === "reinforce") scoreB += 3;
+              } else if (strategy === "expansion") {
+                if (a.action === "expand") scoreA += 5;
+                if (b.action === "expand") scoreB += 5;
+                scoreA -= na.resistance * 2;
+                scoreB -= nb.resistance * 2;
+              } else {
+                if (na.playerShare >= 40) scoreA += 1;
+                if (nb.playerShare >= 40) scoreB += 1;
+              }
+              return scoreB - scoreA;
+            });
+            const chosen = allPMoves[0]!;
+            applyAction(session, chosen.nodeId, "player", chosen.action, p.levels.capability, p.combo);
+          }
+          if (shouldEndSession(session)) break;
+          executeRivalTurn(session, r, rivalLevels);
+          session.turnsLeft -= 1;
+          session.turn += 1;
+        }
+        applyMarketEntryResults(draft, session, r);
+        setPause(draft, "market", false);
+        setPause(draft, "results", true);
         break;
       }
       case "recruit": {
@@ -633,12 +755,15 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
 
 const onboardingSteps = ["intro", "assign", "clock", "designer", "market", "hire", "research", "compute", "funding"];
 
-export function legalMarketMoves(state: GameState): HexPos[] {
+export function legalMarketNodes(state: GameState): { expand: string[]; reinforce: string[] } {
   const b = state.marketBattle;
-  if (!b?.selectedPieceId) return [];
-  const piece = b.pieces.find((p) => p.id === b.selectedPieceId);
-  if (!piece) return [];
-  return validMoves(b, piece);
+  if (!b) return { expand: [], reinforce: [] };
+  const p = state.products.find((x) => x.id === b.productId);
+  return getLegalMoves(b, "player", p?.levels.distribution ?? 0);
+}
+
+export function legalMarketMoves(_state: GameState): HexPos[] {
+  return [];
 }
 
 export { employeeScore };

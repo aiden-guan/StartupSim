@@ -23,12 +23,13 @@ describe("headless year", () => {
     g = applyCommand(g, { type: "buyStat", productId, stat: "distribution" })!;
     g = applyCommand(g, { type: "enterMarket", productId })!;
     for (let i = 0; i < 14 && g.marketBattle; i++) {
-      const piece = g.marketBattle.pieces.find((p) => p.owner === "player" && p.moves > 0);
-      if (piece) {
-        g = applyCommand(g, { type: "selectPiece", pieceId: piece.id })!;
-        g = applyCommand(g, { type: "marketCapture" })!;
+      const node = g.marketBattle.nodes.find((n) => n.id === g.marketBattle!.selectedNodeId) || g.marketBattle.nodes[0];
+      if (node) {
+        g = applyCommand(g, { type: "selectMarketNode", nodeId: node.id })!;
+        g = applyCommand(g, { type: "marketReinforce", nodeId: node.id })!;
+      } else {
+        g = applyCommand(g, { type: "marketEndTurn" })!;
       }
-      g = applyCommand(g, { type: "marketEndTurn" })!;
     }
     expect(g.marketBattle).toBeNull();
     expect(g.products[0]?.status).toBe("active");
