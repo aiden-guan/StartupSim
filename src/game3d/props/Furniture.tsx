@@ -194,7 +194,7 @@ export function BookStack({ position }: Position) {
   ];
 
   return (
-    <group position={position}>
+    <group position={position} rotation={[0, 1.35, 0]}>
       {books.map((book, i) => {
         const spineTex = getBookSpineTexture(book.spine, book.color, book.textColor);
         return (

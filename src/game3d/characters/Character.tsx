@@ -121,7 +121,7 @@ export function Character({
       ))}
 
       {/* Hip / Waist */}
-      <Bevel position={[0, 0.725, 0]} size={[0.405, 0.10, 0.245]} radius={0.035} color={robot ? '#e6e9e8' : look.pants} />
+      <Bevel position={[0, 0.725, 0]} size={[0.405, 0.1, 0.245]} radius={0.035} color={robot ? '#e6e9e8' : look.pants} />
 
       {/* Torso */}
       <Bevel position={[0, 0.984, 0]} size={[robot ? 0.51 : 0.455, robot ? 0.49 : 0.55, robot ? 0.32 : 0.28]} radius={0.075} color={robot ? '#ecefeb' : cloth} taper={0.27} />
@@ -145,8 +145,8 @@ export function Character({
                 [-1, 1].map((side) => (
                   <Bevel
                     key={side}
-                    position={[side * 0.038, 1.205, 0.088]}
-                    rotation={[0, 0, side * 0.35]}
+                    position={[side * 0.038, 1.205, 0.146]}
+                    rotation={[-0.15, 0, side * 0.38]}
                     size={[0.042, 0.06, 0.01]}
                     color="#b0c8e8"
                     radius={0.003}
@@ -156,7 +156,7 @@ export function Character({
               {[-1, 1].map((side) => (
                 <Bevel
                   key={side}
-                  position={[side * 0.088, 1.10, 0.148]}
+                  position={[side * 0.088, 1.1, 0.148]}
                   rotation={[0, 0, side * -0.22]}
                   size={[0.078, 0.22, 0.012]}
                   radius={0.006}
@@ -180,9 +180,9 @@ export function Character({
                   {[-1, 1].map((side) => (
                     <Bevel
                       key={side}
-                      position={[side * 0.042, 1.205, 0.088]}
-                      rotation={[0, 0, side * 0.35]}
-                      size={[0.045, 0.065, 0.012]}
+                      position={[side * 0.038, 1.205, 0.135]}
+                      rotation={[-0.15, 0, side * 0.38]}
+                      size={[0.046, 0.068, 0.012]}
                       color="#ffffff"
                       radius={0.004}
                     />
@@ -290,7 +290,7 @@ export function Character({
                 {look.hairStyle === 'balding' || look.beardColor === '#8c929a' ? (
                   /* Steve Jobs: Stubble goatee framing mouth & chin */
                   <>
-                    <Bevel position={[0, -0.165, 0.17]} size={[0.13, 0.075, 0.05]} radius={0.018} color={look.beardColor ?? look.hair} />
+                    <Bevel position={[0, -0.165, 0.185]} size={[0.13, 0.075, 0.05]} radius={0.018} color={look.beardColor ?? look.hair} />
                     <Bevel position={[0, -0.086, 0.201]} size={[0.095, 0.015, 0.008]} radius={0.003} color={look.beardColor ?? look.hair} />
                     {[-1, 1].map((side) => (
                       <Bevel key={side} position={[side * 0.058, -0.125, 0.19]} size={[0.016, 0.065, 0.008]} radius={0.003} color={look.beardColor ?? look.hair} />
@@ -299,9 +299,9 @@ export function Character({
                 ) : (
                   /* Reed Hastings & general full beard: jawline, chin, mustache */
                   <>
-                    <Bevel position={[0, -0.165, 0.165]} size={[0.22, 0.085, 0.09]} radius={0.025} color={look.beardColor ?? look.hair} />
+                    <Bevel position={[0, -0.165, 0.175]} size={[0.22, 0.085, 0.08]} radius={0.025} color={look.beardColor ?? look.hair} />
                     {[-1, 1].map((side) => (
-                      <Bevel key={side} position={[side * 0.135, -0.13, 0.08]} size={[0.075, 0.08, 0.18]} radius={0.022} color={look.beardColor ?? look.hair} />
+                      <Bevel key={side} position={[side * 0.212, -0.135, 0.04]} size={[0.032, 0.09, 0.26]} radius={0.016} color={look.beardColor ?? look.hair} />
                     ))}
                     <Bevel position={[0, -0.082, 0.201]} size={[0.125, 0.018, 0.008]} radius={0.003} color={look.beardColor ?? look.hair} />
                   </>

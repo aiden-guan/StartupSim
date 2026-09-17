@@ -18,7 +18,7 @@ export function HairMesh({ style, color }: { style: HairStyle; color: string }) 
         const x = Math.sin(angle);
         const width = ring === 2 ? 0.13 : 0.228;
         const depth = ring === 2 ? 0.12 : 0.208;
-        const hairline = front > 0.5 ? 0.105 : front < -0.5 ? -0.115 : -0.055;
+        const hairline = style === 'swept' ? (front > 0.3 ? 0.165 : front < -0.5 ? -0.115 : -0.055) : (front > 0.3 ? 0.138 : front < -0.5 ? -0.115 : -0.055);
         const y = ring === 0 ? hairline : ring === 1 ? (short ? 0.195 : 0.215) : short ? 0.235 : 0.285;
         vertices.push(x * width + (ring === 2 && style === 'swept' ? -0.02 : 0), y, front * depth - 0.012);
       }
@@ -49,22 +49,20 @@ export function HairMesh({ style, color }: { style: HairStyle; color: string }) 
 
     // 9 points wrapping from right temple -> right ear -> back -> left ear -> left temple
     const arcPoints = [
-      { x: 0.225, z: 0.05, topY: 0.04, botY: -0.08 },   // right temple
-      { x: 0.228, z: -0.04, topY: 0.08, botY: -0.11 },  // right ear
-      { x: 0.218, z: -0.12, topY: 0.09, botY: -0.13 },  // right ear back
-      { x: 0.170, z: -0.19, topY: 0.095, botY: -0.135 },// right nape corner
-      { x: 0.0,   z: -0.208, topY: 0.095, botY: -0.135 },// center nape
-      { x: -0.170, z: -0.19, topY: 0.095, botY: -0.135 },// left nape corner
-      { x: -0.218, z: -0.12, topY: 0.09, botY: -0.13 }, // left ear back
-      { x: -0.228, z: -0.04, topY: 0.08, botY: -0.11 }, // left ear
-      { x: -0.225, z: 0.05, topY: 0.04, botY: -0.08 },  // left temple
+      { x: 0.225, z: 0.05, topY: 0.04, botY: -0.08 },
+      { x: 0.228, z: -0.04, topY: 0.08, botY: -0.11 },
+      { x: 0.218, z: -0.12, topY: 0.09, botY: -0.13 },
+      { x: 0.17, z: -0.19, topY: 0.095, botY: -0.135 },
+      { x: 0.0, z: -0.208, topY: 0.095, botY: -0.135 },
+      { x: -0.17, z: -0.19, topY: 0.095, botY: -0.135 },
+      { x: -0.218, z: -0.12, topY: 0.09, botY: -0.13 },
+      { x: -0.228, z: -0.04, topY: 0.08, botY: -0.11 },
+      { x: -0.225, z: 0.05, topY: 0.04, botY: -0.08 },
     ];
 
     arcPoints.forEach((p) => {
-      // Inner vertex against skull
       vertices.push(p.x, p.topY, p.z);
       vertices.push(p.x, p.botY, p.z);
-      // Outer vertex with slight hair thickness
       const normLen = Math.hypot(p.x, p.z) || 1;
       const ox = p.x + (p.x / normLen) * 0.016;
       const oz = p.z + (p.z / normLen) * 0.016;
@@ -75,13 +73,10 @@ export function HairMesh({ style, color }: { style: HairStyle; color: string }) 
     for (let i = 0; i < arcPoints.length - 1; i++) {
       const b = i * 4;
       const n = (i + 1) * 4;
-      // Outer quad
       indices.push(b + 2, n + 2, b + 3);
       indices.push(n + 2, n + 3, b + 3);
-      // Top quad
       indices.push(b, n, b + 2);
       indices.push(n, n + 2, b + 2);
-      // Bottom quad
       indices.push(b + 1, b + 3, n + 1);
       indices.push(n + 1, b + 3, n + 3);
     }
@@ -100,9 +95,9 @@ export function HairMesh({ style, color }: { style: HairStyle; color: string }) 
     return (
       <group>
         {/* Upper knit dome fitting head closely */}
-        <Bevel position={[0, 0.165, -0.01]} size={[0.455, 0.25, 0.405]} color={color} radius={0.11} />
+        <Bevel position={[0, 0.155, -0.005]} size={[0.455, 0.27, 0.405]} color={color} radius={0.11} />
         {/* Folded knit cuff hugging forehead and ears (no protruding brim) */}
-        <Bevel position={[0, 0.065, 0]} size={[0.468, 0.085, 0.418]} color={color} radius={0.035} />
+        <Bevel position={[0, 0.055, 0]} size={[0.462, 0.075, 0.412]} color={color} radius={0.03} />
       </group>
     );
   }
@@ -130,9 +125,9 @@ export function HairMesh({ style, color }: { style: HairStyle; color: string }) 
       {/* Swept silver hair (Jensen Huang style) */}
       {style === 'swept' && (
         <>
-          {/* Smooth swept-back pompadour volume */}
-          <Bevel position={[0, 0.24, -0.01]} rotation={[-0.14, 0, 0]} size={[0.41, 0.14, 0.35]} radius={0.042} color={color} />
-          <Bevel position={[0, 0.21, 0.07]} rotation={[-0.12, 0, 0]} size={[0.39, 0.10, 0.22]} radius={0.035} color={color} />
+          {/* Smooth swept-back volume lifting at hairline and flowing back */}
+          <Bevel position={[0, 0.245, -0.02]} rotation={[-0.1, 0, 0]} size={[0.41, 0.14, 0.35]} radius={0.042} color={color} />
+          <Bevel position={[0, 0.22, 0.04]} rotation={[0.1, 0, 0]} size={[0.39, 0.11, 0.22]} radius={0.038} color={color} />
           {[-1, 1].map((side) => (
             <Bevel key={side} position={[side * 0.215, 0.07, -0.01]} size={[0.024, 0.18, 0.36]} radius={0.015} color={color} />
           ))}
@@ -142,9 +137,8 @@ export function HairMesh({ style, color }: { style: HairStyle; color: string }) 
       {/* Side-part with neat fringe (Bill Gates style) */}
       {style === 'side-part' && (
         <>
-          {/* Neat side part on left with angled fringe across forehead */}
-          <Bevel position={[-0.04, 0.20, 0.08]} rotation={[0.04, 0, -0.12]} size={[0.34, 0.11, 0.24]} radius={0.035} color={color} />
-          <Bevel position={[0.12, 0.17, 0.08]} rotation={[0.06, 0, 0.14]} size={[0.16, 0.10, 0.22]} radius={0.03} color={color} />
+          <Bevel position={[-0.04, 0.2, 0.08]} rotation={[0.04, 0, -0.12]} size={[0.34, 0.11, 0.24]} radius={0.035} color={color} />
+          <Bevel position={[0.12, 0.17, 0.08]} rotation={[0.06, 0, 0.14]} size={[0.16, 0.1, 0.22]} radius={0.03} color={color} />
           {[-1, 1].map((side) => (
             <Bevel key={side} position={[side * 0.215, 0.07, -0.01]} size={[0.024, 0.18, 0.36]} radius={0.015} color={color} />
           ))}
@@ -154,9 +148,8 @@ export function HairMesh({ style, color }: { style: HairStyle; color: string }) 
       {/* Quiff / pompadour front (Elon Musk style) */}
       {style === 'messy' && (
         <>
-          {/* Front quiff swept up and back smoothly */}
-          <Bevel position={[0, 0.23, 0.08]} rotation={[-0.15, 0, 0]} size={[0.36, 0.12, 0.24]} radius={0.038} color={color} />
-          <Bevel position={[0.03, 0.25, -0.04]} rotation={[-0.08, 0.05, 0.05]} size={[0.32, 0.10, 0.26]} radius={0.03} color={color} />
+          <Bevel position={[0, 0.23, 0.07]} rotation={[0.08, 0, 0]} size={[0.36, 0.12, 0.24]} radius={0.038} color={color} />
+          <Bevel position={[0.03, 0.25, -0.04]} rotation={[-0.08, 0.05, 0.05]} size={[0.32, 0.1, 0.26]} radius={0.03} color={color} />
           {[-1, 1].map((side) => (
             <Bevel key={side} position={[side * 0.215, 0.07, -0.01]} size={[0.024, 0.18, 0.36]} radius={0.015} color={color} />
           ))}
@@ -166,24 +159,20 @@ export function HairMesh({ style, color }: { style: HairStyle; color: string }) 
       {/* Mark Zuckerberg & Sam Altman: Cohesive, stylish low-poly curly volume */}
       {curly && (
         <group>
-          {/* Temples and side coverage */}
           {[-1, 1].map((side) => (
             <Bevel key={side} position={[side * 0.216, 0.06, -0.01]} size={[0.028, 0.19, 0.37]} radius={0.016} color={color} />
           ))}
-          {/* Back of head coverage */}
           <Bevel position={[0, 0.04, -0.198]} size={[0.42, 0.21, 0.028]} radius={0.016} color={color} />
-          {/* Sculpted crown volume */}
           <Bevel position={[0, 0.22, -0.01]} size={[0.42, 0.13, 0.37]} radius={0.045} color={color} />
-          {/* Integrated curly facet clusters */}
           {[
-            { x: -0.12, y: 0.23, z: 0.08, s: 0.10 },
-            { x: 0.0,   y: 0.24, z: 0.09, s: 0.11 },
-            { x: 0.12,  y: 0.23, z: 0.08, s: 0.10 },
+            { x: -0.12, y: 0.23, z: 0.08, s: 0.1 },
+            { x: 0.0, y: 0.24, z: 0.09, s: 0.11 },
+            { x: 0.12, y: 0.23, z: 0.08, s: 0.1 },
             { x: -0.14, y: 0.24, z: -0.03, s: 0.105 },
-            { x: 0.0,   y: 0.25, z: -0.02, s: 0.115 },
-            { x: 0.14,  y: 0.24, z: -0.03, s: 0.105 },
-            { x: -0.10, y: 0.22, z: -0.13, s: 0.10 },
-            { x: 0.08,  y: 0.22, z: -0.13, s: 0.10 },
+            { x: 0.0, y: 0.25, z: -0.02, s: 0.115 },
+            { x: 0.14, y: 0.24, z: -0.03, s: 0.105 },
+            { x: -0.1, y: 0.22, z: -0.13, s: 0.1 },
+            { x: 0.08, y: 0.22, z: -0.13, s: 0.1 },
           ].map((c, i) => (
             <mesh key={i} position={[c.x, c.y, c.z]} scale={[c.s, c.s * 0.82, c.s]} rotation={[0.1, i * 0.65, 0.05]} castShadow>
               <icosahedronGeometry args={[1, 0]} />
