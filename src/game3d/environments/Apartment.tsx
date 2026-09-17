@@ -4,10 +4,12 @@ import { BookStack, BrandSign, CardboardBox, Chair, CoffeeMachine, Couch, Desk, 
 import { PerkSet } from '../props/PerkSet';
 import type { CompanyBrand } from '../../simulation/types';
 import { apartmentLayout } from '../navigation/layout';
+import { assetUrl, KitOrGltf } from '../assets/useKitOrGltf';
 
 export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeCount=2}:{onObject:(id:string)=>void;perks?:{id:string;level:number}[];brand:CompanyBrand;standingDesks?:boolean;employeeCount?:number}) {
   const desktop=standingDesks?.99:.78;
   return <group>
+    <KitOrGltf id="env_apartment_shell" path={assetUrl('environments','env_apartment_shell.glb')} fallback={<group>
     <Bevel position={[0,-.15,0]} size={[12.2,.29,10.2]} color="#d7c0a2" radius={.08}/>
     {Array.from({length:17},(_,i)=><Bevel key={i} position={[i*.71-5.68,.002,0]} size={[.012,.004,10]} color="#c8b093" radius={.001}/>)}
     <Bevel position={[0,1.4,-5]} size={[12.2,2.8,.15]} color="#eeebe1" radius={.016}/>
@@ -21,6 +23,7 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
       <Bevel position={[0,0,.059]} size={[2.59,.065,.034]} color="#faf7ef" radius={.007}/>
       <Bevel position={[0,-.82,.094]} size={[2.86,.065,.29]} color="#ede6d7" radius={.013}/>
     </group>
+    </group>}/>
     <BrandSign position={[-1.5,2.12,-4.88]} color={brand.color} mark={brand.mark} width={1.6}/>
     {apartmentLayout.points.filter(p=>p.kind==='desk').slice(0,employeeCount).map((point,i)=>{
       const [x,,z]=point.position;

@@ -13,7 +13,7 @@ export function OfficeLighting({
   return (
     <>
       <color attach="background" args={[late ? "#b8c2c0" : cool ? "#c5d0c4" : "#e8e9e4"]} />
-      <fog attach="fog" args={[late ? "#b8c2c0" : cool ? "#c5d0c4" : "#e8e9e4", quality === "high" ? 28 : 40, quality === "low" ? 80 : 60]} />
+      <fog attach="fog" args={[late ? "#b8c2c0" : cool ? "#c5d0c4" : "#e8e9e4", level>=5?160:level>=4?110:level>=3?70:quality === "high" ? 28 : 40, level>=5?320:level>=4?220:level>=3?140:quality === "low" ? 80 : 60]} />
       <hemisphereLight args={[cool ? "#e8eef2" : "#fffdf7", cool ? "#6d7788" : "#a0a9b3", 1.25]} />
       <ambientLight intensity={0.45} />
       <directionalLight
@@ -22,10 +22,10 @@ export function OfficeLighting({
         color={cool ? "#f2f5f7" : "#fff9ef"}
         castShadow={shadows}
         shadow-mapSize={quality === "high" ? 2048 : 1024}
-        shadow-camera-left={-20} shadow-camera-right={20} shadow-camera-top={20} shadow-camera-bottom={-20} shadow-camera-far={60} shadow-normalBias={0.035} shadow-bias={-0.00015} shadow-radius={3}
+        shadow-camera-left={level>=5?-52:level>=4?-36:-20} shadow-camera-right={level>=5?52:level>=4?36:20} shadow-camera-top={level>=5?52:level>=4?36:20} shadow-camera-bottom={level>=5?-52:level>=4?-36:-20} shadow-camera-far={level>=5?145:level>=4?100:60} shadow-normalBias={0.035} shadow-bias={-0.00015} shadow-radius={3}
       />
       {level <= 1 ? <pointLight position={[4.4, 1.6, -3.2]} intensity={0.45} distance={7} color="#ffd9a8" /> : null}
-      {quality !== "low" && level > 0 ? <ContactShadows opacity={0.35} scale={level >= 3 ? 40 : 16} blur={2.2} far={8} /> : null}
+      {quality !== "low" && level > 0 && level<=3 ? <ContactShadows opacity={0.35} scale={level >= 3 ? 44 : 16} blur={2.2} far={8} /> : null}
     </>
   );
 }

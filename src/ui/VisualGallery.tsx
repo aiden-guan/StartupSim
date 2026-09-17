@@ -28,6 +28,18 @@ import {
 } from '../game3d/props/Furniture';
 import type { ComponentType } from 'react';
 import type { Vector3Tuple } from 'three';
+import { ChipBench, CoolingUnit, GpuShippingBox, ServerRackBank, ComputeStatusWall } from '../game3d/props/ComputeProps';
+import { ResearchBench, RobotArm } from '../game3d/props/ResearchProps';
+import { ChargingDock, GeneralRobot, RobotPrototype } from '../game3d/props/RoboticsProps';
+import { AgentTerminal, AutonomyStatusWall } from '../game3d/props/AutonomyProps';
+import { BadgeReader, MedicalCart, PressCamera } from '../game3d/props/VerticalProps';
+import { selectWorldView } from '../game3d/selectWorldView';
+import { createEnvironmentPreviewGame } from '../game3d/environment/devEnvironmentPreview';
+import { Apartment } from '../game3d/environments/Apartment';
+import { CampusOffice, GarageOffice, HQOffice, MegaCampus, ResearchLab } from '../game3d/environments/Offices';
+import { DynamicEnvironment } from '../game3d/environment/DynamicEnvironment';
+import { layoutFor } from '../game3d/navigation/layout';
+import { offices } from '../data/offices';
 
 const assets: { name: string; component: ComponentType<{ position: Vector3Tuple }>; offset?: number }[] = [
   { name: 'Laptop', component: Laptop },
@@ -50,24 +62,58 @@ const assets: { name: string; component: ComponentType<{ position: Vector3Tuple 
   { name: 'Robot assistant', component: RobotAssistant },
   { name: 'Coffee mug', component: Mug, offset: 0.06 },
   { name: 'Fridge', component: Fridge, offset: 0.67 },
+  { name: 'GPU box', component: GpuShippingBox },
+  { name: 'Rack bank', component: ServerRackBank },
+  { name: 'Cooling unit', component: CoolingUnit },
+  { name: 'Chip bench', component: ChipBench },
+  { name: 'Research bench', component: ResearchBench },
+  { name: 'Robot prototype', component: RobotPrototype },
+  { name: 'General robot', component: GeneralRobot },
+  { name: 'Charging dock', component: ChargingDock },
+  { name: 'Robot arm', component: RobotArm },
+  { name: 'Agent terminal', component: AgentTerminal },
+  { name: 'Status wall', component: AutonomyStatusWall },
+  { name: 'Compute status', component: ComputeStatusWall },
+  { name: 'Press camera', component: PressCamera },
+  { name: 'Badge reader', component: BadgeReader },
+  { name: 'Medical cart', component: MedicalCart },
 ];
 
-function Framing({ propsMode }: { propsMode: boolean }) {
+function previewState(level:number) {
+  return selectWorldView(createEnvironmentPreviewGame(level));
+}
+
+function EnvironmentPreview({level}:{level:number}) {
+  const view=previewState(level);
+  const props={onObject:()=>undefined,perks:view.perks,brand:view.brand,visual:view.environment,quality:'medium' as const};
+  const shell=level===0?<Apartment onObject={()=>undefined} brand={view.brand} employeeCount={view.environment.employeeCount}/>:level===1?<GarageOffice {...props}/>:level===2?<HQOffice {...props}/>:level===3?<ResearchLab {...props}/>:level===4?<CampusOffice {...props}/>:<MegaCampus {...props}/>;
+  return <>{shell}<DynamicEnvironment state={view.environment} quality="medium"/></>;
+}
+
+function Framing({ mode, level }: { mode:'characters'|'props'|'environments';level:number }) {
   const { camera } = useThree();
   useLayoutEffect(() => {
-    camera.position.set(propsMode ? 3.2 : 0, propsMode ? 2.5 : 1.95, propsMode ? 4.2 : 5.1);
-    camera.lookAt(0, propsMode ? 0.65 : 0.92, 0);
-  }, [camera, propsMode]);
+    if(mode==='environments') {
+      const layout=layoutFor(level);
+      camera.position.set(...layout.camera.overview.map(n=>n*1.28) as Vector3Tuple);
+      camera.lookAt(...layout.camera.target);
+      camera.far=500;camera.updateProjectionMatrix();
+    } else {
+      camera.position.set(mode==='props'?3.2:0,mode==='props'?2.5:1.95,mode==='props'?4.2:5.1);
+      camera.lookAt(0,mode==='props'?.65:.92,0);
+    }
+  }, [camera, mode, level]);
   return null;
 }
 
 export function VisualGallery() {
-  const [mode, setMode] = useState<'characters' | 'props'>('characters');
+  const [mode, setMode] = useState<'characters' | 'props' | 'environments'>('characters');
   const [index, setIndex] = useState(0);
   const propsMode = mode === 'props';
   const person = referenceLooks[index % referenceLooks.length]!;
   const asset = assets[index % assets.length]!;
   const Asset = asset.component;
+  const environmentMode=mode==='environments';
 
   return (
     <main className="asset-studio">
@@ -80,16 +126,19 @@ export function VisualGallery() {
       </header>
       <aside>
         <div className="studio-tabs">
-          <button aria-pressed={!propsMode} onClick={() => { setMode('characters'); setIndex(0); }}>
+          <button aria-pressed={mode==='characters'} onClick={() => { setMode('characters'); setIndex(0); }}>
             8 Founder characters
           </button>
           <button aria-pressed={propsMode} onClick={() => { setMode('props'); setIndex(0); }}>
             Office props ({assets.length})
           </button>
+          {import.meta.env.DEV&&<button aria-pressed={environmentMode} onClick={() => { setMode('environments'); setIndex(0); }}>
+            Environment preview
+          </button>}
         </div>
         <p>Matte materials. Clean geometry. Consistent proportions.</p>
         <div className="studio-options">
-          {(propsMode ? assets : referenceLooks).map((item, i) => (
+          {(environmentMode?offices:propsMode ? assets : referenceLooks).map((item, i) => (
             <button key={item.name} aria-pressed={index === i} onClick={() => setIndex(i)}>
               <small>{String(i + 1).padStart(2, '0')}</small>
               <div className="text-left">
@@ -112,8 +161,8 @@ export function VisualGallery() {
             shadow-mapSize={2048}
             shadow-normalBias={0.025}
           />
-          <Framing propsMode={propsMode} />
-          {propsMode ? (
+          <Framing mode={mode} level={index%offices.length}/>
+          {environmentMode?<EnvironmentPreview level={index%offices.length}/> : propsMode ? (
             <Asset position={[0, asset.offset ?? 0, 0]} />
           ) : (
             <>
@@ -125,14 +174,15 @@ export function VisualGallery() {
               </group>
             </>
           )}
-          <ContactShadows opacity={0.28} scale={8} blur={2.8} far={3} resolution={512} />
+          {!environmentMode&&<ContactShadows opacity={0.28} scale={8} blur={2.8} far={3} resolution={512} />}
         </Canvas>
         <div className="studio-caption">
-          <span className="eyebrow">{propsMode ? 'Office things' : `${person.role} • Front / 3/4`}</span>
-          <h2>{propsMode ? asset.name : `${person.name} — ${person.role}`}</h2>
+          <span className="eyebrow">{environmentMode?'DEV ONLY • progression preview':propsMode ? 'Office things' : `${person.role} • Front / 3/4`}</span>
+          <h2>{environmentMode?offices[index%offices.length]!.name:propsMode ? asset.name : `${person.name} — ${person.role}`}</h2>
           <p>
             {propsMode
               ? 'Simple shapes. Clear silhouettes. Consistent style. Built from the same palette.'
+              : environmentMode ? 'A derived visual fixture for reviewing scale and company progression.'
               : 'Simple geometry. Consistent proportions. Easy to model. Game-ready.'}
           </p>
         </div>

@@ -14,6 +14,7 @@ import { selectWorldView } from "./selectWorldView";
 import { useGame } from "../state/store";
 import { DEFAULT_BRAND } from "../simulation/newGame";
 import { CrowdSilhouettes } from "./props/Crowd";
+import { DynamicEnvironment } from './environment/DynamicEnvironment';
 
 function Scene() {
   const screen = useGame((s) => s.screen);
@@ -31,11 +32,6 @@ function Scene() {
   const quality = game?.settings.graphics ?? "high";
   const standing = Boolean(game?.company.perks.some((p) => p.id === "desks"));
   const brand = view?.brand ?? setup.brand ?? DEFAULT_BRAND;
-  const empty = (view?.automation ?? 0) > 55;
-  const emptyDesks = empty || (view ? view.agents.length < 4 && level >= 2 : false);
-
-
-
   useEffect(() => {
     const cam = useCameraDirector.getState();
     if (screen === "title") cam.setGoal(TITLE_SHOT);
@@ -67,15 +63,15 @@ function Scene() {
     level <= 0 ? (
       <Apartment onObject={onObject} perks={view?.perks ?? []} brand={brand} standingDesks={standing} employeeCount={view?.agents.length??2} />
     ) : level === 1 ? (
-      <GarageOffice onObject={onObject} perks={view?.perks ?? []} brand={brand} computeLoad={view?.computeLoad} />
+      <GarageOffice onObject={onObject} perks={view?.perks ?? []} brand={brand} visual={view?.environment} quality={quality}/>
     ) : level === 2 ? (
-      <HQOffice onObject={onObject} perks={view?.perks ?? []} brand={brand} computeLoad={view?.computeLoad} emptyDesks={emptyDesks} />
+      <HQOffice onObject={onObject} perks={view?.perks ?? []} brand={brand} visual={view?.environment} quality={quality}/>
     ) : level === 3 ? (
-      <ResearchLab onObject={onObject} perks={view?.perks ?? []} brand={brand} computeLoad={view?.computeLoad} empty={empty} />
+      <ResearchLab onObject={onObject} perks={view?.perks ?? []} brand={brand} visual={view?.environment} quality={quality}/>
     ) : level === 4 ? (
-      <CampusOffice onObject={onObject} perks={view?.perks ?? []} brand={brand} computeLoad={view?.computeLoad} empty={empty} />
+      <CampusOffice onObject={onObject} perks={view?.perks ?? []} brand={brand} visual={view?.environment} quality={quality}/>
     ) : (
-      <MegaCampus onObject={onObject} perks={view?.perks ?? []} brand={brand} computeLoad={view?.computeLoad} />
+      <MegaCampus onObject={onObject} perks={view?.perks ?? []} brand={brand} visual={view?.environment} quality={quality}/>
     );
 
   const cofounder = cofounders.find((c) => c.id === setup.cofounderId) ?? cofounders[0]!;
@@ -108,6 +104,7 @@ function Scene() {
         </group>
       ) : null}
       {screen === "title" || (screen === "playing" && view) ? office : null}
+      {screen === 'playing' && view&&<DynamicEnvironment state={view.environment} quality={quality}/>}
       {screen === "title" ? (
         <>
           <group position={[-2.35, 0, -1.35]}>

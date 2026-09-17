@@ -23,6 +23,7 @@ import { audio } from "../audio/Audio";
 import { startMarketSession, applyMarketEntryResults } from "../market/marketMap";
 import { applyCommand } from "../simulation/commands";
 import { createNewGame } from "../simulation/newGame";
+import { createEnvironmentPreviewGame } from '../game3d/environment/devEnvironmentPreview';
 import { createProduct } from "../simulation/products";
 import { Rng } from "../simulation/rng";
 
@@ -94,6 +95,9 @@ export function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("gallery") === "1") setGalleryOpen(true);
+    if (import.meta.env.DEV && params.has('world')) {
+      useGame.getState().loadGame(createEnvironmentPreviewGame(Number(params.get('world')) || 0));
+    }
     if (params.get("market") === "1") {
       const g = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "reya", skipTutorial: true });
       const p = createProduct(g, "code", "agent", new Rng(1));

@@ -1,5 +1,6 @@
 import type { Vector3Tuple } from 'three';
 import { Bevel } from '../geometry/Bevel';
+import { assetUrl, KitOrGltf } from '../assets/useKitOrGltf';
 import {
   getBookSpineTexture,
   getConferenceBadgeTexture,
@@ -385,6 +386,7 @@ export function ServerRack({ position, load = 0.3 }: { position: Vector3Tuple; l
   // Matte black cabinet with horizontal server blades and glowing server blue status LEDs (#1e78ff)
   return (
     <group position={position}>
+      <KitOrGltf id="prop_compute_serverRack_A" path={assetUrl('props','prop_compute_serverRack_A.glb')} fallback={<group>
       {/* Matte black cabinet outer frame */}
       <Bevel size={[0.82, 1.76, 0.66]} color="#1e2126" radius={0.024} />
       {/* Recessed front bay */}
@@ -409,6 +411,7 @@ export function ServerRack({ position, load = 0.3 }: { position: Vector3Tuple; l
           ))}
         </group>
       ))}
+      </group>}/>
     </group>
   );
 }

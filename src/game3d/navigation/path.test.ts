@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { apartmentLayout, campusLayout, garageLayout, labLayout, loftLayout, megaLayout } from './layout';
 import { route } from './path';
+import { officeScale } from '../environment/officeScale';
+import { layoutFor } from './layout';
 
 describe('Navigation Pathfinding (route)', () => {
   const layouts = [
@@ -69,5 +71,23 @@ describe('Navigation Pathfinding (route)', () => {
     const distantUnreachable: [number, number, number] = [9999, 0, 9999];
     const path = route([0, 0, 0], distantUnreachable, apartmentLayout);
     expect(path).toEqual([distantUnreachable]);
+  });
+
+  it('keeps generated activity points on their expanded floors with reachable hotspots',()=>{
+    for(let level=0;level<=5;level++) {
+      const layout=layoutFor(level),scale=officeScale(level);
+      for(const point of layout.points) {
+        expect(Math.abs(point.position[0])).toBeLessThan(scale.width/2);
+        expect(Math.abs(point.position[2])).toBeLessThan(scale.depth/2);
+      }
+      const entrance=layout.points.find(p=>p.kind==='entrance')!;
+      for(const kind of ['coffee','board','meet','lab','server'] as const) {
+        const point=layout.points.find(p=>p.kind===kind);
+        if(!point)continue;
+        const path=route(entrance.position,point.position,layout);
+        expect(path.length).toBeGreaterThan(2);
+        expect(path.at(-1)).toEqual(point.position);
+      }
+    }
   });
 });

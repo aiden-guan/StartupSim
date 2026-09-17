@@ -103,3 +103,35 @@ Every office prop is modeled from clean primitives with soft bevels to match the
 * No character clips through walls or hovers above the floor.
 * Home desks provide spatial permanence.
 * Occupancy is strictly tracked: moving away from an activity point immediately releases the claim.
+
+---
+
+## 7. Physical Progression
+
+The office level changes the shell; current company state changes what accumulates inside it. These are visual dimensions only. Capacity, prices, effects, and save data remain in the simulation.
+
+| Level | Environment | Approximate footprint | Read at overview |
+| --- | --- | --- | --- |
+| 0 | Apartment | 12 × 10 | One domestic room, founders, couch, whiteboard, pizza, boxes |
+| 1 | Tiny Office | 18 × 14 | First lease, repeated desks, kitchenette, compute corner |
+| 2 | Startup HQ | 28 × 22 | Separate work and meeting zones, glass room, brand wall |
+| 3 | AI Lab | 40 × 30 | Industrial floor, marked aisles, research and compute areas |
+| 4 | Campus | 60 × 45 | Atrium, greenery, wings, visual-only mezzanine |
+| 5 | Megacampus | 90 × 65 | Broad industrial spans, loading area, machine and server fields |
+
+Navigation remains on the ground plane. Upper workstations and mezzanines are visual-only. Architectural scale, camera framing, and activity points are paired through `officeScale.ts` and `navigation/layout.ts`.
+
+## 8. Derived Visual Language
+
+`environmentVisualState.ts` derives all mutable cues from `GameState`; it is never saved. `DynamicEnvironment.tsx` places the corresponding sets within each shell.
+
+* **Compute:** rented GPU boxes, owned racks, private cluster, cooling, data center fields, chip bench. Rack LEDs respond to inference load, with restrained static emissive color.
+* **Research:** completed lab, foundation model, and autonomous lab projects each add distinct apparatus.
+* **Robotics:** technology adds a prototype; completed projects add a test bay and general robot. Robot-role employees use the existing character renderer.
+* **Autonomy:** agents activate terminals; computer use adds unattended desks; high automation changes visual occupancy; the automated CEO gets a control station.
+* **Verticals:** at most two owned verticals get major sets. Completed product usage and expertise determine ranking, with canonical order breaking ties. Others appear as small props on high quality only.
+* **Company condition:** density grows workstations; short runway, hype, and burnout have local temporary props. Purchased perk sets remain visible at every tier.
+
+Hero props and shells use stable `KitOrGltf` IDs with procedural fallbacks. New assets continue the established matte charcoal, navy, sage, wood, paper, screen blue, server blue, and orange palette. Low graphics limits repeated machinery and decoration; all progression cues remain static under reduced motion.
+
+In development, the gallery's **Environment preview** compares all six derived fixtures. `?world=0` through `?world=5` loads an unsaved fixture in the actual game canvas for camera and hotspot QA; these routes are disabled in production.
