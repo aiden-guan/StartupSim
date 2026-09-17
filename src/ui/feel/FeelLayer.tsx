@@ -2,18 +2,10 @@ import { useEffect } from "react";
 import { useGame } from "../../state/store";
 
 export function FeelLayer() {
-  const floaters = useGame((s) => s.floaters);
   const eventFrame = useGame((s) => s.eventFrame);
   const officeCaption = useGame((s) => s.officeCaption);
-  const dismissFloater = useGame((s) => s.dismissFloater);
   const setEventFrame = useGame((s) => s.setEventFrame);
   const setOfficeCaption = useGame((s) => s.setOfficeCaption);
-
-  useEffect(() => {
-    if (!floaters.length) return;
-    const t = window.setTimeout(() => dismissFloater(floaters[0]!.id), 2400);
-    return () => window.clearTimeout(t);
-  }, [floaters, dismissFloater]);
 
   useEffect(() => {
     if (!eventFrame) return;
@@ -29,22 +21,6 @@ export function FeelLayer() {
 
   return (
     <>
-      <div className="pointer-events-none absolute left-1/2 top-16 z-40 flex -translate-x-1/2 flex-col items-center gap-1.5">
-        {floaters.map((f) => (
-          <div
-            key={f.id}
-            className="flex items-center gap-2 rounded-full border border-white/15 bg-[#1b2230]/95 px-4 py-1.5 text-xs text-[#efe8dc] shadow-2xl backdrop-blur-md"
-          >
-            <span
-              className="h-2 w-2 shrink-0 rounded-full"
-              style={{
-                background: f.tone === "warn" ? "#e07a7a" : f.tone === "ok" ? "#48bb78" : "#e59154",
-              }}
-            />
-            <span className="font-sans font-medium tracking-wide">{f.text}</span>
-          </div>
-        ))}
-      </div>
       {eventFrame ? (
         <div className="pointer-events-none absolute inset-x-0 top-28 z-30 flex justify-center">
           <article className="term-sheet max-w-md p-4 shadow-2xl">
