@@ -7,16 +7,32 @@ import { useGame } from "../../state/store";
 import { GameButton } from "../shared/controls";
 import { CharacterPortrait } from "../shared/CharacterPortrait";
 
+export const TUTORIAL_NEXT_IDLE_MS = 4000;
+
 export function MentorCard() {
   const game = useGame((s) => s.game);
   const dispatch = useGame((s) => s.dispatch);
   const revealPlaying = useGame((s) => s.revealPlaying);
+  const [highlightNext, setHighlightNext] = useState(false);
+
+  const step = game?.pendingMentor ? onboarding.find((o) => o.id === game.pendingMentor) : null;
+  const slide = game ? currentTutorialSlide(game) : null;
+  const index = game?.onboarding.slideIndex ?? 0;
+  const showNext = slide?.advance.type === "nextButton";
+
+  useEffect(() => {
+    setHighlightNext(false);
+    if (!showNext || revealPlaying || !game?.pendingMentor) return;
+
+    const timer = window.setTimeout(() => {
+      setHighlightNext(true);
+    }, TUTORIAL_NEXT_IDLE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [slide?.id, showNext, index, revealPlaying, game?.pendingMentor]);
+
   if (!game?.pendingMentor || revealPlaying) return null;
-  const step = onboarding.find((o) => o.id === game.pendingMentor);
-  const slide = currentTutorialSlide(game);
   if (!step || !slide) return null;
-  const index = game.onboarding.slideIndex;
-  const showNext = slide.advance.type === "nextButton";
 
   return (
     <div className="mentor-card" role="dialog" aria-label="Mentor">
@@ -41,7 +57,16 @@ export function MentorCard() {
                 </GameButton>
               ) : null}
               {showNext ? (
-                <GameButton tone="primary" onClick={() => dispatch({ type: "advanceMentor" })}>
+                <GameButton
+                  tone="primary"
+                  className={highlightNext ? "tutorial-next-pulse" : ""}
+                  data-tutorial-next={highlightNext ? "pulsing" : "idle"}
+                  title={highlightNext ? "Click Next to continue" : undefined}
+                  onClick={() => {
+                    setHighlightNext(false);
+                    dispatch({ type: "advanceMentor" });
+                  }}
+                >
                   Next
                 </GameButton>
               ) : (
