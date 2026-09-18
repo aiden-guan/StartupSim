@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { WorldCanvas } from "../game3d/WorldCanvas";
 import { useCameraDirector } from "../game3d/camera/cameraStore";
 import { layoutFor } from "../game3d/navigation/layout";
@@ -127,10 +128,25 @@ export function App() {
     return undefined;
   }, [toggleDebug, setGalleryOpen]);
 
-  if (import.meta.env.DEV && galleryOpen) return <VisualGallery />;
-  if (screen === "ended" && game) return <EndScreen game={game} />;
+  if (import.meta.env.DEV && galleryOpen) return (
+    <>
+      <VisualGallery />
+      <Analytics />
+    </>
+  );
+  if (screen === "ended" && game) return (
+    <>
+      <EndScreen game={game} />
+      <Analytics />
+    </>
+  );
 
-  if (screen === "market" && game?.marketResult) return <MarketResults game={game} />;
+  if (screen === "market" && game?.marketResult) return (
+    <>
+      <MarketResults game={game} />
+      <Analytics />
+    </>
+  );
 
   if (screen === "market" && game?.marketBattle) {
     return (
@@ -140,6 +156,7 @@ export function App() {
         <Spotlight />
         <DebugPanel />
         <SettingsOverlay />
+        <Analytics />
       </div>
     );
   }
@@ -170,6 +187,7 @@ export function App() {
       <SettingsOverlay />
       <CreditsOverlay />
       <DebugPanel />
+      <Analytics />
     </div>
   );
 }
