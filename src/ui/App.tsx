@@ -94,7 +94,7 @@ export function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("gallery") === "1") setGalleryOpen(true);
+    if (import.meta.env.DEV && params.get("gallery") === "1") setGalleryOpen(true);
     if (import.meta.env.DEV && params.has('world')) {
       useGame.getState().loadGame(createEnvironmentPreviewGame(Number(params.get('world')) || 0));
     }
@@ -127,7 +127,7 @@ export function App() {
     return undefined;
   }, [toggleDebug, setGalleryOpen]);
 
-  if (galleryOpen) return <VisualGallery />;
+  if (import.meta.env.DEV && galleryOpen) return <VisualGallery />;
   if (screen === "ended" && game) return <EndScreen game={game} />;
 
   if (screen === "market" && game?.marketResult) return <MarketResults game={game} />;

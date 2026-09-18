@@ -13,7 +13,7 @@ type PreviewItem =
 
 function CameraAim() {
   const { camera } = useThree();
-  useLayoutEffect(() => camera.lookAt(0, .58, 0), [camera]);
+  useLayoutEffect(() => camera.lookAt(0, .8, 0), [camera]);
   return null;
 }
 
@@ -21,7 +21,7 @@ export function MiniaturePreview({ item, label }: { item: PreviewItem; label: st
   return <div className="miniature-preview" role="img" aria-label={label}>
     <Canvas shadows="basic" dpr={1} frameloop="demand" gl={{ antialias: true, powerPreference: "low-power" }}>
       <color attach="background" args={["#e9e2d5"]} />
-      <OrthographicCamera makeDefault position={[4.2, 3.5, 5]} zoom={72} near={.1} far={50} />
+      <OrthographicCamera makeDefault position={[4.2, 3.5, 5]} zoom={53} near={.1} far={50} />
       <CameraAim />
       <hemisphereLight args={["#fffaf0", "#9da9a5", 1.5]} />
       <ambientLight intensity={.45} />

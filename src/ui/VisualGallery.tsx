@@ -45,6 +45,7 @@ import { promos } from '../data/promos';
 import { models } from '../data/models';
 import { PerkVisual } from '../game3d/props/PerkSet';
 import { PromoVisual } from '../game3d/props/PromoVisuals';
+import { CatalogAudit } from './visuals/CatalogAudit';
 import { ModelVisual } from '../game3d/props/ModelVisuals';
 
 const assets: { name: string; component: ComponentType<{ position: Vector3Tuple }>; offset?: number }[] = [
@@ -116,6 +117,8 @@ function Framing({ mode, level }: { mode:'characters'|'props'|'environments'|'ca
 export function VisualGallery() {
   const [mode, setMode] = useState<'characters' | 'props' | 'environments' | 'catalog'>('characters');
   const [index, setIndex] = useState(0);
+  const [audit, setAudit] = useState(false);
+  if (import.meta.env.DEV && audit) return <CatalogAudit onBack={() => setAudit(false)}/>;
   const propsMode = mode === 'props';
   const person = referenceLooks[index % referenceLooks.length]!;
   const asset = assets[index % assets.length]!;
@@ -153,6 +156,7 @@ export function VisualGallery() {
             Choice visuals
           </button>}
         </div>
+        <button onClick={() => setAudit(true)}>Full catalog audit</button>
         <p>Matte materials. Clean geometry. Consistent proportions.</p>
         <div className="studio-options">
           {(environmentMode?offices:catalogMode?catalogAssets:propsMode ? assets : referenceLooks).map((item, i) => (

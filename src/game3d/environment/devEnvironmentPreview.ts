@@ -1,4 +1,8 @@
 import { createNewGame } from '../../simulation/newGame';
+import { createProduct } from '../../simulation/products';
+import { Rng } from '../../simulation/rng';
+import { recipes } from '../../data/recipes';
+import { perks } from '../../data/perks';
 import { models } from '../../data/models';
 
 /** Local, unsaved fixture for visual and interaction QA. Never imported by gameplay rendering. */
@@ -28,5 +32,16 @@ export function createEnvironmentPreviewGame(level:number) {
   game.company.ceoAutomated=stage===5;
   game.company.hype=stage>=4?68:12;
   game.company.cash=100_000_000;
+  if(import.meta.env.DEV && typeof window !== 'undefined') {
+    const params=new URLSearchParams(window.location.search);
+    const recipe=recipes.find(r=>r.id===params.get('artifact'));
+    if(recipe) {
+      const product=createProduct(game,...recipe.parts,new Rng(42));
+      product.status='ready';
+      game.products=[product];
+    }
+    const tier=params.get('cultureTier');
+    if(tier!==null) game.company.perks=perks.map(p=>({id:p.id,level:Math.min(p.upgrades.length-1,Math.max(0,Number(tier)||0))})).filter(p=>perks.find(def=>def.id===p.id)!.upgrades[p.level]!.requiredOffice<=stage);
+  }
   return game;
 }
