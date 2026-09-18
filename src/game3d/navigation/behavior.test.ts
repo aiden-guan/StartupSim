@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { OfficeRuntime, chooseSession, stateForPoint } from './behavior';
+import { isAtActivityPoint, OfficeRuntime, chooseSession, stateForPoint } from './behavior';
 import { apartmentLayout, layoutFor } from './layout';
 
 describe('OfficeRuntime & Occupancy System', () => {
+  it('only treats an agent as settled when it is actually at the activity point', () => {
+    const desk = apartmentLayout.points.find(point => point.id === 'desk-a')!;
+    expect(isAtActivityPoint([...desk.position], desk)).toBe(true);
+    expect(isAtActivityPoint([desk.position[0] + .2, 0, desk.position[2]], desk)).toBe(false);
+  });
+
   it('manages single-capacity claims and atomically frees previous claims on move', () => {
     const runtime = new OfficeRuntime(apartmentLayout, 42);
     const deskA = apartmentLayout.points.find(p => p.id === 'desk-a')!;

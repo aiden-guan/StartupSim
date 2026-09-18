@@ -75,23 +75,26 @@ export function Chair({ position, rotation = 0, color = charcoal }: { position: 
   );
 }
 
+// Loose props use their contact surface as y=0 so callers can place them on any desk, shelf, or floor.
 export function Keyboard({ position }: Position) {
   return (
     <group position={position}>
-      {/* Low-profile dark grey rectangular wedge */}
-      <Bevel size={[0.44, 0.024, 0.17]} color={charcoal} radius={0.012} />
-      {/* Key grid */}
-      {[0, 1, 2, 3].map((row) =>
-        Array.from({ length: 10 }, (_, col) => (
-          <Bevel
-            key={`${row}-${col}`}
-            position={[(col - 4.5) * 0.038, 0.015, (row - 1.5) * 0.036]}
-            size={[0.031, 0.006, 0.026]}
-            color="#50555c"
-            radius={0.002}
-          />
-        ))
-      )}
+      <group position={[0, 0.012, 0]}>
+        {/* Low-profile dark grey rectangular wedge */}
+        <Bevel size={[0.44, 0.024, 0.17]} color={charcoal} radius={0.012} />
+        {/* Key grid */}
+        {[0, 1, 2, 3].map((row) =>
+          Array.from({ length: 10 }, (_, col) => (
+            <Bevel
+              key={`${row}-${col}`}
+              position={[(col - 4.5) * 0.038, 0.015, (row - 1.5) * 0.036]}
+              size={[0.031, 0.006, 0.026]}
+              color="#50555c"
+              radius={0.002}
+            />
+          ))
+        )}
+      </group>
     </group>
   );
 }
@@ -100,6 +103,7 @@ export function Laptop({ position, color = '#9fa4a9', open = true }: { position:
   const screenTex = open ? getScreenTexture('laptop') : null;
   return (
     <group position={position}>
+      <group position={[0, 0.013, 0]}>
       {/* Metallic wedge base with keyboard indent */}
       <Bevel size={[0.53, 0.026, 0.35]} color={color} radius={0.014} />
       {open ? (
@@ -126,6 +130,7 @@ export function Laptop({ position, color = '#9fa4a9', open = true }: { position:
       ) : (
         <Bevel position={[0, 0.028, 0]} size={[0.53, 0.024, 0.35]} color={color} radius={0.012} />
       )}
+      </group>
     </group>
   );
 }
@@ -134,6 +139,7 @@ export function Monitor({ position }: Position) {
   const screenTex = getScreenTexture('monitor');
   return (
     <group position={position}>
+      <group position={[0, 0.3525, 0]}>
       {/* Thin-bezel widescreen monitor */}
       <Bevel size={[0.72, 0.44, 0.048]} color={charcoal} radius={0.014} />
       {/* Glowing screen display */}
@@ -151,6 +157,7 @@ export function Monitor({ position }: Position) {
       <Bevel position={[0, -0.34, 0.01]} size={[0.29, 0.025, 0.18]} color={darkGray} radius={0.012} />
       {/* Power LED */}
       <Bevel position={[0.29, -0.198, 0.026]} size={[0.015, 0.008, 0.008]} color={screenBlue} radius={0.002} />
+      </group>
     </group>
   );
 }
@@ -158,6 +165,7 @@ export function Monitor({ position }: Position) {
 export function Mug({ position, color = paper }: { position: Vector3Tuple; color?: string }) {
   return (
     <group position={position}>
+      <group position={[0, 0.0575, 0]}>
       {/* Ceramic mug body */}
       <mesh castShadow>
         <cylinderGeometry args={[0.058, 0.052, 0.115, 16]} />
@@ -173,6 +181,7 @@ export function Mug({ position, color = paper }: { position: Vector3Tuple; color
         <torusGeometry args={[0.034, 0.011, 6, 12]} />
         <meshStandardMaterial color={color} roughness={0.88} />
       </mesh>
+      </group>
     </group>
   );
 }
@@ -377,7 +386,7 @@ export function CoffeeMachine({ position }: Position) {
       {/* Drip nozzle */}
       <Bevel position={[-0.11, 0.24, 0.045]} size={[0.032, 0.065, 0.04]} color="#9ba2a6" radius={0.005} />
       {/* Crisp white ceramic coffee mug resting on the drip tray */}
-      <Mug position={[-0.11, 0.106, 0.05]} />
+      <Mug position={[-0.11, 0.053, 0.05]} />
     </group>
   );
 }
@@ -421,11 +430,11 @@ export function PizzaBox({ position }: Position) {
   return (
     <group position={position} rotation={[0, 0.19, 0]}>
       {/* Kraft cardboard pizza box body */}
-      <Bevel size={[0.48, 0.072, 0.46]} color="#d1a980" radius={0.007} />
+      <Bevel position={[0, 0.036, 0]} size={[0.48, 0.072, 0.46]} color="#d1a980" radius={0.007} />
       {/* Top lid rim */}
-      <Bevel position={[0, 0.038, 0]} size={[0.496, 0.014, 0.478]} color="#dfba94" radius={0.004} />
+      <Bevel position={[0, 0.074, 0]} size={[0.496, 0.014, 0.478]} color="#dfba94" radius={0.004} />
       {/* Printed top surface decal */}
-      <mesh position={[0, 0.046, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh position={[0, 0.082, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[0.47, 0.45]} />
         {decalTex ? (
           <meshBasicMaterial map={decalTex} />
@@ -441,6 +450,7 @@ export function CardboardBox({ position, scale = 1 }: { position: Vector3Tuple; 
   const gpuTex = getGPUBoxTexture();
   return (
     <group position={position} scale={scale}>
+      <group position={[0, 0.21, 0]}>
       {/* Box body in Kraft cardboard */}
       <Bevel size={[0.54, 0.42, 0.46]} color="#b89065" radius={0.007} />
       {/* Packing tape across top flaps */}
@@ -454,6 +464,7 @@ export function CardboardBox({ position, scale = 1 }: { position: Vector3Tuple; 
           <meshStandardMaterial color="#b89065" roughness={0.9} />
         )}
       </mesh>
+      </group>
     </group>
   );
 }
@@ -462,12 +473,14 @@ export function Notebook({ position }: Position) {
   // Dark charcoal moleskine notebook (#2c2e32) with cream page edges and tan elastic band strap
   return (
     <group position={position}>
+      <group position={[0, 0.018, 0]}>
       {/* Cover */}
       <Bevel size={[0.26, 0.032, 0.36]} color="#2c2e32" radius={0.008} />
       {/* Cream page edge */}
       <Bevel position={[0.012, 0, 0.006]} size={[0.24, 0.022, 0.345]} color="#eae6db" radius={0.002} />
       {/* Vertical tan elastic band strap */}
       <Bevel position={[0.07, 0, 0]} size={[0.02, 0.036, 0.365]} color="#c2aa8a" radius={0.002} />
+      </group>
     </group>
   );
 }
@@ -476,6 +489,7 @@ export function Headphones({ position }: Position) {
   // Over-ear dark headphones (#292b2f) with curved padded headband and earcups
   return (
     <group position={position}>
+      <group position={[0, -0.035, 0]}>
       {/* Padded headband arc */}
       <mesh position={[0, 0.11, 0]}>
         <torusGeometry args={[0.13, 0.016, 8, 16, Math.PI]} />
@@ -489,6 +503,7 @@ export function Headphones({ position }: Position) {
           <Bevel position={[side * -0.015, 0, 0]} size={[0.025, 0.095, 0.075]} color="#18191b" radius={0.015} />
         </group>
       ))}
+      </group>
     </group>
   );
 }

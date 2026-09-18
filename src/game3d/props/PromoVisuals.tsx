@@ -20,7 +20,7 @@ function Stage({ large = false }: { large?: boolean }) {
 }
 
 const visualByPromo = {
-  launch: <><Stage /><Laptop position={[0, .3, .05]} /><Bevel position={[0, .24, .52]} size={[.8, .1, .22]} color={copper} /></>,
+  launch: <><Stage /><Laptop position={[0, .24, .05]} /><Bevel position={[0, .24, .52]} size={[.8, .1, .22]} color={copper} /></>,
   "viral-demo": <><Composition parts={[{kind:'phone',at:[-.35,0,0],scale:1.05}]}/><mesh position={[.48,.88,-.08]}><torusGeometry args={[.32,.055,8,20]}/><meshStandardMaterial color={paper} roughness={.9}/></mesh><Box p={[.48,.43,-.08]} s={[.07,.86,.07]}/><Box p={[.48,.045,-.08]} s={[.55,.09,.42]} c={navy}/></>,
   benchmark: <><Bevel position={[0, .78, 0]} size={[2.2, 1.45, .12]} color={paper} />{[.45,.78,1.05].map((height,index)=><Bevel key={height} position={[-.62+index*.62,height/2+.16,.09]} size={[.34,height,.08]} color={[sage,screen,copper][index]!}/>) }<Bevel position={[0,.12,.05]} size={[2.45,.2,.72]} color={navy}/></>,
   podcast: <><Composition parts={[{kind:'headset',at:[-.48,0,0],scale:1.1},{kind:'mic',at:[.46,0,.05],scale:1.15}]}/></>,

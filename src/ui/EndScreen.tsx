@@ -248,11 +248,11 @@ export function EndScreen({ game }: { game: GameState }) {
                 RECORDED · RANK #{publishedRank}
               </div>
               <p className="mt-2 text-sm text-[#d8d1c4]">
-                Your validated score of <strong className="text-paper">{breakdown.totalScore.toLocaleString()} PTS</strong> is now in the global ledger.
+                Your validated score of <strong className="text-paper">{breakdown.totalScore.toLocaleString()} PTS</strong> is now on the global leaderboard.
               </p>
               <div className="mt-4 flex justify-center gap-3">
                 <GameButton tone="primary" onClick={() => setLeaderboardOpen(true)}>
-                  View the ledger →
+                  View the leaderboard →
                 </GameButton>
               </div>
             </div>
@@ -318,7 +318,7 @@ export function EndScreen({ game }: { game: GameState }) {
             className="font-mono text-xs font-semibold uppercase tracking-wider text-[#c4622d] hover:underline"
             onClick={() => setLeaderboardOpen(true)}
           >
-              View validated run ledger
+              View validated run leaderboard
           </button>
 
           <button

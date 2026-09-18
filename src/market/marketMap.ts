@@ -562,6 +562,7 @@ export function applyAction(
   capabilityLevel: number,
   combo: [string, string],
   power?: MarketPowerContext,
+  tactic?: MarketTactic,
 ): void {
   const node = session.nodes.find((n) => n.id === nodeId);
   if (!node) return;
@@ -574,6 +575,7 @@ export function applyAction(
     capabilityLevel,
     combo,
     power,
+    tactic,
   );
 
   if (side === "player") {

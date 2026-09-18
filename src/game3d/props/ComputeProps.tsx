@@ -10,12 +10,12 @@ type Placed = { position: Vector3Tuple };
 const kit = (id: string, fallback: React.ReactNode) => <KitOrGltf id={id} path={assetUrl('props', `${id}.glb`)} fallback={fallback}/>;
 
 export function GpuShippingBox({position}:Placed) {
-  return <group position={position}>{kit('prop_compute_gpuShippingBox_A',<CardboardBox position={[0,.22,0]} scale={1.25}/>)}</group>;
+  return <group position={position}>{kit('prop_compute_gpuShippingBox_A',<CardboardBox position={[0,0,0]} scale={1.25}/>)}</group>;
 }
 
 export function CloudConsole({position}:Placed) {
   return <group position={position}>
-    <Desk position={[0,0,0]}/><Monitor position={[-.34,1.13,-.12]}/>
+    <Desk position={[0,0,0]}/><Monitor position={[-.34,.78,-.12]}/>
     <Bevel position={[.43,1.12,-.11]} size={[.42,.23,.04]} color={navy}/>
     <Bevel position={[.43,1.12,-.08]} size={[.31,.1,.012]} color="#5599ff" emissive="#5599ff" emissiveIntensity={.2}/>
   </group>;

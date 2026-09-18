@@ -14,14 +14,14 @@ export function ResearchBench({position}:Placed) {
       <mesh><cylinderGeometry args={[.035,.045,.22,7]}/><meshStandardMaterial color="#dedede" roughness={.9}/></mesh>
       <Bevel position={[0,-.04,0]} size={[.07,.04,.07]} color={i===1?'#e06b3a':'#5599ff'}/>
     </group>)}
-    <Monitor position={[-.28,1.32,-.22]}/>
+    <Monitor position={[-.28,.99,-.22]}/>
   </group>)}</group>;
 }
 
 export function ModelTrainingStation({position}:Placed) {
   return <group position={position}>
     <Desk position={[0,0,0]}/>
-    <Monitor position={[-.36,1.12,-.14]}/><Monitor position={[.36,1.12,-.14]}/>
+    <Monitor position={[-.36,.78,-.14]}/><Monitor position={[.36,.78,-.14]}/>
     <Bevel position={[0,.83,.16]} size={[.68,.055,.35]} color="#282c30"/>
     <Bevel position={[.7,.95,-.19]} size={[.23,.32,.3]} color="#2b3e55"/>
     {[0,1,2].map(i=><Bevel key={i} position={[.7,1.03-i*.075,-.03]} size={[.12,.018,.012]} color="#1e78ff" emissive="#1e78ff" emissiveIntensity={.18}/>)}

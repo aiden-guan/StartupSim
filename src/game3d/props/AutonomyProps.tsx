@@ -8,7 +8,7 @@ const kit=(id:string,fallback:React.ReactNode)=><KitOrGltf id={id} path={assetUr
 
 export function AgentTerminal({position}:Placed) {
   return <group position={position}>{kit('prop_autonomy_agentTerminal_A',<group>
-    <Desk position={[0,0,0]}/><Monitor position={[0,1.13,-.12]}/>
+    <Desk position={[0,0,0]}/><Monitor position={[0,.78,-.12]}/>
     <Bevel position={[0,.79,.18]} size={[.65,.04,.29]} color="#282c30"/>
     <Bevel position={[.63,.95,-.17]} size={[.18,.29,.28]} color="#2b3e55"/>
     {[0,1,2].map(i=><Bevel key={i} position={[.63,1.03-i*.07,-.015]} size={[.07,.025,.01]} color="#5599ff" emissive="#5599ff" emissiveIntensity={.2}/>)}

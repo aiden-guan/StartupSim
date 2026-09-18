@@ -3,6 +3,9 @@ import type { TaskType } from '../../simulation/types';
 import { ACTIVITY_WEIGHTS, type ActivityPoint, type OfficeLayout, type PointKind } from './layout';
 
 export type AgentState='SPAWNING'|'WALKING_TO_ACTIVITY'|'WORKING'|'WHITEBOARD'|'MEETING'|'COFFEE'|'IDLE'|'CHATTING'|'BURNED_OUT'|'CELEBRATING'|'DEPARTING';
+export function isAtActivityPoint(position:[number,number,number],point:ActivityPoint,tolerance=.12) {
+  return Math.hypot(position[0]-point.position[0],position[2]-point.position[2])<=tolerance;
+}
 export function visualSeed(seed:number,id:string) {let n=seed;for(const c of id)n=Math.imul(n^c.charCodeAt(0),16777619);return n>>>0;}
 export function chooseSession(seed:number,id:string,counter:number,task:TaskType|null,burnout:boolean,firstProduct:boolean):{kind:PointKind;seconds:number} {
   const rng=new Rng(visualSeed(seed,id)^Math.imul(counter+1,2654435761));

@@ -10,7 +10,7 @@ export function CoffeeStation({ tier, position = [0, 0, 0] }: { tier: number; po
         <>
           <Box p={[0.41, 0.17, -0.1]} s={[0.25, 0.34, 0.27]} c={steel} />
           <Cylinder p={[0.41, 0.41, -0.1]} r={0.12} h={0.15} c={ink} />
-          <Mug position={[0.4, 0.06, 0.2]} />
+          <Mug position={[0.4, 0, 0.2]} />
         </>
       )}
       {tier >= 2 && (

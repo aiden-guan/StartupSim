@@ -7,7 +7,7 @@ type Placed={position:Vector3Tuple};
 
 export function RunwayCorner({position}:Placed) {
   return <group position={position}>
-    <CardboardBox position={[-.45,.25,0]}/><CardboardBox position={[.18,.22,.35]}/>
+    <CardboardBox position={[-.45,0,0]}/><CardboardBox position={[.18,0,.35]}/>
     <Bevel position={[.42,.6,-.22]} size={[.75,.055,.5]} color="#c89e6e"/>
     <Bevel position={[.16,.3,-.22]} size={[.05,.56,.05]} color="#6d7788"/>
     <Bevel position={[.68,.3,-.22]} size={[.05,.56,.05]} color="#6d7788"/>
@@ -28,7 +28,7 @@ export function HypeArea({position,tier=1}:Placed&{tier?:number}) {
 
 export function BurnoutDeskClutter({position}:Placed) {
   return <group position={position}>
-    <Mug position={[-.2,.05,0]}/><Mug position={[.15,.05,.16]} color="#ded3c3"/>
-    <Notebook position={[.05,.015,-.16]}/><PizzaBox position={[.5,.045,.05]}/>
+    <Mug position={[-.2,0,0]}/><Mug position={[.15,0,.16]} color="#ded3c3"/>
+    <Notebook position={[.05,0,-.16]}/><PizzaBox position={[.5,0,.05]}/>
   </group>;
 }

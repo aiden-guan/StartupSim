@@ -60,7 +60,7 @@ export function DocumentScanner({position}:Placed) {
 }
 
 function ScreenCluster({position,count=2}:Placed&{count?:number}) {
-  return <group position={position}><Desk position={[0,0,0]}/>{Array.from({length:count},(_,i)=><Monitor key={i} position={[(i-(count-1)/2)*.58,1.13,-.15]}/>)}</group>;
+  return <group position={position}><Desk position={[0,0,0]}/>{Array.from({length:count},(_,i)=><Monitor key={i} position={[(i-(count-1)/2)*.58,.78,-.15]}/>)}</group>;
 }
 
 function Cabinet({position,secure=false}:Placed&{secure?:boolean}) {

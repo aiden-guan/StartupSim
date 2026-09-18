@@ -47,8 +47,8 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
         )}
         <Desk position={[x,0,z-.79]} standing={isStanding}/>
         <Chair position={[x,0,z]} rotation={Math.PI} color={isFancy ? '#1b2d42' : '#474c52'}/>
-        {i===0?<><Monitor position={[x,desktop+.347,z-.94]}/><Keyboard position={[x,desktop,z-.58]}/></>:<Laptop position={[x,desktop,z-.83]}/>}
-        <Mug position={[x+.56,desktop+.05,z-.74]}/>
+        {i===0?<><Monitor position={[x,desktop,z-.94]}/><Keyboard position={[x,desktop,z-.58]}/></>:<Laptop position={[x,desktop,z-.83]}/>}
+        <Mug position={[x+.56,desktop,z-.74]}/>
         {i===0&&<BookStack position={[x-.56,desktop,z-.93]}/>}
       </group>;
     })}
@@ -57,7 +57,7 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
     <Rug position={[-3.9,.008,1.62]}/>
     <Bevel position={[-4.15,.25,1.9]} size={[1.13,.10,.65]} color="#c99e76" radius={.04}/>
     {[-.42,.42].map(x=>[-.21,.21].map(z=><Bevel key={`${x},${z}`} position={[-4.15+x,.125,1.9+z]} size={[.055,.25,.055]} color="#545354" radius={.008}/>))}
-    <PizzaBox position={[-4.21,.35,1.87]}/>
+    <PizzaBox position={[-4.21,.30,1.87]}/>
     <Plant position={[-5.38,.005,4.08]} scale={1.15}/>
     <Plant position={[4.65,.005,-3.65]} scale={1.3}/>
     <FoodStation tier={foodTier} position={[foodTier>=1?5.0:5.27, .68, 2.69]}/>
@@ -68,8 +68,8 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
     </group>
     <BookStack position={[4.95,.83,1.64]}/>
     <Lamp position={[-5.29,.34,-3.67]}/>
-    <CardboardBox position={[-4.46,.21,-4.12]} scale={1.2}/>
-    <CardboardBox position={[-3.86,.21,-4.04]}/>
+    <CardboardBox position={[-4.46,0,-4.12]} scale={1.2}/>
+    <CardboardBox position={[-3.86,0,-4.04]}/>
     <Bevel position={[.3,.005,4.65]} size={[1.48,.018,.72]} color="#829386" radius={.008}/>
     {interactive ? <>
       <Hotspot id="founderDesk" position={[-2.35,1,-2.1]} label="Founder desk" onClick={onObject} size={[1.5,1.2,1]}/>

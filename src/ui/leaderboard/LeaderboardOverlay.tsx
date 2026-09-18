@@ -24,13 +24,13 @@ const TIER_STYLES: Record<ScoreTier, { marker: string; text: string; label: stri
   C: { marker: "bg-[#7d8587]", text: "text-[#5c6466]", label: "Founder" },
 };
 
-type LedgerSource = "global" | "local";
+type LeaderboardSource = "global" | "local";
 
 export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
   const setLeaderboardOpen = useGame((state) => state.setLeaderboardOpen);
   const [filter, setFilter] = useState<LeaderboardFilter>("all");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [source, setSource] = useState<LedgerSource>("global");
+  const [source, setSource] = useState<LeaderboardSource>("global");
   const [loading, setLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
   const [retry, setRetry] = useState(0);
@@ -83,10 +83,10 @@ export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
         <header className="flex shrink-0 items-start justify-between gap-6 border-b border-line bg-[#f9f4e7] px-5 py-5 sm:px-8 sm:py-6">
           <div className="min-w-0">
             <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-copper">
-              {identity.shortTitle} · validated run archive
+              {identity.shortTitle} · validated runs
             </p>
             <h2 id="leaderboard-title" className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-4xl">
-              The ledger
+              Leaderboard
             </h2>
             <p className="mt-1 max-w-xl text-sm leading-relaxed text-muted">
               Real companies. Real outcomes. No legends in the record.
@@ -96,7 +96,7 @@ export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
           <div className="flex shrink-0 flex-col items-end gap-4">
             <div className="hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.22em] text-muted sm:flex">
               <span className={`h-2 w-2 rounded-full ${source === "global" ? "bg-ledger" : "bg-copper"}`} />
-              {source === "global" ? "Global ledger" : "Local archive"}
+              {source === "global" ? "Global leaderboard" : "Local records"}
             </div>
             <button
               type="button"
@@ -140,7 +140,7 @@ export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
             {loading ? (
               <LoadingRows />
             ) : entries.length === 0 ? (
-              <EmptyLedger source={source} onRetry={() => setRetry((value) => value + 1)} />
+              <EmptyLeaderboard source={source} onRetry={() => setRetry((value) => value + 1)} />
             ) : (
               <>
                 <div className="mb-3 hidden grid-cols-[4rem_minmax(0,1fr)_minmax(8rem,0.8fr)_7rem_7rem] gap-4 border-b border-line px-4 pb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-muted sm:grid">
@@ -152,7 +152,7 @@ export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
                 </div>
                 <div className="divide-y divide-line/80 border-y border-line">
                   {entries.map((entry) => (
-                    <LedgerRow
+                    <LeaderboardRow
                       key={entry.id}
                       entry={entry}
                       selected={selectedEntry?.id === entry.id}
@@ -213,21 +213,21 @@ function LoadingRows() {
   );
 }
 
-function EmptyLedger({ source, onRetry }: { source: LedgerSource; onRetry: () => void }) {
+function EmptyLeaderboard({ source, onRetry }: { source: LeaderboardSource; onRetry: () => void }) {
   return (
     <div className="grid min-h-[360px] place-items-center border-y border-line px-6 py-12 text-center">
       <div className="max-w-sm">
         <div className="mx-auto grid h-14 w-14 place-items-center border border-copper/50 font-display text-2xl text-copper">—</div>
         <p className="mt-5 font-mono text-[10px] uppercase tracking-[0.22em] text-copper">
-          {source === "global" ? "No published runs" : "Global ledger unavailable"}
+          {source === "global" ? "No ranked runs yet" : "Global leaderboard unavailable"}
         </p>
         <h3 className="mt-2 font-display text-2xl text-ink">
           {source === "global" ? "The first record is still waiting." : "Only local records are available."}
         </h3>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           {source === "global"
-            ? "Finish a company, survive the postmortem, and publish a validated run to open the ledger."
-            : "Reconnect to the global ledger to see published runs. Your local archive remains on this device."}
+            ? "Finish a company, survive the postmortem, and publish a validated run to take your place."
+            : "Reconnect to the global leaderboard to see published runs. Your local records remain on this device."}
         </p>
         {source === "local" ? (
           <button
@@ -243,7 +243,7 @@ function EmptyLedger({ source, onRetry }: { source: LedgerSource; onRetry: () =>
   );
 }
 
-function LedgerRow({
+function LeaderboardRow({
   entry,
   selected,
   onSelect,

@@ -6,7 +6,7 @@ import { Rng } from "../simulation/rng";
 import type { GameState, Product } from "../simulation/types";
 import { competitors } from "../data/competitors";
 import { aiSelectMove, calculateInfluence, getLegalMoves, launchStrength, startMarketSession } from "./marketMap";
-import { processRivalTurn, resolveEndTurn, resolveMarketTurn, resolveSideAction, resolveTacticalAction } from "./turns";
+import { previewSideAction, processRivalTurn, resolveEndTurn, resolveMarketTurn, resolveSideAction, resolveTacticalAction } from "./turns";
 
 class FixedRng extends Rng {
   constructor(private value: number) {
@@ -195,6 +195,66 @@ describe("rival processing", () => {
 });
 
 describe("tactical turn-based operations & Ops economy", () => {
+  it("shows the same successful shares that the move actually applies", () => {
+    const { state, product } = setup(29);
+    const session = openBattle(state, product, 29);
+    const target = getLegalMoves(session, "player", product.levels.distribution).expand[0]!;
+    const preview = previewSideAction(
+      state,
+      session,
+      "player",
+      "expand",
+      target,
+      product.levels,
+      product.combo,
+      "pitch",
+    )!;
+
+    const result = resolveTacticalAction(state, new FixedRng(0), { nodeId: target, tactic: "pitch" });
+    const applied = session.nodes.find((node) => node.id === target)!;
+
+    expect(result.ok).toBe(true);
+    expect(result.result?.success).toBe(true);
+    expect(applied.playerShare).toBe(preview.projectedPlayerShare);
+    expect(applied.rivalShare).toBe(preview.projectedRivalShare);
+  });
+
+  it("includes Poach's rival-share loss in the successful projection", () => {
+    const { state, product } = setup(31);
+    const session = openBattle(state, product, 31);
+    const target = session.rivalBeachhead;
+    const preview = previewSideAction(
+      state,
+      session,
+      "player",
+      "contest",
+      target,
+      product.levels,
+      product.combo,
+      "poach",
+    )!;
+
+    const result = resolveTacticalAction(state, new FixedRng(0), { nodeId: target, tactic: "poach" });
+    const applied = session.nodes.find((node) => node.id === target)!;
+
+    expect(result.ok).toBe(true);
+    expect(result.result?.success).toBe(true);
+    expect(applied.playerShare).toBe(preview.projectedPlayerShare);
+    expect(applied.rivalShare).toBe(preview.projectedRivalShare);
+  });
+
+  it("rejects a move that does not apply to the selected segment without spending Ops", () => {
+    const { state, product } = setup(30);
+    const session = openBattle(state, product, 30);
+    const target = getLegalMoves(session, "player", product.levels.distribution).expand[0]!;
+    const opsBefore = session.playerOps;
+
+    const result = resolveTacticalAction(state, new FixedRng(0), { nodeId: target, tactic: "fortify" });
+
+    expect(result.ok).toBe(false);
+    expect(session.playerOps).toBe(opsBefore);
+  });
+
   it("allows multiple actions in a single turn until Ops are exhausted", () => {
     const { state, product } = setup(30);
     const session = openBattle(state, product, 30);

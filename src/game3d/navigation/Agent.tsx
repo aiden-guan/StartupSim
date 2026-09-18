@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { Character, type CharacterActivity } from '../characters/Character';
 import { useGame } from '../../state/store';
 import type { OfficeLayout, ActivityPoint } from './layout';
-import { OfficeRuntime, chooseSession, stateForPoint, type AgentState } from './behavior';
+import { OfficeRuntime, chooseSession, isAtActivityPoint, stateForPoint, type AgentState } from './behavior';
 import { route } from './path';
 import type { AgentView } from '../selectWorldView';
 
@@ -78,9 +78,13 @@ export function EmployeeAgent({agent,layout,reducedMotion,onSelect,runtime}:{age
     remaining.current-=dt*Math.min(1.5,Math.sqrt(game?.clock.speed??1));
     if(remaining.current<=0)plan();
   });
-  const atDesk=point.current.kind==='desk'&&behavior==='WORKING';
+  const settledAtActivity = ref.current
+    ? path.current.length === 0 && isAtActivityPoint(ref.current.position.toArray(), point.current)
+    : false;
+  const atDesk=point.current.kind==='desk'&&behavior==='WORKING'&&settledAtActivity;
+  const visualBehavior=behavior==='WORKING'&&!settledAtActivity?'IDLE':behavior;
   return <group ref={ref} position={start.current} onClick={e=>{e.stopPropagation();onSelect(agent.id);}}>
-    <Character look={agent.look} activity={reducedMotion?'idle':ANIMATION[behavior]} exhausted={agent.burnoutDays>0} robot={agent.role==='robot'} seated={atDesk}/>
+    <Character look={agent.look} activity={reducedMotion?'idle':ANIMATION[visualBehavior]} exhausted={agent.burnoutDays>0} robot={agent.role==='robot'} seated={atDesk}/>
     {selected&&<mesh position={[0,.015,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.31,.38,24]}/><meshBasicMaterial color="#e59154"/></mesh>}
     {(selected||agent.burnoutDays>0)&&<Html position={[0,1.8,0]} center distanceFactor={10} occlude><div className="agent-label">{agent.name.split(' ')[0]} · {agent.burnoutDays?'Resting':behavior==='WORKING'?agent.taskType:behavior.toLowerCase().replaceAll('_',' ')}</div></Html>}
   </group>;

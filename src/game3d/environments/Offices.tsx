@@ -50,11 +50,11 @@ function OfficeInterior({level,onObject,perks=[],brand,visual,quality='high'}:Of
         )}
         <Desk position={[x,0,z-.79]} standing={isStanding} color={level>=3?'#d0b797':'#d2ab84'}/>
         <Chair position={[x,0,z]} rotation={Math.PI} color={isFancy ? '#1b2d42' : undefined}/>
-        {level===1?<Laptop position={[x,desktop+.01,z-.86]}/>:<><Monitor position={[x,desktop+.34,z-.96]}/><Keyboard position={[x,desktop,z-.57]}/></>}
-        {quality!=='low'&&i % 2 === 0 && <Mug position={[x + 0.56, desktop + 0.05, z - 0.74]} color={i % 4 === 0 ? '#ffffff' : '#3b82f6'} />}
+        {level===1?<Laptop position={[x,desktop,z-.86]}/>:<><Monitor position={[x,desktop,z-.96]}/><Keyboard position={[x,desktop,z-.57]}/></>}
+        {quality!=='low'&&i % 2 === 0 && <Mug position={[x + 0.56, desktop, z - 0.74]} color={i % 4 === 0 ? '#ffffff' : '#3b82f6'} />}
         {quality==='high'&&i === 1 && <BookStack position={[x - 0.56, desktop, z - 0.93]} />}
         {quality==='high'&&i === 2 && <Notebook position={[x - 0.52, desktop, z - 0.68]} />}
-        {quality==='high'&&i === 3 && <Headphones position={[x + 0.48, desktop + 0.005, z - 0.60]} />}
+        {quality==='high'&&i === 3 && <Headphones position={[x + 0.48, desktop, z - 0.60]} />}
       </group>;
     })}
     {layout.points.filter(p=>!p.id.includes('-slot-')).map(p=>{
@@ -72,13 +72,13 @@ function OfficeInterior({level,onObject,perks=[],brand,visual,quality='high'}:Of
             <Bevel position={[0,.80,0]} size={[foodTier>=1?2.29:1.69,.05,.7]} color="#e8d7bd" radius={.012}/>
             <CoffeeStation tier={coffeeTier} position={[-.32,.83,0]}/>
             <FoodStation tier={foodTier} position={[foodTier>=1?1.5:1.1,.68,0]}/>
-            <Mug position={[-.05,.85,.12]} color="#ffffff"/>
+            <Mug position={[-.05,.825,.12]} color="#ffffff"/>
             <Hotspot id="coffee" position={[.3,.82,.25]} size={[foodTier>=1?3.2:2.55,1.68,1.22]} label="Kitchen" onClick={onObject}/>
           </group>
         );
       }
-      if(p.kind==='lab')return <group key={p.id} position={[x,0,z]} rotation={[0,Math.atan2(p.position[0]-x,p.position[2]-z),0]}>{!visual?.hasResearchLab&&<><Desk position={[0,0,0]} standing/><Monitor position={[0,1.33,-.13]}/><Keyboard position={[0,.99,.22]}/></>}<Hotspot id="lab" position={[0,1,0]} label="Research" onClick={onObject}/></group>;
-      if(p.kind==='meet')return <group key={p.id} position={[x,0,z]}><Desk position={[0,0,0]}/><Chair position={[-.95,0,0]} rotation={-Math.PI/2}/><Chair position={[.95,0,0]} rotation={Math.PI/2}/><Laptop position={[0,.79,0]}/><Notebook position={[-.35,.79,.12]}/><Mug position={[.42,.84,-.15]} color="#f26419"/></group>;
+      if(p.kind==='lab')return <group key={p.id} position={[x,0,z]} rotation={[0,Math.atan2(p.position[0]-x,p.position[2]-z),0]}>{!visual?.hasResearchLab&&<><Desk position={[0,0,0]} standing/><Monitor position={[0,.99,-.13]}/><Keyboard position={[0,.99,.22]}/></>}<Hotspot id="lab" position={[0,1,0]} label="Research" onClick={onObject}/></group>;
+      if(p.kind==='meet')return <group key={p.id} position={[x,0,z]}><Desk position={[0,0,0]}/><Chair position={[-.95,0,0]} rotation={-Math.PI/2}/><Chair position={[.95,0,0]} rotation={Math.PI/2}/><Laptop position={[0,.78,0]}/><Notebook position={[-.35,.78,.12]}/><Mug position={[.42,.78,-.15]} color="#f26419"/></group>;
       return null;
     })}
     <group position={[-w*.3,0,d*.34]} rotation={[0,.2,0]}>
@@ -86,7 +86,7 @@ function OfficeInterior({level,onObject,perks=[],brand,visual,quality='high'}:Of
       <Plant position={[-1.45,0,0]} scale={1.4}/>
       <Bevel position={[0,.18,.95]} size={[1.1,.08,.55]} color="#c99e76" radius={.025}/>
       {[-.42,.42].map(cx=>[-.18,.18].map(cz=><Bevel key={`${cx},${cz}`} position={[cx,.09,.95+cz]} size={[.04,.18,.04]} color="#545354" radius={.006}/>))}
-      <PizzaBox position={[0,.26,.95]}/>
+      <PizzaBox position={[0,.22,.95]}/>
     </group>
     <Plant position={[w/2-1.1,0,-d/2+1.1]} scale={1.8}/>
     <Plant position={[-w/2+1.1,0,-d/2+1.1]} scale={1.6}/>

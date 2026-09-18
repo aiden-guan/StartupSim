@@ -47,7 +47,7 @@ export function PartsCart({position}:Placed) {
     <Bevel position={[0,.54,0]} size={[.87,.09,.62]} color="#6d7788"/>
     <Bevel position={[0,.17,0]} size={[.87,.07,.62]} color="#6d7788"/>
     {[-.34,.34].flatMap(x=>[-.23,.23].map(z=><Bevel key={`${x}-${z}`} position={[x,.28,z]} size={[.06,.5,.06]} color="#33373b"/>))}
-    <CardboardBox position={[-.1,.66,0]} scale={.65}/>
+    <CardboardBox position={[-.1,.585,0]} scale={.65}/>
     <Bevel position={[.27,.6,0]} size={[.18,.08,.2]} color="#e06b3a"/>
   </group>;
 }
