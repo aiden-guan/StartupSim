@@ -42,7 +42,7 @@ export function Hotspot({
             <boxGeometry args={size} />
             <meshBasicMaterial color="#c4622d" wireframe transparent opacity={0.55} />
           </mesh>
-          <Html position={[0, size[1] * 0.55, 0]} center distanceFactor={12}>
+          <Html position={[0, size[1] * 0.55, 0]} center distanceFactor={12} occlude>
             <div className="pointer-events-none rounded-sm border border-[#cfc5b6] bg-[#efe8dc] px-2 py-0.5 font-ui text-[11px] text-[#1b2230]">
               {label}
             </div>

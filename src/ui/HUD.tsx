@@ -35,14 +35,14 @@ function useAnimatedCash(value:number,reducedMotion:boolean,baseline:number) {
 }
 
 export const NAV_GROUPS:{id:string;label:string;items:{id:DrawerId;label:string;need?:keyof GameState['unlocks']}[]}[]=[
-  {id:'products',label:'Products',items:[{id:'tasks',label:'Product lab & projects'},{id:'products',label:'Products & launches'}]},
+  {id:'products',label:'Products',items:[{id:'tasks',label:'Product lab'},{id:'products',label:'Launches'}]},
   {id:'team',label:'Team',items:[{id:'people',label:'People'},{id:'hiring',label:'Recruiting',need:'hiring'}]},
-  {id:'research',label:'Research',items:[{id:'research',label:'Technology tree',need:'research'}]},
-  {id:'finance',label:'Finance',items:[{id:'finance',label:'Ledger'},{id:'funding',label:'Raise capital',need:'funding'}]},
+  {id:'research',label:'Research',items:[{id:'research',label:'Tech tree',need:'research'}]},
+  {id:'finance',label:'Finance',items:[{id:'finance',label:'Ledger'},{id:'funding',label:'Funding',need:'funding'}]},
   {id:'infrastructure',label:'Infrastructure',items:[{id:'compute',label:'Compute',need:'compute'}]},
-  {id:'company',label:'Company',items:[{id:'company',label:'Office & saves'},{id:'perks',label:'Culture & promotion',need:'perks'}]},
-  {id:'world',label:'World',items:[{id:'world',label:'The world',need:'world'}]},
-  {id:'inbox',label:'Comms',items:[{id:'inbox',label:'Inbox'},{id:'social',label:'Radar & Social'}]},
+  {id:'company',label:'Company',items:[{id:'company',label:'Office & saves'},{id:'perks',label:'Culture',need:'perks'}]},
+  {id:'world',label:'World',items:[{id:'world',label:'World',need:'world'}]},
+  {id:'inbox',label:'Comms',items:[{id:'inbox',label:'Inbox'},{id:'social',label:'Radar'}]},
 ];
 export function HUD({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch),drawer=useGame(s=>s.drawer),setDrawer=useGame(s=>s.setDrawer);
@@ -58,7 +58,7 @@ export function HUD({game}:{game:GameState}) {
   const cash=useAnimatedCash(game.company.cash,game.settings.reducedMotion,burn);
   return <div className="game-hud">
     <header className="hud-bar">
-      <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className="brand-square" style={{background:game.company.brand.color}}/><span>{game.company.name}<small>{game.company.officeLevel===0?'Apartment headquarters':'Company headquarters'}</small></span></button>
+      <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className="brand-square" style={{background:game.company.brand.color}}/><span>{game.company.name}<small>{game.company.officeLevel===0?'Apartment':'Headquarters'}</small></span></button>
       <button className={`hud-stat cash-stat ${cash.delta?`cash-${cash.delta.level} ${cash.delta.value>0?'cash-up':'cash-down'}`:''}`} onClick={()=>setDrawer('finance')} title="Open the ledger for a cash-flow breakdown"><small>Cash</small><strong aria-label={money(game.company.cash)}>{money(cash.display)}</strong>{cash.delta&&<span className="cash-delta">{cash.delta.value>0?'+':''}{money(cash.delta.value)}</span>}</button>
       <button className="hud-stat" onClick={()=>setDrawer('finance')} title={`Expected net burn ${money(burn)} per month`}><small>Runway</small><strong className={run<3?'warning':''}>{run>=99?'Profitable':`${run.toFixed(1)} months`}</strong></button>
       {burnedCount>0&&<button className="hud-alert-badge" onClick={()=>setDrawer('people')} title={`${burnedCount} team member${burnedCount>1?'s are':' is'} resting due to burnout`}>⚠ {burnedCount} Resting</button>}

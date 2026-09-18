@@ -39,7 +39,7 @@ export function CulturePromotionPanel({ game }: { game: GameState }) {
   const nextUpgrade = selectedPerk.upgrades[selectedOwned ? selectedOwned.level + 1 : 0];
   const previewLevel = selectedOwned?.level ?? 0;
   const perkReason = !nextUpgrade
-    ? "Every upgrade in this category is installed."
+    ? "All upgrades in this category are installed."
     : game.company.officeLevel < nextUpgrade.requiredOffice
       ? `Requires ${offices[nextUpgrade.requiredOffice]?.name ?? `office level ${nextUpgrade.requiredOffice}`}`
       : game.company.cash < nextUpgrade.cost
@@ -63,7 +63,7 @@ export function CulturePromotionPanel({ game }: { game: GameState }) {
 
     {mode === "culture" ? <div className="visual-choice-layout">
       <section>
-        <div className="choice-section-heading"><div><span className="eyebrow">Company culture</span><h3>Improve the place people work.</h3></div><p>Choose a category. Every purchase changes the company and adds a recognizable object to the office.</p></div>
+        <div className="choice-section-heading"><div><span className="eyebrow">Company culture</span><h3>Improve the workplace.</h3></div><p>Choose a category. Each purchase changes company metrics and adds an object to the office.</p></div>
         <div className="culture-catalog">
           {perks.map((perk) => {
             const owned = game.company.perks.find((item) => item.id === perk.id);
@@ -82,7 +82,7 @@ export function CulturePromotionPanel({ game }: { game: GameState }) {
       <aside className="choice-detail">
         <div className="detail-heading"><div><span className="eyebrow">{selectedPerk.name}</span><h3>{currentUpgrade?.name ?? nextUpgrade?.name ?? selectedPerk.name}</h3></div><span className="state-stamp">{nextUpgrade ? selectedOwned ? "Installed" : "Available" : "Maxed"}</span></div>
         <MiniaturePreview item={{ kind: "perk", id: selectedPerk.id, level: previewLevel }} label={`${selectedPerk.name} office miniature`} />
-        <div className="upgrade-comparison"><div><small>In the office now</small><strong>{currentUpgrade?.name ?? "Nothing installed"}</strong><p>{currentUpgrade?.description ?? "This corner of the office is still waiting for an upgrade."}</p></div><div><small>{nextUpgrade ? "Next upgrade" : "Collection"}</small><strong>{nextUpgrade?.name ?? "Fully upgraded"}</strong><p>{nextUpgrade?.description ?? "There is nowhere sensible left to take this."}</p></div></div>
+        <div className="upgrade-comparison"><div><small>In the office now</small><strong>{currentUpgrade?.name ?? "Nothing installed"}</strong><p>{currentUpgrade?.description ?? "No upgrade installed."}</p></div><div><small>{nextUpgrade ? "Next upgrade" : "Collection"}</small><strong>{nextUpgrade?.name ?? "Fully upgraded"}</strong><p>{nextUpgrade?.description ?? "All upgrades installed."}</p></div></div>
         {nextUpgrade && <EffectSummary happiness={nextUpgrade.happiness} productivity={nextUpgrade.productivity} prestige={nextUpgrade.prestige} />}
         <details className="advanced-details"><summary>Exact effects</summary>{nextUpgrade ? <p>Happiness +{nextUpgrade.happiness}{nextUpgrade.productivity ? ` · Productivity +${nextUpgrade.productivity}` : ""}{nextUpgrade.prestige ? ` · Prestige +${nextUpgrade.prestige}` : ""}. Core simulation values are unchanged.</p> : <p>All upgrades in this category are installed.</p>}</details>
         {perkReason && <p className="inline-requirement">{perkReason}</p>}
@@ -112,7 +112,7 @@ export function CulturePromotionPanel({ game }: { game: GameState }) {
         <MiniaturePreview item={{ kind: "promo", id: selectedPromo.id }} label={`${selectedPromo.name} campaign miniature`} />
         <p className="detail-copy">{selectedPromo.description}</p>
         <div className="campaign-loop" aria-label="Campaign gameplay loop"><span>Launch</span><i>→</i><span>Assign staff</span><i>→</i><span>Complete</span><i>→</i><span>Gain hype</span></div>
-        {selectedTask ? <div className="active-campaign-detail"><div className="progress-label"><span>Campaign progress</span><strong>{Math.min(100, selectedTask.progress / selectedTask.requiredProgress * 100).toFixed(0)}%</strong></div><div className="progress-track"><i style={{ width: `${Math.min(100, selectedTask.progress / selectedTask.requiredProgress * 100)}%` }} /></div><GameButton className="detail-action" tone="primary" onClick={() => useGame.getState().setDrawer("tasks")}>Assign staff in Product studio →</GameButton></div> : <><div className="promo-outcome"><span><small>Launch cost</small><strong>{money(selectedPromo.cost)}</strong></span><span><small>Team effort</small><strong>{promotionEffort(selectedPromo.requiredProgress).replace(" campaign", "")}</strong></span><span><small>Outcome</small><strong>Company hype ↑</strong></span></div>{promoReason && <p className="inline-requirement">{promoReason}</p>}<GameButton className="detail-action" tone="primary" disabled={!!promoReason} title={promoReason || `Launch ${selectedPromo.name}`} onClick={() => dispatch({ type: "startPromo", promoId: selectedPromo.id })}>Start campaign · {money(selectedPromo.cost)}</GameButton></>}
+        {selectedTask ? <div className="active-campaign-detail"><div className="progress-label"><span>Campaign progress</span><strong>{Math.min(100, selectedTask.progress / selectedTask.requiredProgress * 100).toFixed(0)}%</strong></div><div className="progress-track"><i style={{ width: `${Math.min(100, selectedTask.progress / selectedTask.requiredProgress * 100)}%` }} /></div><GameButton className="detail-action" tone="primary" onClick={() => useGame.getState().setDrawer("tasks")}>Assign staff in Product lab →</GameButton></div> : <><div className="promo-outcome"><span><small>Launch cost</small><strong>{money(selectedPromo.cost)}</strong></span><span><small>Team effort</small><strong>{promotionEffort(selectedPromo.requiredProgress).replace(" campaign", "")}</strong></span><span><small>Outcome</small><strong>Company hype ↑</strong></span></div>{promoReason && <p className="inline-requirement">{promoReason}</p>}<GameButton className="detail-action" tone="primary" disabled={!!promoReason} title={promoReason || `Launch ${selectedPromo.name}`} onClick={() => dispatch({ type: "startPromo", promoId: selectedPromo.id })}>Start campaign · {money(selectedPromo.cost)}</GameButton></>}
       </aside>
     </div>}
   </div>;

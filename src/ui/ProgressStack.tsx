@@ -18,8 +18,8 @@ export function ProgressStack({ game }: { game: GameState }) {
     return (
       <div className="progress-stack">
         <button className="progress-row" onClick={() => setDrawer("tasks")}>
-          <span className="progress-kicker">Your next move</span>
-          <strong>{game.company.seenMarket ? "What will you build next?" : "Your first product starts here."}</strong>
+          <span className="progress-kicker">Next action</span>
+          <strong>{game.company.seenMarket ? "Choose your next product." : "Build your first product."}</strong>
           <em>Open product lab →</em>
         </button>
       </div>
@@ -29,7 +29,7 @@ export function ProgressStack({ game }: { game: GameState }) {
     <div className="progress-stack" tabIndex={0} aria-label="Active projects">
       {ready.map((product) => (
         <button key={product.id} className="progress-row is-ready" onClick={() => setDrawer("products")}>
-          <span className="progress-kicker">Completed</span>
+          <span className="progress-kicker">Ready to launch</span>
           <strong>{product.name}</strong>
           <div className="progress-track"><i style={{ width: "100%" }} /></div>
           <em>Configure launch →</em>

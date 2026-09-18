@@ -73,8 +73,10 @@ export function TasksPanel({game}:{game:GameState}) {
   const slide=currentTutorialSlide(game)?.id;
   const choosingSlot=slide==='choose-writing'?'b':slide==='choose-chat'?'a':slot;
   const difficulty=a&&b?(primitiveById[a]?.difficulty??0)+(primitiveById[b]?.difficulty??0)+(recipe?.difficultyMod??0):0;
+  const autoAssignNote=game.lastStaffing?.taskId===null?game.lastStaffing.lines:[];
   return <div className="product-workspace">
-    <div className="workspace-intro"><div><span className="eyebrow">Build / Launch / Grow</span><h3>{game.tasks.length?'Work in progress':'Two ideas. One product.'}</h3></div>{!intro&&<GameButton onClick={()=>setShowLab(!showLab)}>{showLab?'View projects':'+ New product'}</GameButton>}</div>
+    <div className="workspace-intro"><div><span className="eyebrow">Product lab</span><h3>{game.tasks.length?'Work in progress':'Start a product'}</h3></div>{!intro&&<div className="workspace-actions">{game.tasks.length>0&&<><GameButton onClick={()=>dispatch({type:'autoAssign'})}>Auto Assign All</GameButton><small>Covers every project first, then adds the best available teammates.</small></>}<GameButton onClick={()=>setShowLab(!showLab)}>{showLab?'View projects':'+ New product'}</GameButton></div>}</div>
+    {autoAssignNote.length>0&&<p className="auto-assign-note">{autoAssignNote.join(" ")}</p>}
     {(intro||showLab)&&<section className="product-lab">
       <div className="lab-ingredients"><div className="eyebrow">01 · Choose your ingredients</div>
         <div className="combo-slots">{(['a','b'] as const).map((s,i)=><div key={s} className="combo-slot-wrap">{i===1&&<span className="combine-plus">+</span>}<button className={`combo-slot ${choosingSlot===s?'selected':''}`} onClick={()=>setSlot(s)} aria-label={`Select technology slot ${i+1}`}><span>{i+1}</span><GameIcon name={(s==='a'?a:b)??'products'}/><strong>{primitiveById[(s==='a'?a:b)??'']?.name??'Choose technology'}</strong></button></div>)}</div>
@@ -83,7 +85,7 @@ export function TasksPanel({game}:{game:GameState}) {
           return <button key={p.id} data-tutorial={`primitive-${p.id}`} className={`primitive-tile ${a===p.id||b===p.id?'selected':''}`} disabled={blocked} title={blocked?'Try Chat + Writing for your first product':`Add ${p.name} to slot ${choosingSlot.toUpperCase()}`} onClick={()=>{dispatch({type:'selectPrimitive',slot:choosingSlot,primitive:p.id});setSlot(choosingSlot==='a'?'b':'a');}}><GameIcon name={p.id}/><span>{p.name}</span></button>;
         })}</div>
       </div>
-      <div className="recipe-preview"><span className="eyebrow">02 · The combination</span><ProductPreview a={a} b={b}/><h3>{recipe?.name??(a&&b?'An untested combination':'Something worth building')}</h3><p>{recipe?.description??'Combine two technologies to discover your next product.'}</p>{a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}<GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{dispatch({type:'startProduct',a:a!,b:b!});setShowLab(false);}}>Start development →</GameButton></div>
+      <div className="recipe-preview"><span className="eyebrow">02 · The combination</span><ProductPreview a={a} b={b}/><h3>{recipe?.name??(a&&b?'Untested combination':'Choose two technologies')}</h3><p>{recipe?.description??'Combine two technologies to define a product.'}</p>{a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}<GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{dispatch({type:'startProduct',a:a!,b:b!});setShowLab(false);}}>Start development →</GameButton></div>
     </section>}
     <div className="project-list">{game.tasks.map(task=>{
       const estimate=taskEstimate(game,task);
@@ -97,7 +99,7 @@ export function TasksPanel({game}:{game:GameState}) {
         {estimate.workers.length>0&&<div className="skill-contributions">{relevantSkillsFor(task).filter(s=>s!=='productivity').map(skill=><span key={skill}>{skill}<b>{estimate.workers.reduce((s,w)=>s+(w.burnoutDays?0:w.skills[skill]),0).toFixed(1)}</b></span>)}</div>}
       </section>;
     })}</div>
-    {!game.tasks.length&&!showLab&&!intro&&<div className="empty-state"><h3>The studio is clear.</h3><p>Ready products are waiting in Products & launches.</p><GameButton onClick={()=>useGame.getState().setDrawer('products')}>View products →</GameButton></div>}
+    {!game.tasks.length&&!showLab&&!intro&&<div className="empty-state"><h3>No active projects.</h3><p>Ready products are in Launches.</p><GameButton onClick={()=>useGame.getState().setDrawer('products')}>View launches →</GameButton></div>}
   </div>;
 }
 
@@ -115,7 +117,6 @@ function ProjectStaffing({ game, task }: { game: GameState; task: Task }) {
   const pending = pendingId ? game.employees.find((w) => w.id === pendingId) : null;
   const impact = pending ? reassignmentImpact(game, pending, task) : null;
   const skills = relevantSkillsFor(task).filter((s) => s !== "productivity").slice(0, 3);
-  const note = game.lastStaffing?.taskId === task.id ? game.lastStaffing.lines : [];
 
   function requestAssign(worker: Employee) {
     if (worker.burnoutDays > 0) return;
@@ -132,11 +133,6 @@ function ProjectStaffing({ game, task }: { game: GameState; task: Task }) {
 
   return (
     <div>
-      <div className="assign-toolbar">
-        <GameButton onClick={() => dispatch({ type: "autoAssign", taskId: task.id })}>Auto Assign</GameButton>
-        <small>Uses unassigned people only. Does not pull anyone off another project.</small>
-      </div>
-      {note.length > 0 && <p className="auto-assign-note">{note.join(" ")}</p>}
       {pending && impact?.fromTask && (
         <div className="assign-confirm" role="dialog" aria-label="Confirm reassignment">
           <p>
@@ -263,11 +259,11 @@ function ProductEconomics({product:p}:{product:Product}) {
 export function ProductsPanel({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch);
   const ordered=[...game.products].sort((a,b)=>Number(b.status==='ready')-Number(a.status==='ready'));
-  return <div className="catalog-workspace">{!ordered.length&&<div className="empty-state"><GameIcon name="products"/><h3>Every company starts with an idea.</h3><GameButton tone="primary" onClick={()=>useGame.getState().setDrawer('tasks')}>Open product lab →</GameButton></div>}{ordered.map(p=>{
+  return <div className="catalog-workspace">{!ordered.length&&<div className="empty-state"><GameIcon name="products"/><h3>No products yet.</h3><GameButton tone="primary" onClick={()=>useGame.getState().setDrawer('tasks')}>Open product lab →</GameButton></div>}{ordered.map(p=>{
     const costs=launchCosts(p), ready=p.status==='ready';
     const state=ready?(Object.values(p.levels).some(n=>n>0)?'Ready to launch':'Ready to configure'):p.status==='deprecated'?'Sunset':p.status;
     return <article key={p.id} className="product-sheet"><header data-tutorial={ready?'product-ready':undefined}><div className="product-emblem product-combo-emblem"><GameIcon name={p.combo[0]}/><GameIcon name={p.combo[1]}/></div><div><span className="eyebrow">{state}</span><h3>{p.name}</h3><p>{p.combo.map(id=>primitiveById[id]?.name??id).join(' + ')} · {p.vertical}</p></div>{ready&&<span className="ready-stamp">PRODUCT READY</span>}</header>
-      {p.status==='development'?<div className="development-notice"><p>Your team is developing this product. Configure it when development finishes.</p><GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>View development →</GameButton></div>:ready?<>
+      {p.status==='development'?<div className="development-notice"><p>Development is in progress. Configure the launch when it finishes.</p><GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>View development →</GameButton></div>:ready?<>
         <div className="launch-points"><span>Launch points</span>{(['engineering','product','growth'] as const).map(k=><div key={k}><small>{k}</small><strong>{Math.floor(p.points[k])}</strong></div>)}</div>
         <div className="designer-grid" data-tutorial="designer">{STATS.map(stat=>{
           const reason=p.levels[stat]>=BALANCE.MAX_LAUNCH_LEVEL?'Maximum level':!canAffordStat(p,stat)?`Need ${Math.ceil(costs[stat])} ${requiredFor(stat).join(' + ')} points`:'';
@@ -349,7 +345,7 @@ export function ProductsPanel({game}:{game:GameState}) {
           </div>
         </div>
         <section className="gtm-strategy-selector">
-          <div className="gtm-heading"><div><span className="eyebrow">Go-to-market strategy</span><h4>Choose the motion your company can execute.</h4></div><small>Options reflect this product and market.</small></div>
+          <div className="gtm-heading"><div><span className="eyebrow">Go-to-market strategy</span><h4>Choose a strategy your company can execute.</h4></div><small>Options depend on the product and market.</small></div>
           <div className="gtm-card-grid">{availableGtmStrategies(p).map(strategy=>{
             const analysis=gtmFitAnalysis(game,p,strategy.id);
             return <button key={strategy.id} aria-pressed={p.gtmStrategy===strategy.id} onClick={()=>dispatch({type:'setGtmStrategy',productId:p.id,strategy:strategy.id})}>
@@ -372,11 +368,11 @@ export function ProductsPanel({game}:{game:GameState}) {
                 <div><small>Variable cost / week</small><strong>{money(proj.costRange[0])}–{money(proj.costRange[1])}</strong></div>
                 <div><small>Time to revenue</small><strong>{proj.strategy.timeToRevenue}</strong></div>
               </div>
-              <p>Range assumes a competitive market entry. Outcome depends on segment capture, team execution, demand, reliability, and competition. It is not a profit guarantee.</p>
+              <p>Estimate for a competitive entry. Results depend on segment capture, execution, demand, reliability, and competition. This is not a profit guarantee.</p>
             </div>
           );
         })()}
-        <footer className="launch-footer"><span>Company time pauses in the market.</span><GameButton tone="primary" data-tutorial="enter-market" disabled={game.onboarding.tutorialEnabled&&!game.company.seenMarket&&currentTutorialSlide(game)?.id!=='enter-market'} title={game.pendingMentor==='designer'&&currentTutorialSlide(game)?.id!=='enter-market'?'Finish configuring your first launch with the mentor':'Launch this product'} onClick={()=>dispatch({type:'enterMarket',productId:p.id})}>Enter market →</GameButton>{game.company.productsLaunched>=BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE&&<div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}><span className="eyebrow" style={{fontSize:10,margin:0}}>Delegate:</span><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'balanced'})} title="Delegate launch with balanced strategic weights">Balanced</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'aggressive'})} title="Delegate launch aggressively contesting rival hubs">Aggressive</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'niche'})} title="Delegate launch targeting high-value niche segments">Niche</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'expansion'})} title="Delegate launch expanding network reach">Expansion</GameButton></div>}</footer>
+        <footer className="launch-footer"><span>Time pauses during the market launch.</span><GameButton tone="primary" data-tutorial="enter-market" disabled={game.onboarding.tutorialEnabled&&!game.company.seenMarket&&currentTutorialSlide(game)?.id!=='enter-market'} title={game.pendingMentor==='designer'&&currentTutorialSlide(game)?.id!=='enter-market'?'Finish configuring your first launch with the mentor':'Launch this product'} onClick={()=>dispatch({type:'enterMarket',productId:p.id})}>Enter market →</GameButton>{game.company.productsLaunched>=BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE&&<div style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}><span className="eyebrow" style={{fontSize:10,margin:0}}>Delegate:</span><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'balanced'})} title="Delegate launch with balanced strategic weights">Balanced</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'aggressive'})} title="Delegate launch aggressively contesting rival hubs">Aggressive</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'niche'})} title="Delegate launch targeting high-value niche segments">Niche</GameButton><GameButton onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'expansion'})} title="Delegate launch expanding network reach">Expansion</GameButton></div>}</footer>
       </>:<><ProductEconomics product={p}/><footer className="launch-footer"><p>{p.description}</p>{p.status!=='deprecated'&&<GameButton tone="danger" onClick={()=>dispatch({type:'killProduct',productId:p.id})}>Sunset product</GameButton>}</footer></>}
     </article>;
   })}</div>;

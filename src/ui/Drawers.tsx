@@ -43,18 +43,18 @@ export function Drawers({ game }: { game: GameState }) {
       <CompanyPanel game={game} />
     );
   const titles: Record<string, string> = {
-    tasks: "Product studio",
-    products: "Products & launches",
+    tasks: "Product lab",
+    products: "Launches",
     people: "People",
     hiring: "Hiring",
     research: "Research",
     finance: "Ledger",
     compute: "Infrastructure",
-    funding: "Capital partners",
-    perks: "Culture & Promotion",
+    funding: "Funding",
+    perks: "Culture",
     world: "World",
     inbox: "Inbox",
-    social: "Radar & Social",
+    social: "Radar",
     company: "Company",
   };
   const group = NAV_GROUPS.find(g=>g.items.some(i=>i.id===drawer));

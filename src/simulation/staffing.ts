@@ -77,48 +77,79 @@ export function contributionOf(state: GameState, worker: Employee, task: Task): 
 }
 
 export interface AutoAssignResult {
-  assigned: { workerId: string; name: string; skill: SkillName; reason: string }[];
+  assigned: { taskId: string; workerId: string; name: string; skill: SkillName; reason: string }[];
 }
 
-export function planAutoAssign(state: GameState, task: Task): AutoAssignResult {
-  const open = idleWorkers(state).filter((w) => w.role !== "ai");
+const MAX_AUTO_ASSIGN_TEAM_SIZE = 4;
+
+export function planAutoAssign(state: GameState, _legacyTask?: Task): AutoAssignResult {
+  const projects = state.tasks.filter((task) => task.type === "crisis" || task.progress < task.requiredProgress);
+  const open = idleWorkers(state);
   const assigned: AutoAssignResult["assigned"] = [];
   const taken = new Set<string>();
-  const needs = relevantSkillsFor(task);
-  const current = [...workersFor(task, state)];
-  const slots = Math.min(open.length, Math.max(1, 4 - current.filter((w) => w.burnoutDays <= 0).length));
-  for (let n = 0; n < slots; n += 1) {
-    let best: { worker: Employee; score: number; skill: SkillName } | null = null;
-    const before = dailyOutput(state, task, current);
-    for (const worker of open) {
-      if (taken.has(worker.id) || worker.taskId) continue;
-      const nextTeam = [...current, worker];
-      const after = dailyOutput(state, task, nextTeam);
-      const marginal = after - before;
-      const fit = workerFit(state, worker, task);
-      const score = marginal * 1.4 + fit * 0.35;
-      const skill = needs.slice().sort((a, b) => workerSkill(worker, state, b) - workerSkill(worker, state, a))[0] ?? "productivity";
-      if (!best || score > best.score) best = { worker, score, skill };
+
+  // Keep each project's simulated team in sync while planning so later picks
+  // account for both team overhead and the people selected earlier in this plan.
+  const teams = new Map(projects.map((task) => [task.id, [...workersFor(task, state)]]));
+
+  function addBest(coverageOnly: boolean): boolean {
+    let best: { task: Task; worker: Employee; score: number; skill: SkillName } | null = null;
+    for (const task of projects) {
+      const current = teams.get(task.id)!;
+      const activeCount = current.filter((worker) => worker.burnoutDays <= 0).length;
+      if (activeCount >= MAX_AUTO_ASSIGN_TEAM_SIZE || (coverageOnly && activeCount > 0)) continue;
+      const needs = relevantSkillsFor(task);
+      const before = dailyOutput(state, task, current);
+      for (const worker of open) {
+        if (taken.has(worker.id)) continue;
+        const after = dailyOutput(state, task, [...current, worker]);
+        const marginal = after - before;
+        const fit = workerFit(state, worker, task);
+        const score = marginal * 1.4 + fit * 0.35;
+        const skill = needs.slice().sort((a, b) => workerSkill(worker, state, b) - workerSkill(worker, state, a))[0] ?? "productivity";
+        if (!best || score > best.score) best = { task, worker, score, skill };
+      }
     }
-    if (!best || best.score <= 0.05) break;
+
+    // Coverage is the explicit priority, even when the only available fit is
+    // weak. Once every project has a teammate, avoid adding zero-value depth.
+    if (!best || (!coverageOnly && best.score <= 0.05)) return false;
     taken.add(best.worker.id);
-    current.push(best.worker);
+    teams.get(best.task.id)!.push(best.worker);
     const label = best.skill === "productivity" ? "pace" : best.skill;
+    const firstOnProject = teams.get(best.task.id)!.filter((worker) => worker.burnoutDays <= 0).length === 1;
     assigned.push({
+      taskId: best.task.id,
       workerId: best.worker.id,
       name: best.worker.name.split(" ")[0]!,
       skill: best.skill,
-      reason: `Assigned ${best.worker.name.split(" ")[0]} to ${task.name} — strongest available ${label} fit.`,
+      reason: firstOnProject
+        ? `Assigned ${best.worker.name.split(" ")[0]} to ${best.task.name} — covering the project with the strongest available ${label} fit.`
+        : `Assigned ${best.worker.name.split(" ")[0]} to ${best.task.name} — strongest available ${label} fit for extra project depth.`,
     });
+    return true;
+  }
+
+  // First give every uncovered project a teammate. This loop intentionally has
+  // no quality threshold: one capable person is better than a stalled project.
+  while (taken.size < open.length && projects.some((task) => (teams.get(task.id) ?? []).every((worker) => worker.burnoutDays > 0))) {
+    if (!addBest(true)) break;
+  }
+
+  // With coverage satisfied, distribute any remaining capacity by marginal
+  // output plus task fit, preserving the existing four-person team cap.
+  while (taken.size < open.length) {
+    if (!addBest(false)) break;
   }
   return { assigned };
 }
 
-export function applyAutoAssign(state: GameState, task: Task): AutoAssignResult {
-  const plan = planAutoAssign(state, task);
+export function applyAutoAssign(state: GameState, _legacyTask?: Task): AutoAssignResult {
+  const plan = planAutoAssign(state);
   for (const row of plan.assigned) {
     const worker = state.employees.find((w) => w.id === row.workerId);
-    if (!worker || worker.taskId || worker.burnoutDays > 0) continue;
+    const task = state.tasks.find((item) => item.id === row.taskId);
+    if (!worker || !task || worker.taskId || worker.burnoutDays > 0) continue;
     worker.taskId = task.id;
   }
   return plan;

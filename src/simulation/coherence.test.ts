@@ -133,12 +133,38 @@ describe("assignment", () => {
       skills: { ...partner.skills, research: 12, engineering: 11, product: 8, growth: 4, productivity: 8 },
     };
     moved.employees.push(extra);
-    const plan = planAutoAssign(moved, a!);
+    const plan = planAutoAssign(moved);
     expect(plan.assigned.every((row) => row.workerId === "free-1" || !moved.employees.find((w) => w.id === row.workerId)?.taskId)).toBe(true);
     const after = structuredClone(moved);
-    applyAutoAssign(after, a!);
+    applyAutoAssign(after);
     expect(after.employees.find((w) => w.id === founder.id)!.taskId).toBe(b!.id);
-    expect(after.employees.find((w) => w.id === extra.id)!.taskId).toBe(a!.id);
+    expect([a!.id, b!.id]).toContain(after.employees.find((w) => w.id === extra.id)!.taskId);
+  });
+
+  it("covers every project before adding extra available teammates", () => {
+    let g = boot(18);
+    g = startNamedProduct(g, "chat", "writing");
+    g = startNamedProduct(g, "search", "image");
+    const [first, second] = g.tasks;
+    const template = g.employees[1]!;
+    g.employees.push(
+      {
+        ...structuredClone(template),
+        id: "free-coverage-1",
+        name: "Maya Chen",
+        taskId: null,
+        skills: { ...template.skills, engineering: 12, research: 11, product: 9 },
+      },
+    );
+
+    const plan = planAutoAssign(g);
+    expect(plan.assigned).toHaveLength(3);
+    expect(new Set(plan.assigned.map((row) => row.taskId))).toEqual(new Set([first!.id, second!.id]));
+
+    const after = applyCommand(g, { type: "autoAssign" })!;
+    expect(after.lastStaffing?.taskId).toBeNull();
+    expect(after.employees.filter((worker) => worker.taskId === first!.id).length).toBeGreaterThanOrEqual(1);
+    expect(after.employees.filter((worker) => worker.taskId === second!.id).length).toBeGreaterThanOrEqual(1);
   });
 });
 

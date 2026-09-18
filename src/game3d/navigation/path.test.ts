@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { apartmentLayout, campusLayout, garageLayout, labLayout, loftLayout, megaLayout } from './layout';
 import { route } from './path';
+import { navigationObstacles, pointInsideObstacle } from './obstacles';
 import { officeScale } from '../environment/officeScale';
 import { layoutFor } from './layout';
 
@@ -67,10 +68,28 @@ describe('Navigation Pathfinding (route)', () => {
     }
   });
 
+  it('keeps activity routes outside static furniture footprints', () => {
+    for (const layout of layouts.map(({ layout }) => layout)) {
+      const entrance = layout.points.find((point) => point.kind === 'entrance')!;
+      const obstacles = navigationObstacles(layout);
+      for (const kind of ['coffee', 'board', 'lab', 'server'] as const) {
+        const destination = layout.points.find((point) => point.kind === kind);
+        if (!destination) continue;
+        const path = route(entrance.position, destination.position, layout);
+        expect(path.length).toBeGreaterThan(1);
+        for (const node of path.slice(1, -1)) {
+          expect(obstacles.some((item) => pointInsideObstacle(node[0], node[2], item, 0.3)), `${layout.id} ${kind} ${node.join(',')}`).toBe(false);
+        }
+      }
+    }
+  });
+
   it('safely falls back when target is unreachable without infinite loops', () => {
     const distantUnreachable: [number, number, number] = [9999, 0, 9999];
     const path = route([0, 0, 0], distantUnreachable, apartmentLayout);
-    expect(path).toEqual([distantUnreachable]);
+    // Never send an agent through a wall or an off-floor target when no safe
+    // route exists. The caller can retry after the office state changes.
+    expect(path).toEqual([[0, 0, 0]]);
   });
 
   it('keeps generated activity points on their expanded floors with reachable hotspots',()=>{
@@ -85,7 +104,7 @@ describe('Navigation Pathfinding (route)', () => {
         const point=layout.points.find(p=>p.kind===kind);
         if(!point)continue;
         const path=route(entrance.position,point.position,layout);
-        expect(path.length).toBeGreaterThan(2);
+        expect(path.length, `level ${level} ${kind}`).toBeGreaterThan(2);
         expect(path.at(-1)).toEqual(point.position);
       }
     }

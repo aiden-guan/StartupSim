@@ -34,7 +34,7 @@ export function MarketResults({ game }: { game: GameState }) {
     <main className="market-results">
       <article>
         <span className="eyebrow">
-          Launch Report / {game.company.name}
+          Launch report / {game.company.name}
         </span>
         <div className="result-mark">
           <GameIcon name="products" />
@@ -72,33 +72,33 @@ export function MarketResults({ game }: { game: GameState }) {
         {/* Ledger Breakdown */}
         <div className="result-ledger">
           <div>
-            <span>Top Market Segment</span>
+            <span>Top segment</span>
             <strong>{r.topSegment ?? "Developers"}</strong>
           </div>
           <div>
-            <span>Total Customers</span>
+            <span>Customers</span>
             <strong>{Math.round(r.users).toLocaleString()}</strong>
           </div>
           <div>
-            <span>Product Revenue / Week</span>
+            <span>Revenue / week</span>
             <strong>{money(r.revenue)}</strong>
           </div>
           <div>
-            <span>Inference Cost / Week</span>
+            <span>Inference / week</span>
             <strong>{money(r.inference)}</strong>
           </div>
           <div>
-            <span>Expected Gross Profit / Week</span>
+            <span>Gross profit / week</span>
             <strong style={{ color: grossProfit >= 0 ? "#3d7854" : "#b55333" }}>
               {money(grossProfit)} ({grossMargin}%)
             </strong>
           </div>
           <div>
-            <span>GTM, Support & Maintenance / Week</span>
+            <span>Operating cost / week</span>
             <strong>{money(operatingCost)}</strong>
           </div>
           <div>
-            <span>Net Contribution / Week</span>
+            <span>Net contribution / week</span>
             <strong style={{ color: netContribution >= 0 ? "#3d7854" : "#b55333" }}>{money(netContribution)}</strong>
           </div>
           <div>
@@ -148,16 +148,16 @@ export function MarketResults({ game }: { game: GameState }) {
         <p className="result-note">
           {r.revenue > 0
             ? "Revenue arrives weekly. API credits cover inference before company cash is touched."
-            : "No meaningful customer footholds won this time. Iterate capability and expand your network on the next launch."}
+            : "No meaningful footholds this launch. Improve capability and expand reach before trying again."}
         </p>
 
         <button
           className="primary-action"
           onClick={() => useGame.getState().dispatch({ type: "continueMarketResults" })}
         >
-          Continue to your company →
+          Continue →
         </button>
-        <small>Company time remains paused.</small>
+        <small>Time remains paused.</small>
       </article>
     </main>
   );

@@ -41,7 +41,7 @@ export function EndScreen({ game }: { game: GameState }) {
           </div>
         </dl>
         <button type="button" className="mt-12 bg-[#1b2230] px-5 py-3 text-white" onClick={() => setScreen("title")}>
-          File another incorporation
+          Start another company →
         </button>
       </div>
     </div>

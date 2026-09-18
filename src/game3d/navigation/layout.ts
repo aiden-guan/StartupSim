@@ -128,7 +128,7 @@ export const megaLayout: OfficeLayout = {
     { id: "d1", kind: "desk", position: [-30, 0, 5], look: [-30, 0, 4], capacity: 1 },
     { id: "lab", kind: "lab", position: [-35, 0, -23], look: [-37, 0, -25.5], capacity: 6 },
     { id: "server", kind: "server", position: [36, 0, -23], look: [37, 0, -25.5], capacity: 4 },
-    { id: "idle", kind: "idle", position: [4, 0, 8], look: [4, 0, 9], capacity: 10 },
+    { id: "idle", kind: "idle", position: [10, 0, 16], look: [10, 0, 17], capacity: 10 },
     { id: "meet", kind: "meet", position: [-22, 0, 15], look: [-22, 0, 16], capacity: 6 },
     { id: "coffee", kind: "coffee", position: [-32, 0, 20], look: [-33, 0, 20], capacity: 4 },
     { id: "board", kind: "board", position: [-41, 0, -10], look: [-42, 0, -10], capacity: 4 },

@@ -10,7 +10,7 @@ export interface ProjectDef {
 }
 
 export const specialProjects: ProjectDef[] = [
-  { id: "foundation-model", name: "Train Foundation Model", cost: 2_500_000, description: "A training run that will be a personality.", required: { research: 400, engineering: 350, product: 120 }, requiresTechs: ["synthetic-data", "reasoning"], effects: [{ type: "unlockModel", value: "house-frontier" }, { type: "world", value: { meter: "aiCapability", amount: 8 } }] },
+  { id: "foundation-model", name: "Train Foundation Model", cost: 2_500_000, description: "Train a frontier model for internal use.", required: { research: 400, engineering: 350, product: 120 }, requiresTechs: ["synthetic-data", "reasoning"], effects: [{ type: "unlockModel", value: "house-frontier" }, { type: "world", value: { meter: "aiCapability", amount: 8 } }] },
   { id: "gpu-cluster", name: "Private GPU Cluster", cost: 1_800_000, description: "Racks that belong to you, humming at 3am.", required: { research: 80, engineering: 400, product: 40 }, requiresTechs: ["efficient-inference"], effects: [{ type: "ownedCluster", value: 8 }] },
   { id: "research-lab", name: "Open Research Lab", cost: 900_000, description: "A building for people who would rather write papers.", required: { research: 300, engineering: 120, product: 80 }, requiresTechs: ["eval-science"], effects: [{ type: "researchSpeed", value: 0.15 }, { type: "prestige", value: 8 }] },
   { id: "data-center", name: "Build Data Center", cost: 12_000_000, description: "Concrete, cooling, and a power bill with a zip code.", required: { research: 100, engineering: 600, product: 80 }, requiresTechs: ["energy-systems"], effects: [{ type: "dataCenters", value: 1 }, { type: "world", value: { meter: "energyDemand", amount: 6 } }] },

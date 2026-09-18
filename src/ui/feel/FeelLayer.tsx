@@ -29,7 +29,7 @@ export function FeelLayer() {
               <div className="game-event-mark" aria-hidden="true" style={{ backgroundColor: "#2e5241" }}>✉</div>
               <div>
                 <span className="game-event-kicker" style={{ color: "#2e5241" }}>
-                  New message received · Response required
+                  New message · response required
                 </span>
                 {eventFrame.sender ? (
                   <div className="text-[11px] font-semibold text-[#1c2e24] mt-0.5">
@@ -90,14 +90,14 @@ export function FeelLayer() {
               </div>
               <div>
                 <span className="game-event-kicker" style={{ color: "#3c6b53" }}>
-                  Radar & Social
+                  Radar
                 </span>
                 <h3 className="text-base font-semibold">{eventFrame.headline}</h3>
               </div>
             </header>
             <p className="game-event-body">{eventFrame.body}</p>
             <footer className="game-event-footer">
-              <span className="text-xs text-[#3c6b53] font-medium">Click to view in Radar →</span>
+              <span className="text-xs text-[#3c6b53] font-medium">Open Radar →</span>
             </footer>
           </aside>
         </div>

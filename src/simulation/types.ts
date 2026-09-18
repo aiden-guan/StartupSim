@@ -682,7 +682,7 @@ export interface GameState {
     cooldownDays: number;
     lastResult?: HireResult | null;
   };
-  lastStaffing?: { taskId: string; lines: string[]; at: number } | null;
+  lastStaffing?: { taskId: string | null; lines: string[]; at: number } | null;
   funding: {
     lastRound: string | null;
     offers: FundingOffer[];

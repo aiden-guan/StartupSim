@@ -54,7 +54,7 @@ export type GameCommand =
   | { type: "setSettings"; patch: Partial<GameState["settings"]> }
   | { type: "startProduct"; a: string; b: string }
   | { type: "assign"; taskId: string; workerId: string; confirm?: boolean }
-  | { type: "autoAssign"; taskId: string }
+  | { type: "autoAssign"; taskId?: string }
   | { type: "unassign"; workerId: string }
   | { type: "buyStat"; productId: string; stat: LaunchStat }
   | { type: "refundStat"; productId: string; stat: LaunchStat }
@@ -203,10 +203,10 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         break;
       }
       case "autoAssign": {
-        const task = draft.tasks.find((t) => t.id === command.taskId);
-        if (!task) break;
-        const result = applyAutoAssign(draft, task);
-        draft.lastStaffing = { taskId: task.id, lines: result.assigned.map((row) => row.reason), at: draft.clock.tick };
+        const result = applyAutoAssign(draft);
+        const lines = result.assigned.map((row) => row.reason);
+        if (!lines.length) lines.push("No available employees could be assigned without moving anyone off an existing project.");
+        draft.lastStaffing = { taskId: null, lines, at: draft.clock.tick };
         break;
       }
       case "unassign": {

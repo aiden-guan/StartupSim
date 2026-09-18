@@ -69,7 +69,7 @@ export function SettingsOverlay() {
             ) : null}
           </div>
         ) : (
-          <p className="mt-3 text-sm text-[#9aa3b2]">Start or load a company to bind settings to a save.</p>
+          <p className="mt-3 text-sm text-[#9aa3b2]">Start or load a company to use settings.</p>
         )}
         {import.meta.env.DEV ? (
           <GameButton className="mt-3" onClick={() => setGalleryOpen(true)}>

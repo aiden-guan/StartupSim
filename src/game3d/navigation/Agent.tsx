@@ -23,9 +23,14 @@ export function EmployeeAgent({agent,layout,reducedMotion,onSelect,runtime}:{age
   const state=useRef<AgentState>('SPAWNING');
   const setState=(s:AgentState)=>{if(state.current!==s){state.current=s;setBehavior(s);}};
   function moveTo(next:ActivityPoint) {
+    const current=ref.current?.position.toArray()??start.current;
+    const nextPath=route(current,next.position,layout);
+    // A failed route returns the current position. Staying put is safer than
+    // allowing a character to cut through a prop as a direct fallback.
+    if(nextPath.length===1&&Math.hypot(next.position[0]-current[0],next.position[2]-current[2])>.2)return false;
     if(!runtime.claim(agent.id,next))return false;
     point.current=next;
-    path.current=route(ref.current?.position.toArray()??start.current,next.position,layout);
+    path.current=nextPath;
     setState('WALKING_TO_ACTIVITY');return true;
   }
   function plan(first=false) {
@@ -77,7 +82,7 @@ export function EmployeeAgent({agent,layout,reducedMotion,onSelect,runtime}:{age
   return <group ref={ref} position={start.current} onClick={e=>{e.stopPropagation();onSelect(agent.id);}}>
     <Character look={agent.look} activity={reducedMotion?'idle':ANIMATION[behavior]} exhausted={agent.burnoutDays>0} robot={agent.role==='robot'} seated={atDesk}/>
     {selected&&<mesh position={[0,.015,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.31,.38,24]}/><meshBasicMaterial color="#e59154"/></mesh>}
-    {(selected||agent.burnoutDays>0)&&<Html position={[0,1.8,0]} center distanceFactor={10}><div className="agent-label">{agent.name.split(' ')[0]} · {agent.burnoutDays?'Resting':behavior==='WORKING'?agent.taskType:behavior.toLowerCase().replaceAll('_',' ')}</div></Html>}
+    {(selected||agent.burnoutDays>0)&&<Html position={[0,1.8,0]} center distanceFactor={10} occlude><div className="agent-label">{agent.name.split(' ')[0]} · {agent.burnoutDays?'Resting':behavior==='WORKING'?agent.taskType:behavior.toLowerCase().replaceAll('_',' ')}</div></Html>}
   </group>;
 }
 export function DepartingAgent({id,look,robot,layout,runtime}:{id:string;look:AgentView['look'];robot:boolean;layout:OfficeLayout;runtime:OfficeRuntime}) {

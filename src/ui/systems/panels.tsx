@@ -46,6 +46,13 @@ const EVENT_KIND_LABELS: Record<GameplayEventKind, string> = {
   recovery: "Service restored",
 };
 
+const WORLD_TABS = {
+  news: "News",
+  competitors: "Competitors",
+  economy: "Economy",
+  expansion: "Expansion",
+} as const;
+
 export function WorldPanel({ game }: { game: GameState }) {
   const [tab,setTab]=useState("news");
   const dispatch = useGame((s) => s.dispatch);
@@ -59,9 +66,9 @@ export function WorldPanel({ game }: { game: GameState }) {
   ];
   return (
     <div className="space-y-4">
-      <nav className="world-tabs">{["news","competitors","economy","expansion"].map(id=><button key={id} aria-pressed={tab===id} onClick={()=>setTab(id)}>{id}</button>)}</nav>
-      {tab==="news"&&<div className="news-wire">{game.news.map(n=><article key={n.id}><span className="eyebrow">{formatDate(n.at)} / {n.tone}{n.chainStage!==undefined?` / development ${n.chainStage+1}`:''}</span><h3>{n.headline}</h3><p>{n.body}</p>{n.impact&&<aside><strong>Simulation impact</strong>{n.impact}</aside>}</article>)}{!game.news.length&&<p>The wire is quiet. News arrives as company time passes.</p>}</div>}
-      {tab==="economy"&&<><h3 className="economy-title">{game.economy}</h3><p className="economy-caption">The market story at a glance. Macro conditions change demand, costs, hiring, and valuations.</p>
+      <nav className="world-tabs">{Object.entries(WORLD_TABS).map(([id,label])=><button key={id} aria-pressed={tab===id} onClick={()=>setTab(id)}>{label}</button>)}</nav>
+      {tab==="news"&&<div className="news-wire">{game.news.map(n=><article key={n.id}><span className="eyebrow">{formatDate(n.at)} / {n.tone}{n.chainStage!==undefined?` / development ${n.chainStage+1}`:''}</span><h3>{n.headline}</h3><p>{n.body}</p>{n.impact&&<aside><strong>Effect</strong>{n.impact}</aside>}</article>)}{!game.news.length&&<p>No news yet. The wire updates as time passes.</p>}</div>}
+      {tab==="economy"&&<><h3 className="economy-title">{game.economy}</h3><p className="economy-caption">Macro conditions affect demand, costs, hiring, and valuations.</p>
       <div className="economy-overview">{highLevelConditions.map((condition)=><article key={condition.label}><span>{condition.label}</span><strong>{worldConditionLabel(condition.kind,condition.value,condition.baseline)}</strong><div className="condition-track"><i style={{width:`${Math.max(4,Math.min(100,condition.baseline===100?condition.value/1.6:condition.value))}%`}}/></div><p>{condition.note}</p></article>)}</div>
       <details className="economy-details"><summary>Detailed indicators</summary><div className="world-meter-list">{worldMeters.map((k) => (<div key={k}><div><span>{k.replace(/([A-Z])/g,' $1')}</span><strong>{game.world[k].toFixed(0)}</strong></div><div className="condition-track"><i style={{ width: `${Math.min(100, game.world[k])}%` }} /></div></div>))}</div><div className="market-index-grid">{marketIndexes.map(([label,value])=><div key={label}><small>{label}</small><strong>{Math.round(value*100)}</strong><span>{value>1.02?'Above baseline':value<.98?'Below baseline':'Baseline'}</span></div>)}</div></details>
       </>}
@@ -70,7 +77,7 @@ export function WorldPanel({ game }: { game: GameState }) {
       {game.unlocks.locations
         ? locations.map((l) => {
             const owned = game.company.locations.includes(l.id);
-            const reason = owned ? 'Already expanded to this location' : game.company.cash < l.cost ? `Need ${money(l.cost - game.company.cash)} more` : '';
+            const reason = owned ? 'Already expanded' : game.company.cash < l.cost ? `Need ${money(l.cost - game.company.cash)} more` : '';
             return (
               <GameButton
                 key={l.id}
@@ -87,7 +94,7 @@ export function WorldPanel({ game }: { game: GameState }) {
       {game.unlocks.verticals
         ? verticals.map((v) => {
             const active = game.company.verticals.includes(v.id);
-            const reason = active ? 'Already active in this market' : game.company.cash < v.cost ? `Need ${money(v.cost - game.company.cash)} more` : '';
+            const reason = active ? 'Already active' : game.company.cash < v.cost ? `Need ${money(v.cost - game.company.cash)} more` : '';
             return (
               <GameButton
                 key={v.id}
@@ -121,7 +128,7 @@ export function WorldPanel({ game }: { game: GameState }) {
       {game.unlocks.lobbying
         ? lobbies.map((l) => {
             const active = game.company.lobbies.includes(l.id);
-            const reason = active ? 'Lobbying initiative active' : game.company.cash < l.cost ? `Need ${money(l.cost - game.company.cash)} more` : '';
+            const reason = active ? 'Already active' : game.company.cash < l.cost ? `Need ${money(l.cost - game.company.cash)} more` : '';
             return (
               <GameButton
                 key={l.id}
@@ -185,7 +192,7 @@ export function InboxPanel({ game }: { game: GameState }) {
                 <span className="mail-event-badge">{EVENT_KIND_LABELS[mail.eventKind]}</span>
                 <strong>{mail.requiresResponse ? "Decision required" : "Applied now"}</strong>
               </div>
-              <p>{mail.impact ?? "This company event changes your operating state now."}</p>
+              <p>{mail.impact ?? "This event changes your operating state now."}</p>
             </aside>
           ) : null}
 
@@ -243,7 +250,7 @@ export function InboxPanel({ game }: { game: GameState }) {
                   {mail.profile.title}
                   {mail.profile.taskName ? ` · ${mail.profile.taskName}` : ""}
                 </small>
-                <span>Current {money(mail.profile.salary)} / year</span>
+                <span>Salary {money(mail.profile.salary)} / year</span>
                 {mail.profile.projectImpact ? <em>{mail.profile.projectImpact}</em> : null}
                 <div className="mail-skills">
                   {Object.entries(mail.profile.skills)
@@ -310,7 +317,7 @@ export function InboxPanel({ game }: { game: GameState }) {
           )}
         </article>
       ) : (
-        <div className="empty-state">The inbox is quiet.</div>
+        <div className="empty-state">No messages yet.</div>
       )}
     </div>
   );
@@ -339,8 +346,8 @@ export function CompanyPanel({ game }: { game: GameState }) {
       )}
       {next ? (
         <>
-          <p className="text-xs text-[#56665e]">
-            {next.name} costs {money(next.cost)} to move in and {money(next.rent)}/month thereafter — capital that could hire, buy compute, or fund a launch.
+        <p className="text-xs text-[#56665e]">
+            {next.name} costs {money(next.cost)} to move in and {money(next.rent)}/month after that. The same cash could fund hiring, compute, or a launch.
           </p>
           <GameButton
             tone="primary"
@@ -352,11 +359,11 @@ export function CompanyPanel({ game }: { game: GameState }) {
           </GameButton>
         </>
       ) : (
-        <p className="text-xs text-[#9aa3b2]">The campus is as large as representation allows.</p>
+        <p className="text-xs text-[#9aa3b2]">Maximum office reached.</p>
       )}
       <SavePanel game={game} onLoad={loadGame} variant="company" />
       <button type="button" className="text-xs underline" onClick={() => dispatch({ type: "retire" })}>
-        Close the books
+        Retire company
       </button>
 
     </div>

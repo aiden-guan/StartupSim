@@ -82,7 +82,7 @@ export function SocialPanel({ game }: { game: GameState }) {
           </button>
         </div>
         <div className="text-[10px] font-mono text-[#788874] uppercase tracking-wider">
-          Radar & Valley Signal
+          Radar
         </div>
       </div>
 
@@ -90,7 +90,7 @@ export function SocialPanel({ game }: { game: GameState }) {
         <div className="social-feed space-y-3">
           {social.posts.length === 0 ? (
             <div className="p-8 text-center text-xs text-[#788874] bg-[#f2f4ec] rounded border border-[#d6dfcb]">
-              The public feed is quiet. As you launch products and build momentum, the ecosystem will start talking.
+              No public activity yet. Launch products and build momentum to attract attention.
             </div>
           ) : (
             social.posts.map((post: SocialPost) => {

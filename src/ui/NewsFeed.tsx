@@ -85,7 +85,7 @@ export function NewsFeed({ game }: { game: GameState }) {
   return (
     <aside className={`news-feed ${collapsed ? "collapsed" : ""}`} ref={root} aria-label="World feed">
       <header className="news-feed-head">
-        <span className="news-feed-title"><span className="eyebrow">The Wire</span><small>{collapsed ? "Collapsed" : "Live"}</small></span>
+        <span className="news-feed-title"><span className="eyebrow">The Wire</span>{!collapsed ? <small>Live</small> : null}</span>
         <button
           type="button"
           className="news-feed-toggle"
@@ -103,7 +103,7 @@ export function NewsFeed({ game }: { game: GameState }) {
       </header>
       {!collapsed ? <>
         <div className="news-feed-list" id="world-feed-list">
-          {feed.length === 0 ? <p className="news-feed-empty">The wire is quiet.</p> : null}
+          {feed.length === 0 ? <p className="news-feed-empty">No updates yet.</p> : null}
           {feed.map((item) => (
             <button
               key={item.id}
@@ -129,7 +129,7 @@ export function NewsFeed({ game }: { game: GameState }) {
             </header>
             <h3>{opened.headline}</h3>
             <p>{opened.body}</p>
-            {opened.impact ? <aside><strong>What it means</strong>{opened.impact}</aside> : null}
+            {opened.impact ? <aside><strong>Effect</strong>{opened.impact}</aside> : null}
             {opened.mail?.requiresResponse ? (
               <button className="news-feed-cta" onClick={() => { setDrawer("inbox"); setOpenId(null); }}>Open event brief →</button>
             ) : null}
