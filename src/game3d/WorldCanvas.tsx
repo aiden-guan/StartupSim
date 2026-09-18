@@ -15,6 +15,7 @@ import { useGame } from "../state/store";
 import { DEFAULT_BRAND } from "../simulation/newGame";
 import { CrowdSilhouettes } from "./props/Crowd";
 import { DynamicEnvironment } from './environment/DynamicEnvironment';
+import { ProductShowcase } from './props/ProductShowcase';
 
 function Scene() {
   const screen = useGame((s) => s.screen);
@@ -32,6 +33,7 @@ function Scene() {
   const quality = game?.settings.graphics ?? "high";
   const standing = Boolean(game?.company.perks.some((p) => p.id === "desks"));
   const brand = view?.brand ?? setup.brand ?? DEFAULT_BRAND;
+  const showcasedProduct = game?.products.filter((product) => product.status !== 'development' && product.status !== 'deprecated').at(-1);
   useEffect(() => {
     const cam = useCameraDirector.getState();
     if (screen === "title") cam.setGoal(TITLE_SHOT);
@@ -105,6 +107,7 @@ function Scene() {
       ) : null}
       {screen === "title" || (screen === "playing" && view) ? office : null}
       {screen === 'playing' && view&&<DynamicEnvironment state={view.environment} quality={quality}/>}
+      {screen === 'playing' && showcasedProduct && <ProductShowcase product={showcasedProduct} level={level} onOpen={() => setDrawer('products')} />}
       {screen === "title" ? (
         <>
           <group position={[-2.35, 0, -1.35]}>

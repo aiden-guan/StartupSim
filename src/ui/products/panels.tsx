@@ -19,6 +19,7 @@ import { money, pct } from '../format';
 import { GameButton } from '../shared/controls';
 import { CharacterPortrait } from '../shared/CharacterPortrait';
 import { GameIcon } from '../shared/Icons';
+import { ProductPreview } from './ProductPreview';
 const STATS:LaunchStat[]=['deployment','capability','distribution'];
 const MODELS:BusinessModel[]=['freemium','subscription','enterprise','usage','api','ads','free'];
 
@@ -82,7 +83,7 @@ export function TasksPanel({game}:{game:GameState}) {
           return <button key={p.id} data-tutorial={`primitive-${p.id}`} className={`primitive-tile ${a===p.id||b===p.id?'selected':''}`} disabled={blocked} title={blocked?'Try Chat + Writing for your first product':`Add ${p.name} to slot ${choosingSlot.toUpperCase()}`} onClick={()=>{dispatch({type:'selectPrimitive',slot:choosingSlot,primitive:p.id});setSlot(choosingSlot==='a'?'b':'a');}}><GameIcon name={p.id}/><span>{p.name}</span></button>;
         })}</div>
       </div>
-      <div className="recipe-preview"><span className="eyebrow">02 · The combination</span><div className="product-emblem"><GameIcon name={a??'products'}/></div><h3>{recipe?.name??(a&&b?'An untested combination':'Something worth building')}</h3><p>{recipe?.description??'Combine two technologies to discover your next product.'}</p>{a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}<GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{dispatch({type:'startProduct',a:a!,b:b!});setShowLab(false);}}>Start development →</GameButton></div>
+      <div className="recipe-preview"><span className="eyebrow">02 · The combination</span><ProductPreview a={a} b={b}/><h3>{recipe?.name??(a&&b?'An untested combination':'Something worth building')}</h3><p>{recipe?.description??'Combine two technologies to discover your next product.'}</p>{a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}<GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{dispatch({type:'startProduct',a:a!,b:b!});setShowLab(false);}}>Start development →</GameButton></div>
     </section>}
     <div className="project-list">{game.tasks.map(task=>{
       const estimate=taskEstimate(game,task);
@@ -265,7 +266,7 @@ export function ProductsPanel({game}:{game:GameState}) {
   return <div className="catalog-workspace">{!ordered.length&&<div className="empty-state"><GameIcon name="products"/><h3>Every company starts with an idea.</h3><GameButton tone="primary" onClick={()=>useGame.getState().setDrawer('tasks')}>Open product lab →</GameButton></div>}{ordered.map(p=>{
     const costs=launchCosts(p), ready=p.status==='ready';
     const state=ready?(Object.values(p.levels).some(n=>n>0)?'Ready to launch':'Ready to configure'):p.status==='deprecated'?'Sunset':p.status;
-    return <article key={p.id} className="product-sheet"><header data-tutorial={ready?'product-ready':undefined}><div className="product-emblem"><GameIcon name={p.combo[0]}/></div><div><span className="eyebrow">{state}</span><h3>{p.name}</h3><p>{p.combo.map(id=>primitiveById[id]?.name??id).join(' + ')} · {p.vertical}</p></div>{ready&&<span className="ready-stamp">PRODUCT READY</span>}</header>
+    return <article key={p.id} className="product-sheet"><header data-tutorial={ready?'product-ready':undefined}><div className="product-emblem product-combo-emblem"><GameIcon name={p.combo[0]}/><GameIcon name={p.combo[1]}/></div><div><span className="eyebrow">{state}</span><h3>{p.name}</h3><p>{p.combo.map(id=>primitiveById[id]?.name??id).join(' + ')} · {p.vertical}</p></div>{ready&&<span className="ready-stamp">PRODUCT READY</span>}</header>
       {p.status==='development'?<div className="development-notice"><p>Your team is developing this product. Configure it when development finishes.</p><GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>View development →</GameButton></div>:ready?<>
         <div className="launch-points"><span>Launch points</span>{(['engineering','product','growth'] as const).map(k=><div key={k}><small>{k}</small><strong>{Math.floor(p.points[k])}</strong></div>)}</div>
         <div className="designer-grid" data-tutorial="designer">{STATS.map(stat=>{
