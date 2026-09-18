@@ -56,7 +56,7 @@ export function TitleOverlay() {
             className="flex w-72 items-center justify-center gap-2 border-white/20 text-[#efe8dc] hover:bg-white/10"
             onClick={() => setLeaderboardOpen(true)}
           >
-            Open verified run ledger
+            Open global run ledger
           </GameButton>
           <div className="flex w-72 gap-2">
             <GameButton className="flex-1 border-white/20 text-[#efe8dc] hover:bg-white/10" onClick={() => setSettingsOpen(true)}>

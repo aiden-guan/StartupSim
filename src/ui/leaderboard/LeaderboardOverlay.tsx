@@ -83,7 +83,7 @@ export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
         <header className="flex shrink-0 items-start justify-between gap-6 border-b border-line bg-[#f9f4e7] px-5 py-5 sm:px-8 sm:py-6">
           <div className="min-w-0">
             <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-copper">
-              {identity.shortTitle} · verified run archive
+              {identity.shortTitle} · validated run archive
             </p>
             <h2 id="leaderboard-title" className="mt-2 font-display text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-4xl">
               The ledger
@@ -161,7 +161,7 @@ export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
                   ))}
                 </div>
                 <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.16em] text-muted">
-                  {entries.length} verified {entries.length === 1 ? "record" : "records"} · ranked by score, then arrival
+                  {entries.length} validated {entries.length === 1 ? "record" : "records"} · ranked by score, then arrival
                 </p>
                 {selectedEntry ? (
                   <div className="mt-5 lg:hidden">
@@ -226,7 +226,7 @@ function EmptyLedger({ source, onRetry }: { source: LedgerSource; onRetry: () =>
         </h3>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           {source === "global"
-            ? "Finish a company, survive the postmortem, and publish a verified run to open the ledger."
+            ? "Finish a company, survive the postmortem, and publish a validated run to open the ledger."
             : "Reconnect to the global ledger to see published runs. Your local archive remains on this device."}
         </p>
         {source === "local" ? (
