@@ -4,7 +4,10 @@
  * displayed unit is intentionally more granular than a literal server rack so
  * a private cluster reads as a meaningful physical investment.
  */
-export const MAX_VISIBLE_RACKS = [1, 8, 16, 24, 32, 48] as const;
+// A cap is only applied after the compute zone has a clean, centered footprint.
+// The rows/columns are intentionally generous so progression is not visually
+// flattened into a handful of cabinets.
+export const MAX_VISIBLE_RACKS = [8, 9, 24, 36, 64, 96] as const;
 
 export interface ComputeRackInput {
   computeTier: number;
@@ -39,7 +42,7 @@ export function computeRackLayout(level: number, requested: number): ComputeRack
   const shown = Math.min(safeRequested, maxVisibleRacksForOffice(level));
   if (!shown) return { requested: safeRequested, shown: 0, overflow: 0, columns: 0, rows: 0, positions: [] };
 
-  const officeColumns = level <= 1 ? 2 : level === 2 ? 4 : level === 3 ? 3 : level === 4 ? 4 : 5;
+  const officeColumns = level <= 0 ? 2 : level === 1 ? 3 : level === 2 ? 4 : level === 3 ? 6 : level === 4 ? 8 : 8;
   const columns = Math.min(officeColumns, shown);
   const rows = Math.ceil(shown / columns);
   const positions: [number, number, number][] = Array.from({ length: shown }, (_, index) => {

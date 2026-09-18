@@ -30,7 +30,7 @@ function CompactRack({position,load}:{position:Vector3Tuple;load:number}) {
 }
 
 export function ServerRackBank({position,count=16,columns,load=0,quality='high'}:{position:Vector3Tuple;count?:number;columns?:number;load?:number;quality?:'low'|'medium'|'high'}) {
-  const shown=Math.min(count,quality==='low'?16:quality==='medium'?20:24);
+  const shown=Math.min(count,128);
   return <group position={position}>{kit('set_compute_privateCluster_L2',<group>
     {(() => {
       const gridColumns = Math.max(1, Math.min(columns ?? (shown >= 16 ? 4 : shown > 1 ? 2 : 1), shown));
