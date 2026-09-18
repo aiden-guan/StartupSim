@@ -23,6 +23,7 @@ import { detectEnding } from "./endings";
 import { growWorker, updateBurnout } from "./workers";
 import { handleFor, tickSocial } from "./social";
 import { buildAcquisitionMail } from "./acquisitionMail";
+import { checkAchievements } from "./achievements";
 
 function rng(state: GameState): Rng {
   return new Rng(state.meta.rngState);
@@ -704,6 +705,7 @@ export function tickDay(state: GameState): GameState {
     if (monthlyArr(draft) > 400_000) draft.unlocks.acquisitions = true;
     if (monthlyArr(draft) > 250_000) draft.unlocks.lobbying = true;
     reconcileTutorial(draft);
+    checkAchievements(draft);
     checkEndings(draft);
     commit(draft, r);
   });

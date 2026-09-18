@@ -63,6 +63,20 @@ export interface MarketNodeState {
   isPlayerBeachhead: boolean;
   isRivalBeachhead: boolean;
   contestPenalty?: number;
+  fortified?: boolean;
+}
+
+export type MarketTactic = "pitch" | "fortify" | "blitz" | "viral" | "poach" | "pass";
+
+export interface MarketLogEntry {
+  id: string;
+  turn: number;
+  side: "player" | "rival" | "network";
+  tactic: MarketTactic;
+  nodeId: string;
+  nodeName: string;
+  summary: string;
+  success: boolean;
 }
 
 export interface MarketSession {
@@ -85,6 +99,12 @@ export interface MarketSession {
   playerScaleUsed: number;
   rivalScaleUsed: number;
   firstMarket: boolean;
+  playerOps: number;
+  playerMaxOps: number;
+  bankedOps: number;
+  rivalOps: number;
+  playerDefensivePosture?: boolean;
+  actionLog: MarketLogEntry[];
   lastRivalMove?: {
     action: "expand" | "reinforce" | "contest";
     nodeId: string;
@@ -105,6 +125,8 @@ export interface MarketSession {
 export interface MarketActionResult {
   success: boolean;
   action: "expand" | "reinforce" | "contest" | "pass";
+  tactic?: MarketTactic;
+  opsCost?: number;
   nodeId: string;
   nodeName: string;
   side: "player" | "rival";

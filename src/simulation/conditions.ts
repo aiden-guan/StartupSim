@@ -1,4 +1,4 @@
-import type { Condition, GameState } from "./types";
+import type { Condition, GameState } from "./types.js";
 
 function num(cond: Condition): number {
   return typeof cond.val === "number" ? cond.val : Number(cond.val);

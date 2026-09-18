@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { audio } from "../../audio/Audio";
 import { competitors as competitorDefs } from "../../data/competitors";
 import {
@@ -8,16 +8,29 @@ import {
   getProductFit,
   previewAction,
 } from "../../market/marketMap";
+import { OPS_COST } from "../../market/turns";
+import type { MarketTactic, MarketTrait } from "../../market/types";
 import { lookFromSeed } from "../../simulation/look";
 import type { GameState } from "../../simulation/types";
 import { useGame } from "../../state/store";
 import { CharacterPortrait } from "../shared/CharacterPortrait";
 import { CompanyMark } from "../visuals/CompanyMark";
 
+const TRAIT_INFO: Record<MarketTrait, { icon: string; label: string; desc: string }> = {
+  platform_hub: { icon: "⚡", label: "Platform Hub", desc: "Dominating grants +1 Ops point per turn" },
+  viral: { icon: "🌐", label: "Viral Growth", desc: "Spreads passive influence to adjacent markets at turn end" },
+  enterprise: { icon: "🏢", label: "Enterprise", desc: "5x revenue value; high resistance requires heavy push" },
+  early_adopter: { icon: "🚀", label: "Early Adopter", desc: "Low resistance; dominating awards +1 Momentum" },
+  community_driven: { icon: "👥", label: "Community", desc: "High loyalty; doubles resistance against rival contest" },
+  high_value: { icon: "💎", label: "High Value", desc: "Enhanced economic yield per active customer" },
+  regulated: { icon: "⚖️", label: "Regulated", desc: "Requires careful compliance and steady positioning" },
+};
+
 export function MarketView({ game }: { game: GameState }) {
   const session = game.marketBattle!;
   const dispatch = useGame((s) => s.dispatch);
-  const [feedback, setFeedback] = useState<string>("Select a market segment to inspect expansion paths.");
+  const [feedback, setFeedback] = useState<string>("Select a market segment and deploy tactical operations.");
+  const [selectedTactic, setSelectedTactic] = useState<MarketTactic>("pitch");
 
   const product = game.products.find((p) => p.id === session.productId)!;
   const rival = competitorDefs.find((c) => c.id === session.competitorId);
@@ -31,29 +44,61 @@ export function MarketView({ game }: { game: GameState }) {
   const canExpand = legal.expand.includes(selectedNode.id);
   const canReinforce = legal.reinforce.includes(selectedNode.id);
   const canContest = legal.contest.includes(selectedNode.id);
-  const isLegal = canExpand || canReinforce || canContest;
-  const actionType: "expand" | "reinforce" | "contest" = canContest ? "contest" : canExpand ? "expand" : "reinforce";
+  const isReachable = canExpand || canReinforce || canContest;
+
+  // Auto-tune default tactic when user selects a different node
+  useEffect(() => {
+    if (canContest) {
+      setSelectedTactic("poach");
+    } else if (canReinforce) {
+      setSelectedTactic("fortify");
+    } else {
+      setSelectedTactic("pitch");
+    }
+  }, [selectedNode.id, canContest, canReinforce]);
+
+  const cost = OPS_COST[selectedTactic] ?? 1;
+  const hasOps = (session.playerOps ?? 0) >= cost;
+  const hasCash = selectedTactic !== "blitz" || game.company.cash >= 1500;
+
+  // Determine underlying action mapping for preview
+  const underlyingAction = selectedTactic === "poach" || canContest
+    ? "expand"
+    : selectedTactic === "fortify"
+    ? "reinforce"
+    : canReinforce
+    ? "reinforce"
+    : "expand";
 
   const preview = previewAction(
     session,
     selectedNode.id,
     "player",
-    actionType === "contest" ? "expand" : actionType,
+    underlyingAction,
     product?.levels.capability ?? 0,
     product?.combo ?? ["chat", "api"],
+    undefined,
+    selectedTactic,
   );
 
   const supportCount = getConnectedSupport(session, selectedNode.id, "player");
   const productFit = getProductFit(selectedNode, product?.combo ?? ["chat", "api"]);
   const excessLoad = Math.max(0, session.playerScaleUsed - session.playerScaleCapacity);
 
-  const reason = !isLegal
-    ? selectedNode.playerDominated && !canReinforce
+  let disabledReason = "";
+  if (!isReachable) {
+    disabledReason = selectedNode.playerDominated && !canReinforce
       ? "Market already dominated"
       : selectedNode.rivalDominated && !canContest
       ? "Competitor hold is out of reach"
-      : "Segment out of network reach"
-    : "";
+      : "Segment out of network reach";
+  } else if (!hasOps) {
+    disabledReason = `Not enough Ops (${session.playerOps ?? 0}/${cost}). End your turn to replenish!`;
+  } else if (!hasCash) {
+    disabledReason = "PR Blitz requires $1,500 company cash.";
+  }
+
+  const isExecutable = isReachable && hasOps && hasCash && !locked;
 
   function handleSelectNode(nodeId: string) {
     if (locked) return;
@@ -61,11 +106,11 @@ export function MarketView({ game }: { game: GameState }) {
     const n = session.nodes.find((item) => item.id === nodeId);
     if (n) {
       if (legal.contest.includes(nodeId)) {
-        setFeedback(`Contested market: Challenge the incumbent in ${n.name}.`);
+        setFeedback(`Contested territory: Challenge ${rival?.name ?? "incumbent"} in ${n.name}.`);
       } else if (legal.expand.includes(nodeId)) {
-        setFeedback(`Adjacent opportunity: Expand into ${n.name}.`);
+        setFeedback(`Adjacent opportunity: Launch targeted pitch into ${n.name}.`);
       } else if (legal.reinforce.includes(nodeId)) {
-        setFeedback(`Established foothold: Reinforce ${n.name} to increase market share.`);
+        setFeedback(`Foothold established: Fortify customer moat in ${n.name}.`);
       } else if (n.playerDominated) {
         setFeedback(`${n.name} is dominated. Network support flows to adjacent markets.`);
       } else {
@@ -75,31 +120,62 @@ export function MarketView({ game }: { game: GameState }) {
   }
 
   function handleExecuteAction() {
-    if (locked || !isLegal) return;
+    if (!isExecutable) return;
     dispatch({
       type: "marketAction",
       nodeId: selectedNode.id,
-      action: actionType,
+      tactic: selectedTactic,
     });
     const after = useGame.getState().game;
     const result = after?.marketBattle?.lastResolution;
-    const summary = result?.summary ?? after?.marketBattle?.lastRivalMove?.summary ?? "Turn resolved.";
+    const summary = result?.summary ?? "Action executed.";
     if (result?.dominated) audio.play("success", game.settings);
     else if (result && !result.success) audio.play("warn", game.settings);
     else audio.play("click", game.settings);
     setFeedback(summary);
   }
 
+  function handleEndTurn() {
+    if (locked) return;
+    dispatch({ type: "marketEndTurn" });
+    const after = useGame.getState().game?.marketBattle;
+    const summary = after?.lastRivalMove?.summary ?? "Turn ended. Rival evaluated strategic counter-moves.";
+    audio.play("click", game.settings);
+    setFeedback(summary);
+  }
+
+  const playerOps = session.playerOps ?? 0;
+  const playerMaxOps = session.playerMaxOps ?? 3;
+  const bankedOps = session.bankedOps ?? 0;
+
   return (
     <main className="market-mode">
       {/* Top Header */}
       <header className="market-header">
         <div>
-          <span className="eyebrow">Market Entry · Customer Map</span>
+          <span className="eyebrow">Market Entry · Customer War Map</span>
           <h1>{product.name}</h1>
         </div>
 
         <div className="market-score">
+          {/* Ops Points Meter */}
+          <span title="Action points available this round. Bank up to 1 unused Ops for next round.">
+            <small>Turn Ops</small>
+            <div className="ops-meter" style={{ marginTop: 3 }}>
+              <div className="ops-pips">
+                {Array.from({ length: Math.max(playerMaxOps, playerOps) }).map((_, i) => (
+                  <span
+                    key={i}
+                    className={`ops-pip ${i < playerOps ? "filled" : i < playerOps + bankedOps ? "banked" : "empty"}`}
+                  />
+                ))}
+              </div>
+              <strong style={{ color: playerOps > 0 ? "#70c995" : "#e4a880", fontSize: 20 }}>
+                {playerOps} <em style={{ fontSize: 13 }}>/ {playerMaxOps}</em>
+              </strong>
+            </div>
+          </span>
+
           <span>
             <small>Your Share</small>
             <strong style={{ color: "#a8c4b0" }}>{overall.player}%</strong>
@@ -109,19 +185,15 @@ export function MarketView({ game }: { game: GameState }) {
             <strong style={{ color: "#e4a880" }}>{overall.rival}%</strong>
           </span>
           <span>
-            <small>Open Market</small>
-            <strong style={{ color: "#d5d8c9" }}>{overall.neutral}%</strong>
-          </span>
-          <span>
             <small>Turns Window</small>
             <strong>
               {session.turnsLeft} <em>/ {session.totalTurns}</em>
             </strong>
           </span>
           <span>
-            <small>Market Load</small>
-            <strong style={{ color: excessLoad > 0 ? "#e4a880" : "#eff2e3" }}>
-              {session.playerScaleUsed} <em>/ {session.playerScaleCapacity}</em>
+            <small>Momentum</small>
+            <strong style={{ color: (session.playerMomentum ?? 0) >= 0 ? "#8ecbb0" : "#d68878" }}>
+              {(session.playerMomentum ?? 0) >= 0 ? `+${session.playerMomentum ?? 0}` : session.playerMomentum}
             </strong>
           </span>
         </div>
@@ -205,9 +277,10 @@ export function MarketView({ game }: { game: GameState }) {
             {/* Nodes */}
             {session.nodes.map((node) => {
               const isSelected = node.id === selectedNode.id;
-              const isReachable = legal.expand.includes(node.id) || legal.reinforce.includes(node.id);
+              const isTargetReachable = legal.expand.includes(node.id) || legal.reinforce.includes(node.id) || legal.contest.includes(node.id);
               const isPlayerBeach = node.isPlayerBeachhead;
               const isRivalBeach = node.isRivalBeachhead;
+              const traitMeta = node.trait ? TRAIT_INFO[node.trait] : null;
 
               // Node tutorial tags
               const tutorialTag = isPlayerBeach
@@ -220,8 +293,7 @@ export function MarketView({ game }: { game: GameState }) {
                 ? "market-customer"
                 : undefined;
 
-              // Share arc or fills
-              const r = 30;
+              const r = 32;
               let borderColor = "#607c79";
               let borderWidth = 1.5;
               let bgColor = "#2c454a";
@@ -242,8 +314,8 @@ export function MarketView({ game }: { game: GameState }) {
 
               if (isSelected) {
                 borderColor = "#fff7e5";
-                borderWidth = 3;
-              } else if (isReachable) {
+                borderWidth = 3.5;
+              } else if (isTargetReachable) {
                 borderColor = "#e6804b";
                 borderWidth = 2;
               }
@@ -256,7 +328,7 @@ export function MarketView({ game }: { game: GameState }) {
                   tabIndex={locked ? -1 : 0}
                   aria-label={`${node.name}: ${node.playerShare}% You, ${node.rivalShare}% Rival${
                     node.playerDominated ? ", Dominated" : ""
-                  }${node.playerIsolated ? ", Isolated" : ""}`}
+                  }${node.fortified ? ", Fortified" : ""}`}
                   data-tutorial={tutorialTag}
                   onClick={() => handleSelectNode(node.id)}
                   onKeyDown={(e) => {
@@ -266,12 +338,26 @@ export function MarketView({ game }: { game: GameState }) {
                     }
                   }}
                   className={`market-node ${isSelected ? "selected" : ""} ${
-                    isReachable ? "reachable" : ""
+                    isTargetReachable ? "reachable" : ""
                   }`}
                   style={{ cursor: "pointer", outline: "none" }}
                 >
                   {/* Subtle shadow */}
                   <circle cx="0" cy="2" r={r} fill="#142427" opacity="0.35" />
+
+                  {/* Fortified Moat Ring */}
+                  {node.fortified && (
+                    <circle
+                      cx="0"
+                      cy="0"
+                      r={r + 4}
+                      fill="none"
+                      stroke="#d9a850"
+                      strokeWidth="2.5"
+                      strokeDasharray="4 3"
+                      opacity="0.9"
+                    />
+                  )}
 
                   {/* Main Node Background */}
                   <circle
@@ -316,17 +402,16 @@ export function MarketView({ game }: { game: GameState }) {
                     />
                   )}
 
-                  {/* Segment Icon / Value Indicator */}
+                  {/* Trait Icon & Value Badge */}
                   <text
                     x="0"
-                    y="-7"
+                    y="-9"
                     textAnchor="middle"
                     fontSize="11"
                     fontWeight="700"
                     fill="#f0f3e8"
-                    letterSpacing="0.04em"
                   >
-                    {"$".repeat(Math.min(3, node.value))}
+                    {traitMeta ? `${traitMeta.icon} ` : ""}{"$".repeat(Math.min(3, node.value))}
                   </text>
 
                   {/* Node Title */}
@@ -344,23 +429,25 @@ export function MarketView({ game }: { game: GameState }) {
                   {/* Status subtitle / share */}
                   <text
                     x="0"
-                    y="17"
+                    y="18"
                     textAnchor="middle"
                     fontSize="8"
                     fill={
-                      node.playerDominated
+                      node.fortified
+                        ? "#ffd685"
+                        : node.playerDominated
                         ? "#a8c4b0"
                         : node.rivalDominated
                         ? "#e4a880"
                         : "#9cb4ab"
                     }
                   >
-                    {node.playerDominated
+                    {node.fortified
+                      ? "🛡️ FORTIFIED"
+                      : node.playerDominated
                       ? "DOMINATED"
                       : node.rivalDominated
                       ? "RIVAL HELD"
-                      : node.playerIsolated
-                      ? "ISOLATED"
                       : `${node.playerShare}% / ${node.rivalShare}%`}
                   </text>
 
@@ -388,7 +475,7 @@ export function MarketView({ game }: { game: GameState }) {
               <i style={{ background: "#3d6452", border: "1px solid #a8c4b0" }} /> Dominated
             </span>
             <span>
-              <i style={{ border: "1px dashed #e4a880", background: "none" }} /> Isolated
+              <i style={{ border: "1px dashed #d9a850", background: "#334f54" }} /> 🛡️ Fortified
             </span>
             <span>
               <i style={{ background: "#e6804b" }} /> Orange Dot = Beachhead
@@ -427,26 +514,79 @@ export function MarketView({ game }: { game: GameState }) {
                   background: "#e4ebd8",
                   padding: "4px 8px",
                   borderRadius: 3,
-                  margin: "8px 0",
+                  margin: "6px 0 10px",
                   color: "#375043",
-                  display: "inline-block",
+                  display: "block",
+                  lineHeight: 1.4,
                 }}
               >
-                Trait: <strong>{selectedNode.trait.replace("_", " ").toUpperCase()}</strong>
+                <strong>{TRAIT_INFO[selectedNode.trait]?.icon} {TRAIT_INFO[selectedNode.trait]?.label}:</strong>{" "}
+                {TRAIT_INFO[selectedNode.trait]?.desc}
               </div>
             )}
 
+            {/* Tactical Operation Selector Tabs */}
+            <div style={{ margin: "10px 0 4px" }}>
+              <span className="eyebrow" style={{ fontSize: 9 }}>Select Tactical Operation</span>
+              <div className="tactical-selector">
+                <button
+                  type="button"
+                  className={`tactical-btn ${selectedTactic === "pitch" ? "active" : ""}`}
+                  onClick={() => setSelectedTactic("pitch")}
+                  title="Targeted customer launch and acquisition"
+                >
+                  <span>🎯 Pitch</span>
+                  <small>1 Ops</small>
+                </button>
+                <button
+                  type="button"
+                  className={`tactical-btn ${selectedTactic === "fortify" ? "active" : ""}`}
+                  onClick={() => setSelectedTactic("fortify")}
+                  title="Build customer moat to shield against rival counter-attacks"
+                >
+                  <span>🛡️ Fortify</span>
+                  <small>1 Ops</small>
+                </button>
+                <button
+                  type="button"
+                  className={`tactical-btn ${selectedTactic === "blitz" ? "active" : ""}`}
+                  onClick={() => setSelectedTactic("blitz")}
+                  title="Aggressive marketing push. Pierces 50% resistance. Costs $1,500 cash."
+                >
+                  <span>⚡ PR Blitz</span>
+                  <small>2 Ops · $1.5k</small>
+                </button>
+                <button
+                  type="button"
+                  className={`tactical-btn ${selectedTactic === "viral" ? "active" : ""}`}
+                  onClick={() => setSelectedTactic("viral")}
+                  title="Trigger referral loop; cascades influence into all neighboring markets"
+                >
+                  <span>🌐 Viral</span>
+                  <small>1 Ops</small>
+                </button>
+                <button
+                  type="button"
+                  className={`tactical-btn ${selectedTactic === "poach" ? "active" : ""}`}
+                  onClick={() => setSelectedTactic("poach")}
+                  title="Direct assault on rival accounts; strips 35% of competitor influence"
+                >
+                  <span>⚔️ Poach</span>
+                  <small>2 Ops</small>
+                </button>
+              </div>
+            </div>
+
             {/* Current vs Projected Shares */}
-            <div className="capture-detail">
-              <strong>Market Share Status</strong>
-              <div style={{ display: "flex", justifyContent: "space-between", margin: "6px 0" }}>
+            <div className="capture-detail" style={{ margin: "12px 0 10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", margin: "4px 0" }}>
                 <span>You: <strong>{selectedNode.playerShare}%</strong></span>
                 <span>Rival: <strong>{selectedNode.rivalShare}%</strong></span>
                 <span>Open: <strong>{selectedNode.neutralShare}%</strong></span>
               </div>
 
               {/* Action Projected Preview */}
-              {isLegal && (
+              {isReachable && (
                 <div
                   style={{
                     background: "#d6e0ce",
@@ -457,7 +597,7 @@ export function MarketView({ game }: { game: GameState }) {
                   }}
                 >
                   <span style={{ display: "block", color: "#486350", fontWeight: 600 }}>
-                    Projected after {actionType === "contest" ? "CONTEST" : actionType.toUpperCase()}:
+                    Projected after {selectedTactic.toUpperCase()}:
                   </span>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
                     <span>
@@ -478,55 +618,49 @@ export function MarketView({ game }: { game: GameState }) {
               )}
             </div>
 
-            {/* Conversion Influence Breakdown */}
+            {/* Calculation Breakdown */}
             <details className="market-calculation"
               style={{
                 fontSize: 10,
                 borderTop: "1px solid #c9d6bf",
-                paddingTop: 8,
-                margin: "10px 0",
+                paddingTop: 6,
+                margin: "8px 0",
                 color: "#526a57",
               }}
             >
               <summary>Why this result?</summary>
               <div className="market-calculation-body">
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Base Capability</span>
-                <strong>{preview.breakdown.base}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Product Fit</span>
-                <strong>{productFit >= 0 ? `+${productFit}` : productFit}</strong>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Connected Support</span>
-                <strong>+{supportCount}</strong>
-              </div>
-              {excessLoad > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", color: "#b55333" }}>
-                  <span>Scale Overload</span>
-                  <strong>-{preview.breakdown.overloadPenalty}%</strong>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Base Conversion</span>
+                  <strong>{preview.breakdown.base}</strong>
                 </div>
-              )}
-              {selectedNode.playerIsolated && (
-                <div style={{ display: "flex", justifyContent: "space-between", color: "#b55333" }}>
-                  <span>Isolation Penalty</span>
-                  <strong>-25%</strong>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Product Fit</span>
+                  <strong>{productFit >= 0 ? `+${productFit}` : productFit}</strong>
                 </div>
-              )}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontWeight: 700,
-                  borderTop: "1px dashed #b4c4aa",
-                  paddingTop: 4,
-                  marginTop: 4,
-                }}
-              >
-                <span>Total Influence Added</span>
-                <strong style={{ color: "#244033" }}>+{preview.influenceToAdd}</strong>
-              </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span>Connected Support</span>
+                  <strong>+{supportCount}</strong>
+                </div>
+                {excessLoad > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "#b55333" }}>
+                    <span>Scale Overload</span>
+                    <strong>-{preview.breakdown.overloadPenalty}%</strong>
+                  </div>
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontWeight: 700,
+                    borderTop: "1px dashed #b4c4aa",
+                    paddingTop: 4,
+                    marginTop: 4,
+                  }}
+                >
+                  <span>Total Influence Added</span>
+                  <strong style={{ color: "#244033" }}>+{preview.influenceToAdd}</strong>
+                </div>
               </div>
             </details>
 
@@ -534,79 +668,72 @@ export function MarketView({ game }: { game: GameState }) {
             <button
               className="primary-action"
               data-tutorial="market-capture"
-              disabled={locked || !isLegal}
-              title={reason || `Execute ${actionType} on ${selectedNode.name}`}
+              disabled={!isExecutable}
+              title={disabledReason || `Execute ${selectedTactic} on ${selectedNode.name}`}
               onClick={handleExecuteAction}
             >
-              {actionType === "contest" ? "Contest This Market →" : actionType === "expand" ? "Expand Into Market →" : "Reinforce Position →"}
+              Deploy {selectedTactic.toUpperCase()} (-{cost} Ops) →
             </button>
             <small className="disabled-reason">
-              {reason ||
-                (actionType === "contest"
-                  ? "Attempts to break an incumbent hold. Failure costs cash and momentum."
-                  : actionType === "expand"
-                  ? "Establishes a customer foothold from adjacent supported positions."
-                  : "Strengthens current market share and prepares support for adjacent nodes.")}
+              {disabledReason || (
+                selectedTactic === "fortify"
+                  ? "Moat adds +4 influence and shields segment against competitor takeovers."
+                  : selectedTactic === "blitz"
+                  ? "Spends cash for heavy marketing; ignores 50% resistance and spikes hype."
+                  : selectedTactic === "viral"
+                  ? "Sparks user referrals, spreading influence to neighboring segments."
+                  : selectedTactic === "poach"
+                  ? "Aggressive challenge against incumbent accounts to strip their hold."
+                  : "Standard expansion establishing initial foothold."
+              )}
             </small>
           </div>
 
-          {/* Feedback & Last Rival Move */}
+          {/* Feedback & Last Action Summary */}
           <p className="market-feedback" role="status">
             {feedback}
           </p>
 
-          {session.lastResolution && (
-            <div className="market-resolution" role="status">
-              <span className="eyebrow">What happened</span>
-              <p>{session.lastResolution.summary}</p>
-              {session.lastResolution.factors[0] ? <small>Main factor: {session.lastResolution.factors[0].label}</small> : null}
-            </div>
-          )}
-          {session.lastRivalMove && (
-            <div
-              style={{
-                fontSize: 10,
-                background: "#e4ded0",
-                padding: "8px 10px",
-                borderRadius: 3,
-                marginBottom: 12,
-                color: "#4d3930",
-              }}
-            >
-              <span className="eyebrow" style={{ fontSize: 9, color: "#8a5747" }}>
-                Rival Counter-Move
-              </span>
-              <div>
-                {session.lastRivalMove.summary ?? (
-                  <>
-                    <strong>{rival?.name ?? "Rival"}</strong> {session.lastRivalMove.action}ed in{" "}
-                    <strong>{session.lastRivalMove.nodeName}</strong>.
-                  </>
-                )}
+          {/* Tactical Combat Feed */}
+          {session.actionLog && session.actionLog.length > 0 && (
+            <div className="market-feed" role="log" aria-label="Tactical Battle Feed">
+              <div className="market-feed-title">
+                <span>Tactical Event Feed</span>
+                <span>Turn {session.turn}</span>
               </div>
+              {session.actionLog.slice(0, 4).map((entry) => (
+                <div key={entry.id} className="market-feed-item">
+                  <span className={`market-feed-tag ${entry.side}`}>
+                    {entry.side === "player" ? "YOU" : entry.side === "rival" ? "RIVAL" : "NETWORK"}
+                  </span>
+                  <span>{entry.summary}</span>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* End Turn / Pass Action */}
+          {/* Strategic End Turn Button */}
           <button
-            className="end-turn"
+            className={`end-turn ${playerOps === 0 ? "ready-to-end" : ""}`}
             data-tutorial="market-end-turn"
             disabled={locked}
-            onClick={() => {
-              dispatch({ type: "marketEndTurn" });
-              const after = useGame.getState().game?.marketBattle;
-              setFeedback(after?.lastRivalMove?.summary ?? "Turn passed. Rival evaluated their next strategic expansion.");
-            }}
+            onClick={handleEndTurn}
           >
-            Pass Turn →
+            {playerOps > 0
+              ? `End Turn (Bank 1 Ops & Fortify Moat →)`
+              : `End Turn (Rival Phase →)`}
           </button>
+          <small style={{ fontSize: 9, color: "#62796c", display: "block", marginTop: 5, lineHeight: 1.4 }}>
+            {playerOps > 0
+              ? "Ending turn with remaining Ops carries over 1 Ops to next round and grants all held markets +25% defense against rival attacks."
+              : "Concludes your turn and lets the competitor execute their strategic counter-moves."}
+          </small>
 
           {/* Market Strategy Rules Compact Help */}
           <div className="market-help">
-            <b>Expand · Connect · Dominate</b>
+            <b>Platform Hubs & Tactical Strategy</b>
             <p>
-              Expand, reinforce, or contest adjacent holds. Territory can change hands. Failed attacks spend cash
-              and weaken momentum. Competitors act after every player move.
+              Dominate ⚡ Platform Hubs to earn +1 Ops per turn. Fortify moats on critical segments to block competitor takeovers. Unspent Ops strengthen defense against rival counter-attacks.
             </p>
           </div>
         </aside>

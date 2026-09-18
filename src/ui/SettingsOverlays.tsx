@@ -71,6 +71,9 @@ export function SettingsOverlay() {
         ) : (
           <p className="mt-3 text-sm text-[#9aa3b2]">Start or load a company to use settings.</p>
         )}
+        <GameButton className="mt-3 w-full" onClick={() => { setOpen(false); useGame.getState().setAchievementsOpen(true); }}>
+          🏆 View Achievements ({(game?.achievements ?? []).length} Unlocked)
+        </GameButton>
         {import.meta.env.DEV ? (
           <GameButton className="mt-3" onClick={() => setGalleryOpen(true)}>
             Visual gallery

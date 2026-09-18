@@ -22,7 +22,7 @@ describe("headless year", () => {
     g = applyCommand(g, { type: "buyStat", productId, stat: "capability" })!;
     g = applyCommand(g, { type: "buyStat", productId, stat: "distribution" })!;
     g = applyCommand(g, { type: "enterMarket", productId })!;
-    for (let i = 0; i < 14 && g.marketBattle; i++) {
+    for (let i = 0; i < 40 && g.marketBattle; i++) {
       const node = g.marketBattle.nodes.find((n) => n.id === g.marketBattle!.selectedNodeId) || g.marketBattle.nodes[0];
       if (node) {
         g = applyCommand(g, { type: "selectMarketNode", nodeId: node.id })!;

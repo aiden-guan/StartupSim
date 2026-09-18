@@ -1,13 +1,23 @@
 import { Bevel } from '../geometry/Bevel';
 import { Hotspot } from '../props/Hotspot';
-import { BookStack, BrandSign, CardboardBox, Chair, CoffeeMachine, Couch, Desk, Fridge, Keyboard, Lamp, Laptop, Monitor, Mug, PizzaBox, Plant, Rug, Whiteboard } from '../props/Furniture';
+import { BookStack, BrandSign, CardboardBox, Chair, Couch, Desk, Keyboard, Lamp, Laptop, Monitor, Mug, PizzaBox, Plant, Rug, Whiteboard } from '../props/Furniture';
+import { CoffeeStation, FoodStation } from '../props/CultureDetails';
 import { PerkSet } from '../props/PerkSet';
 import type { CompanyBrand } from '../../simulation/types';
 import { apartmentLayout } from '../navigation/layout';
 import { assetUrl, KitOrGltf } from '../assets/useKitOrGltf';
 
-export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeCount=2,interactive=true}:{onObject:(id:string)=>void;perks?:{id:string;level:number}[];brand:CompanyBrand;standingDesks?:boolean;employeeCount?:number;interactive?:boolean}) {
-  const desktop=standingDesks?.99:.78;
+export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeCount=2,interactive=true,hasCompute=false}:{onObject:(id:string)=>void;perks?:{id:string;level:number}[];brand:CompanyBrand;standingDesks?:boolean;employeeCount?:number;interactive?:boolean;hasCompute?:boolean}) {
+  const deskPerk = perks.find(p => p.id === 'desks');
+  const deskTier = deskPerk ? deskPerk.level : (standingDesks ? 0 : -1);
+  const isStanding = deskTier >= 0;
+  const isFancy = deskTier >= 1;
+  const isFocusPods = deskTier >= 2;
+  const desktop = isStanding ? .99 : .78;
+  const coffeePerk = perks.find(p => p.id === 'coffee');
+  const foodPerk = perks.find(p => p.id === 'food');
+  const coffeeTier = coffeePerk ? coffeePerk.level : 0;
+  const foodTier = foodPerk ? foodPerk.level : 0;
   return <group>
     <KitOrGltf id="env_apartment_shell" path={assetUrl('environments','env_apartment_shell.glb')} fallback={<group>
     <Bevel position={[0,-.15,0]} size={[12.2,.29,10.2]} color="#d7c0a2" radius={.08}/>
@@ -28,8 +38,15 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
     {apartmentLayout.points.filter(p=>p.kind==='desk').slice(0,employeeCount).map((point,i)=>{
       const [x,,z]=point.position;
       return <group key={point.id}>
-        <Desk position={[x,0,z-.79]} standing={standingDesks}/>
-        <Chair position={[x,0,z]} rotation={Math.PI} color="#474c52"/>
+        {isFocusPods && (
+          <>
+            <Bevel position={[x, 1.02, z - 1.22]} size={[1.68, 1.8, 0.06]} color="#ebe7de" radius={0.015} />
+            <Bevel position={[x - 0.82, 1.02, z - 0.79]} size={[0.06, 1.8, 0.8]} color="#ebe7de" radius={0.015} />
+            <Bevel position={[x + 0.82, 1.02, z - 0.79]} size={[0.06, 1.8, 0.8]} color="#ebe7de" radius={0.015} />
+          </>
+        )}
+        <Desk position={[x,0,z-.79]} standing={isStanding}/>
+        <Chair position={[x,0,z]} rotation={Math.PI} color={isFancy ? '#1b2d42' : '#474c52'}/>
         {i===0?<><Monitor position={[x,desktop+.347,z-.94]}/><Keyboard position={[x,desktop,z-.58]}/></>:<Laptop position={[x,desktop,z-.83]}/>}
         <Mug position={[x+.56,desktop+.05,z-.74]}/>
         {i===0&&<BookStack position={[x-.56,desktop,z-.93]}/>}
@@ -43,10 +60,12 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
     <PizzaBox position={[-4.21,.35,1.87]}/>
     <Plant position={[-5.38,.005,4.08]} scale={1.15}/>
     <Plant position={[4.65,.005,-3.65]} scale={1.3}/>
-    <Fridge position={[5.27,.68,2.69]}/>
+    <FoodStation tier={foodTier} position={[foodTier>=1?5.0:5.27, .68, 2.69]}/>
     <Bevel position={[4.57,.39,1.57]} size={[1.15,.78,.62]} color="#c6b79c" radius={.024}/>
     <Bevel position={[4.57,.80,1.57]} size={[1.23,.052,.7]} color="#e7d2b5" radius={.014}/>
-    <group position={[4.42,.825,1.57]} rotation={[0,-Math.PI/2,0]}><CoffeeMachine position={[0,0,0]}/></group>
+    <group position={[4.42,.825,1.57]} rotation={[0,-Math.PI/2,0]}>
+      <CoffeeStation tier={coffeeTier} position={[0,0,0]}/>
+    </group>
     <BookStack position={[4.95,.83,1.64]}/>
     <Lamp position={[-5.29,.34,-3.67]}/>
     <CardboardBox position={[-4.46,.21,-4.12]} scale={1.2}/>
@@ -57,7 +76,8 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
       <Hotspot id="coffee" position={[4.8,.86,2.1]} size={[2.15,1.72,1.98]} label="Kitchen" onClick={onObject}/>
       <Hotspot id="board" position={[-.15,1.4,3.6]} label="Whiteboard" onClick={onObject} size={[2.2,1.4,.4]}/>
       <Hotspot id="plant" position={[4.7,.8,-3.6]} label="Company" onClick={onObject}/>
+      {hasCompute && <Hotspot id="servers" position={[4.2, 1, -2.1]} label="Compute" onClick={onObject} size={[1.5, 1.8, 1.2]} />}
     </> : null}
-    <PerkSet perks={perks} level={0}/>
+    <PerkSet perks={perks} level={0} skipKitchen={true}/>
   </group>;
 }

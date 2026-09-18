@@ -12,6 +12,8 @@ import { migrateGameState } from "./migrate";
 import { writeSave } from "./save";
 import { audio } from "../audio/Audio";
 import { isLifeOrDeathEvent } from "../simulation/pause";
+import { achievementById, type AchievementDef } from "../data/achievements";
+import { saveLifetimeAchievement } from "../simulation/achievements";
 
 export interface EventFrame {
   id: string;
@@ -53,12 +55,15 @@ interface UiState {
   galleryOpen: boolean;
   settingsOpen: boolean;
   creditsOpen: boolean;
+  leaderboardOpen: boolean;
   revealPlaying: boolean;
   lastUiAction: string | null;
   setup: SetupDraft;
   eventFrame: EventFrame | null;
   officeCaption: string | null;
   departures: Departure[];
+  achievementsOpen: boolean;
+  recentAchievement: AchievementDef | null;
 }
 
 interface AppState extends UiState {
@@ -76,6 +81,9 @@ interface AppState extends UiState {
   setGalleryOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
   setCreditsOpen: (open: boolean) => void;
+  setLeaderboardOpen: (open: boolean) => void;
+  setAchievementsOpen: (open: boolean) => void;
+  dismissAchievement: () => void;
   setRevealPlaying: (playing: boolean) => void;
   setEventFrame: (frame: EventFrame | null) => void;
   setOfficeCaption: (caption: string | null) => void;
@@ -104,12 +112,15 @@ export const useGame = create<AppState>((set, get) => ({
   galleryOpen: false,
   settingsOpen: false,
   creditsOpen: false,
+  leaderboardOpen: false,
   revealPlaying: false,
   lastUiAction: null,
   setup: blankSetup(),
   eventFrame: null,
   officeCaption: null,
   departures: [],
+  achievementsOpen: false,
+  recentAchievement: null,
   dispatch: (cmd) => {
     const prev = get().game;
     const next = applyCommand(prev, cmd);
@@ -186,8 +197,18 @@ export const useGame = create<AppState>((set, get) => ({
       if (gone.length) {
         patch.departures = [...get().departures, ...gone.map(e=>({id:e.id,look:e.look,robot:e.role==='robot'}))];
       }
+      const prevAch = new Set(prev.achievements ?? []);
+      const newAchIds = (next.achievements ?? []).filter((id) => !prevAch.has(id));
+      for (const id of newAchIds) saveLifetimeAchievement(id);
+      const newAchId = newAchIds.find((id) => achievementById[id]);
+      if (newAchId && achievementById[newAchId]) {
+        patch.recentAchievement = achievementById[newAchId];
+      }
     }
     set(patch);
+    if (patch.recentAchievement) {
+      audio.play("complete", next?.settings);
+    }
     if (next && prev && next.products.some((p) => p.status === "ready") && !prev.products.some((p) => p.status === "ready")) {
       audio.play("complete", next.settings);
     }
@@ -196,7 +217,7 @@ export const useGame = create<AppState>((set, get) => ({
     if (next && (cmd.type === "assign" || cmd.type === "unassign" || cmd.type === "startProduct")) audio.play("click", next.settings);
     if (next && prev && cmd.type === "hire") audio.play(next.employees.length > prev.employees.length ? "success" : "warn", next.settings);
     if (next && (cmd.type === "upgradeOffice" || (cmd.type === "debug" && cmd.action === "office"))) audio.play("notify", next.settings);
-    if (next && cmd.type === "fire") audio.play("warn", next.settings);
+    if (next && (cmd.type === "fire" || cmd.type === "dilute")) audio.play("warn", next.settings);
     if (next && cmd.type === "acceptOffer") audio.play("success", next.settings);
     if (next && prev && next.inbox.filter((m) => !m.read).length > prev.inbox.filter((m) => !m.read).length) {
       audio.play("notify", next.settings);
@@ -247,6 +268,9 @@ export const useGame = create<AppState>((set, get) => ({
   setGalleryOpen: (open) => set({ galleryOpen: open }),
   setSettingsOpen: (open) => {set({ settingsOpen: open });get().dispatch({type:"pauseLock",reason:"settings",enabled:open});},
   setCreditsOpen: (open) => set({ creditsOpen: open }),
+  setLeaderboardOpen: (open) => set({ leaderboardOpen: open }),
+  setAchievementsOpen: (open) => set({ achievementsOpen: open }),
+  dismissAchievement: () => set({ recentAchievement: null }),
   setRevealPlaying: (playing) => set({ revealPlaying: playing }),
   setEventFrame: (frame) => set({ eventFrame: frame }),
   setOfficeCaption: (caption) => set({ officeCaption: caption }),

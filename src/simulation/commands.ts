@@ -20,12 +20,13 @@ import {
   shouldEndSession,
   startMarketSession,
 } from "../market/marketMap";
-import { processRivalTurn, resolveMarketTurn } from "../market/turns";
+import { OPS_COST, processRivalTurn, resolveEndTurn, resolveTacticalAction } from "../market/turns";
+import type { MarketTactic } from "../market/types";
 import { applyEffects, isModelAvailable } from "./effects";
 import { monthlyArr } from "./conditions";
 import { generateEmployee, evaluateHireOffer } from "./candidates";
 import { buyLaunchStat, createProduct, refundLaunchStat, requiredProgress } from "./products";
-import { Rng } from "./rng";
+import { Rng, uid } from "./rng";
 import { applyAutoAssign } from "./staffing";
 import { assign, makeTask } from "./tasks";
 import type { DepartmentId, GameState, HexPos, LaunchStat } from "./types";
@@ -35,9 +36,12 @@ import { employeeScore, minSalaryFor } from "./workers";
 import { valuationOf } from "./derived";
 import { detectEnding } from "./endings";
 import { applyAdvanceMentor, applyBackMentor, finishMentorStep, skipTutorial, recordTutorialEvent, currentTutorialSlide } from "./tutorial";
+import { checkAchievements, isEduardoSaverin, unlockAchievement } from "./achievements";
+import { handleFor } from "./social";
 
 export type GameCommand =
   | { type: "newGame"; input: NewGameInput }
+  | { type: "dilute"; workerId: string; percentage: number }
   | { type: "tickDay" }
   | { type: "tutorialEvent"; action: TutorialAction }
   | { type: "selectPrimitive"; slot: "a" | "b"; primitive: string }
@@ -52,7 +56,8 @@ export type GameCommand =
   | { type: "beginTutorial" }
   | { type: "skipTutorial" }
   | { type: "setSettings"; patch: Partial<GameState["settings"]> }
-  | { type: "startProduct"; a: string; b: string }
+  | { type: "startProduct"; a: string; b: string; name?: string }
+  | { type: "renameProduct"; productId: string; name: string }
   | { type: "assign"; taskId: string; workerId: string; confirm?: boolean }
   | { type: "autoAssign"; taskId?: string }
   | { type: "unassign"; workerId: string }
@@ -63,7 +68,7 @@ export type GameCommand =
   | { type: "setGtmStrategy"; productId: string; strategy: GameState["products"][0]["gtmStrategy"] }
   | { type: "enterMarket"; productId: string }
   | { type: "selectMarketNode"; nodeId: string | null }
-  | { type: "marketAction"; nodeId: string; action?: "expand" | "reinforce" | "contest" }
+  | { type: "marketAction"; nodeId: string; action?: "expand" | "reinforce" | "contest"; tactic?: MarketTactic }
   | { type: "marketExpand"; nodeId: string }
   | { type: "marketReinforce"; nodeId: string }
   | { type: "selectPiece"; pieceId: string | null }
@@ -205,6 +210,10 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           if (draft.products.length || command.a !== "chat" || command.b !== "writing" || currentTutorialSlide(draft)?.id !== "start-first") break;
         }
         const product = createProduct(draft, a.id, b.id, r);
+        if (command.name) {
+          const trimmed = command.name.trim().slice(0, BALANCE.MAX_PRODUCT_NAME_LENGTH);
+          if (trimmed) product.name = trimmed;
+        }
         draft.products.push(product);
         if (!draft.onboarding.firstProductId) draft.onboarding.firstProductId = product.id;
         draft.tasks.push(
@@ -231,10 +240,27 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         break;
       }
       case "autoAssign": {
-        const result = applyAutoAssign(draft);
+        const targetTask = command.taskId ? draft.tasks.find((t) => t.id === command.taskId) : undefined;
+        const result = applyAutoAssign(draft, targetTask);
         const lines = result.assigned.map((row) => row.reason);
-        if (!lines.length) lines.push("No available employees could be assigned without moving anyone off an existing project.");
-        draft.lastStaffing = { taskId: null, lines, at: draft.clock.tick };
+        if (!lines.length) {
+          lines.push(
+            targetTask
+              ? "No available employees could be assigned without moving anyone off an existing project."
+              : "No projects need staffing or no teammates are currently available."
+          );
+        }
+        draft.lastStaffing = { taskId: targetTask ? targetTask.id : null, lines, at: draft.clock.tick };
+        if (draft.onboarding.firstProductId) {
+          for (const row of result.assigned) {
+            const task = draft.tasks.find((t) => t.id === row.taskId);
+            const worker = draft.employees.find((w) => w.id === row.workerId);
+            if (task?.productId === draft.onboarding.firstProductId && worker) {
+              if (worker.role === "founder") recordTutorialEvent(draft, "assignedFounder");
+              if (worker.role === "cofounder") recordTutorialEvent(draft, "assignedCofounder");
+            }
+          }
+        }
         break;
       }
       case "unassign": {
@@ -265,6 +291,23 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       case "setGtmStrategy": {
         const p = draft.products.find((x) => x.id === command.productId);
         if (p?.status === "ready" && !draft.marketBattle) p.gtmStrategy = command.strategy;
+        break;
+      }
+      case "renameProduct": {
+        const p = draft.products.find((x) => x.id === command.productId);
+        if (!p) break;
+        const trimmed = command.name.trim().slice(0, BALANCE.MAX_PRODUCT_NAME_LENGTH);
+        if (!trimmed) break;
+        const oldName = p.name;
+        p.name = trimmed;
+        if (draft.company.versions[oldName] !== undefined) {
+          draft.company.versions[trimmed] = draft.company.versions[oldName];
+          delete draft.company.versions[oldName];
+        }
+        const task = draft.tasks.find((t) => t.productId === p.id);
+        if (task) {
+          task.name = `Build ${trimmed}`;
+        }
         break;
       }
       case "enterMarket": {
@@ -314,11 +357,18 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           : command.type === "marketReinforce"
             ? "reinforce"
             : (command.action === "contest" || command.action === "expand" || command.action === "reinforce" ? command.action : inferred);
-        if (act === "expand" && !legal.expand.includes(targetId) && legal.contest.includes(targetId)) {
-          resolveMarketTurn(draft, r, { kind: "act", nodeId: targetId, action: "contest" });
-        } else {
-          resolveMarketTurn(draft, r, { kind: "act", nodeId: targetId, action: act });
+
+        const tactic: MarketTactic = ("tactic" in command && command.tactic)
+          ? command.tactic
+          : (act === "contest" ? "poach" : act === "reinforce" ? "pitch" : "pitch");
+
+        const cost = OPS_COST[tactic] ?? 1;
+        if (b.playerOps < cost) {
+          resolveEndTurn(draft, r);
+          if (!draft.marketBattle || draft.marketBattle.turnsLeft <= 0) break;
         }
+
+        resolveTacticalAction(draft, r, { nodeId: targetId, tactic });
         break;
       }
       case "marketMove": {
@@ -338,14 +388,20 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           : (legal.expand[0] ?? legal.contest[0] ?? legal.reinforce[0]);
         if (targetId) {
           const act = legal.contest.includes(targetId) ? "contest" : legal.expand.includes(targetId) ? "expand" : "reinforce";
-          resolveMarketTurn(draft, r, { kind: "act", nodeId: targetId, action: act });
+          const tactic: MarketTactic = act === "contest" ? "poach" : "pitch";
+          const cost = OPS_COST[tactic] ?? 1;
+          if (b.playerOps < cost) {
+            resolveEndTurn(draft, r);
+            if (!draft.marketBattle || draft.marketBattle.turnsLeft <= 0) break;
+          }
+          resolveTacticalAction(draft, r, { nodeId: targetId, tactic });
         }
         break;
       }
       case "marketEndTurn": {
         const b = draft.marketBattle;
         if (!b || draft.pendingMentor || b.current !== "player") break;
-        resolveMarketTurn(draft, r, { kind: "pass" });
+        resolveEndTurn(draft, r);
         break;
       }
       case "delegateMarket": {
@@ -482,9 +538,126 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         if (!w || w.role === "founder" || (w.role === "cofounder" && draft.onboarding.tutorialEnabled && !draft.company.seenMarket)) break;
         draft.employees = draft.employees.filter((e) => e.id !== w.id);
         draft.stats.employeesFired += 1;
+        if (draft.company.cash >= 1_000_000) {
+          unlockAchievement(draft, "cold-blooded");
+        }
         for (const e of draft.employees) e.happiness -= 1.2;
         draft.company.backlash += 3;
         draft.company.prestige -= 2;
+        break;
+      }
+      case "dilute": {
+        const w = draft.employees.find((e) => e.id === command.workerId);
+        if (!w || w.role === "founder" || w.equity <= 0) break;
+        const pct = Math.max(1, Math.min(100, Math.round(command.percentage)));
+        const cut = w.equity * (pct / 100);
+        w.equity = Math.max(0, w.equity - cut);
+
+        if (w.role === "cofounder") {
+          draft.company.ownership.cofounder = Math.max(0, draft.company.ownership.cofounder - cut);
+        } else {
+          draft.company.ownership.employees = Math.max(0, draft.company.ownership.employees - cut);
+        }
+        draft.company.ownership.founder += cut;
+        draft.founder.equity += cut;
+
+        draft.stats.dilutionsCount = (draft.stats.dilutionsCount ?? 0) + 1;
+
+        const isEduardo = isEduardoSaverin(w);
+        const isCofounder = w.role === "cofounder";
+
+        // Individual worker consequences:
+        w.happiness = Math.max(0.5, w.happiness - (pct >= 50 ? 5.5 : 3.5));
+        w.loyalty = Math.max(0.5, w.loyalty - (pct >= 50 ? 6.5 : 4.0));
+        w.burnoutRisk = Math.min(1, w.burnoutRisk + (pct >= 50 ? 0.45 : 0.25));
+        if (pct >= 50) {
+          w.burnoutDays = Math.max(w.burnoutDays, 10);
+        }
+
+        // Company-wide internal turmoil consequences:
+        const teamMoraleHit = isCofounder ? (pct >= 50 ? 2.8 : 1.8) : (pct >= 50 ? 1.4 : 0.8);
+        for (const e of draft.employees) {
+          if (e.id !== w.id && e.role !== "founder") {
+            e.happiness = Math.max(0.5, e.happiness - teamMoraleHit);
+            e.loyalty = Math.max(0.5, e.loyalty - teamMoraleHit * 0.7);
+          }
+        }
+
+        const trustLoss = isCofounder ? (pct >= 50 ? 18 : 12) : (pct >= 50 ? 10 : 6);
+        const backlashGain = isCofounder ? (pct >= 50 ? 16 : 10) : (pct >= 50 ? 8 : 4);
+        draft.company.trust = Math.max(0, draft.company.trust - trustLoss);
+        draft.company.culture.trust = Math.max(0, draft.company.culture.trust - trustLoss);
+        draft.company.backlash += backlashGain;
+        draft.company.prestige = Math.max(0, draft.company.prestige - (isCofounder ? 5 : 2));
+        draft.company.culture.intensity = Math.min(100, draft.company.culture.intensity + (isCofounder ? 10 : 5));
+
+        // Breaking News item
+        draft.news.unshift({
+          id: uid(r, "news"),
+          at: { ...draft.clock.date },
+          headline: isEduardo
+            ? "Boardroom coup: Eduardo Saverin diluted in hostile restructuring"
+            : isCofounder
+              ? `Founding rupture: Co-founder ${w.name} diluted in internal shakeup`
+              : `Equity clawback: ${draft.company.name} restructures employee pool`,
+          body: isEduardo
+            ? "Internal documents reveal founder forces drastic dilution of co-founder Eduardo Saverin's stake. Heated legal battle expected as Saverin retains counsel."
+            : isCofounder
+              ? `Co-founder ${w.name}'s equity stake was reduced by ${pct}%. Internal morale plunges as whispers of boardroom betrayal circulate.`
+              : `Employee equity grant for ${w.name} was reduced by ${pct}%. Team members voice concern over corporate loyalty.`,
+          tone: "panic",
+          createdTick: draft.clock.tick,
+          impact: `Internal turmoil: -${teamMoraleHit.toFixed(1)} team morale, -${trustLoss} company trust, +${backlashGain} backlash.`,
+          read: false,
+          source: "Silicon Insider",
+          category: "corporate",
+        });
+
+        // Crisis Mail
+        draft.inbox.unshift({
+          id: uid(r, "mail"),
+          at: { ...draft.clock.date },
+          from: isEduardo ? "esaverin@saverincounsel.com" : `${handleFor(w.name)}@${handleFor(draft.company.name)}.ai`,
+          sender: {
+            name: isEduardo ? "Eduardo Saverin" : w.name,
+            role: isEduardo ? "Co-founder (Contested)" : w.title,
+            organization: isEduardo ? "Saverin Legal Counsel" : draft.company.name,
+            handle: isEduardo ? "esaverin@saverincounsel.com" : `${handleFor(w.name)}@${handleFor(draft.company.name)}.ai`,
+            avatarInitial: w.name[0] ?? "E",
+            avatarColor: "#b33939",
+          },
+          recipient: {
+            name: draft.founder.name,
+            organization: draft.company.name,
+            handle: `${handleFor(draft.founder.name)}@${handleFor(draft.company.name)}.ai`,
+          },
+          subject: isEduardo
+            ? "LEGAL NOTICE: Fraudulent share issuance & fiduciary breach"
+            : isCofounder
+              ? "Formal objection: Unilateral equity dilution"
+              : "Grievance: Equity reduction notice",
+          body: isEduardo
+            ? "You set up corporate restructurings and issued newly minted shares specifically to dilute my stake down while leaving everyone else intact. You think you can just push me out of the company I funded? I've retained legal counsel. You better lawyer up."
+            : isCofounder
+              ? `I poured everything into building this company with you. Slashing my founding equity by ${pct}% behind closed doors is an unforgivable betrayal. The rest of the team already knows what you did.`
+              : `I received the notice regarding my equity grant being reduced by ${pct}%. Slashing agreed employee equity creates serious trust issues across the entire engineering floor.`,
+          read: false,
+          requiresResponse: false,
+          eventKind: "crisis",
+          impact: `Company trust -${trustLoss}, Backlash +${backlashGain}, Team happiness -${teamMoraleHit.toFixed(1)}`,
+        });
+
+        // Check achievements
+        if (isEduardo) {
+          unlockAchievement(draft, "the-social-network");
+        }
+        unlockAchievement(draft, "founder-mode");
+        if (draft.company.cash >= 1_000_000) {
+          unlockAchievement(draft, "cold-blooded");
+        }
+        if ((draft.stats.dilutionsCount ?? 0) >= 3) {
+          unlockAchievement(draft, "ruthless-operator");
+        }
         break;
       }
       case "startResearch": {
@@ -641,6 +814,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           pressure: offer.archetype === "mission" ? "safety" : offer.archetype === "defense" ? "research" : "growth",
         };
         draft.company.hype += 10;
+        unlockAchievement(draft, "term-sheet");
         break;
       }
       case "rentGpus":
@@ -650,6 +824,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         if (draft.company.cash < 400_000) break;
         draft.company.cash -= 400_000;
         draft.compute.ownedCluster += 4;
+        unlockAchievement(draft, "sovereign-compute");
         break;
       case "setCompanyModel":
         if (isModelAvailable(draft, command.modelId) && (draft.ownedModels.includes(command.modelId) || models.some((m) => m.id === command.modelId && m.provider !== "You"))) {
@@ -678,6 +853,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         draft.employees.push(bot);
         draft.stats.aiWorkersDeployed += 1;
         draft.compute.monthlyCloudBill += 1_200;
+        unlockAchievement(draft, "synthetic-workforce");
         break;
       }
       case "acquire": {
@@ -815,6 +991,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
     if (command.type === "recruit" && draft.hiring.candidates.length) recordTutorialEvent(draft, "recruitedCandidates");
     if (command.type === "startResearch" && draft.tasks.length > state.tasks.length) recordTutorialEvent(draft, "startedResearch");
     checkOnboarding(draft);
+    checkAchievements(draft);
     commit(draft, r);
   });
   return next;

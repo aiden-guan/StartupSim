@@ -409,6 +409,11 @@ export function CompanyPanel({ game }: { game: GameState }) {
       ) : (
         <p className="text-xs text-[#9aa3b2]">Maximum office reached.</p>
       )}
+      <div className="pt-2">
+        <GameButton className="w-full text-center" onClick={() => useGame.getState().setAchievementsOpen(true)}>
+          🏆 View Achievements ({(game.achievements ?? []).length} Unlocked)
+        </GameButton>
+      </div>
       <SavePanel game={game} onLoad={loadGame} variant="company" />
       <button type="button" className="text-xs underline" onClick={() => dispatch({ type: "retire" })}>
         Retire company

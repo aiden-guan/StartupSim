@@ -12,6 +12,8 @@ import { EndScreen } from "./EndScreen";
 import { FeelLayer } from "./feel/FeelLayer";
 import { HUD } from "./HUD";
 import { SettingsOverlay, CreditsOverlay } from "./SettingsOverlays";
+import { LeaderboardOverlay } from "./leaderboard/LeaderboardOverlay";
+import { AchievementsOverlay, AchievementToast } from "./AchievementsOverlay";
 import { VisualGallery } from "./VisualGallery";
 import { MarketResults } from "./market/MarketResults";
 import { EmployeeInspector } from "./team/panels";
@@ -80,6 +82,7 @@ export function App() {
   const screen = useGame((s) => s.screen);
   const revealPlaying = useGame((s) => s.revealPlaying);
   const galleryOpen = useGame((s) => s.galleryOpen);
+  const leaderboardOpen = useGame((s) => s.leaderboardOpen);
   const toggleDebug = useGame((s) => s.toggleDebug);
   const setGalleryOpen = useGame((s) => s.setGalleryOpen);
   useSimClock();
@@ -137,6 +140,7 @@ export function App() {
   if (screen === "ended" && game) return (
     <>
       <EndScreen game={game} />
+      {leaderboardOpen && <LeaderboardOverlay />}
       <Analytics />
     </>
   );
@@ -144,6 +148,7 @@ export function App() {
   if (screen === "market" && game?.marketResult) return (
     <>
       <MarketResults game={game} />
+      {leaderboardOpen && <LeaderboardOverlay />}
       <Analytics />
     </>
   );
@@ -156,6 +161,7 @@ export function App() {
         <Spotlight />
         <DebugPanel />
         <SettingsOverlay />
+        {leaderboardOpen && <LeaderboardOverlay />}
         <Analytics />
       </div>
     );
@@ -186,6 +192,9 @@ export function App() {
       ) : null}
       <SettingsOverlay />
       <CreditsOverlay />
+      {leaderboardOpen && <LeaderboardOverlay />}
+      <AchievementsOverlay />
+      <AchievementToast />
       <DebugPanel />
       <Analytics />
     </div>

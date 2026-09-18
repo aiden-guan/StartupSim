@@ -7,6 +7,7 @@ import {
   GLASSES_IDS,
   HAIR_COLORS,
   HAIR_STYLES,
+  PANTS_COLORS,
   PANTS_IDS,
   SHOES_IDS,
   SKIN_TONES,
@@ -166,6 +167,7 @@ export function SetupOverlay() {
               />
               <Cycle label="Top" value={look.topId} options={TOP_IDS} onChange={(topId) => setLook({ topId })} />
               <Cycle label="Pants" value={look.pantsId} options={PANTS_IDS} onChange={(pantsId) => setLook({ pantsId })} />
+              <ColorSwatches label="Pants color" value={look.pants} options={PANTS_COLORS} onChange={(pants) => setLook({ pants })} />
               <Cycle label="Shoes" value={look.shoesId} options={SHOES_IDS} onChange={(shoesId) => setLook({ shoesId })} />
               <Cycle
                 label="Glasses"

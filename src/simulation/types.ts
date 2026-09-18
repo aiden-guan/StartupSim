@@ -114,7 +114,7 @@ export type HairStyle =
 export type BodyType = "slim" | "average" | "broad";
 export type HeightId = "short" | "avg" | "tall";
 export type TopId = "turtleneck" | "tee" | "hoodie" | "sweater" | "overshirt" | "blazer" | "vest" | "jacket" | "labcoat" | "techjacket";
-export type PantsId = "jeans" | "chinos" | "joggers" | "trousers";
+export type PantsId = "jeans" | "chinos" | "joggers" | "trousers" | "cargo" | "shorts";
 export type ShoesId = "sneakers" | "dress" | "boots" | "runners";
 export type GlassesId = "none" | "round" | "rect";
 export type AccessoryId = "none" | "badge" | "headphones" | "scarf" | "watch" | "coffee" | "phone" | "notebook" | "backpack";
@@ -508,6 +508,7 @@ export interface Stats {
   computeConsumed: number;
   peakValuation: number;
   peakEmployees: number;
+  dilutionsCount?: number;
 }
 
 export interface HexPos {
@@ -655,6 +656,7 @@ export interface GameState {
     seed: number;
     rngState: number;
     difficulty: "baseline";
+    runId?: string;
   };
   clock: ClockState;
   founder: Employee;
@@ -678,6 +680,7 @@ export interface GameState {
   unlocks: Unlocks;
   onboarding: OnboardingState;
   stats: Stats;
+  achievements: string[];
   history: HistoryPoint[];
   hiring: {
     channelId: string | null;

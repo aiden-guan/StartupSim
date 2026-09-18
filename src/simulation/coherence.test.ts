@@ -110,7 +110,7 @@ describe("rest assignment", () => {
 });
 
 describe("assignment", () => {
-  it("refuses silent reassignment without confirm and auto-assign never steals", () => {
+  it("refuses silent manual reassignment without confirm and single-task auto-assign does not steal", () => {
     let g = boot(15);
     g = startNamedProduct(g, "chat", "writing");
     g = startNamedProduct(g, "search", "image");
@@ -133,12 +133,31 @@ describe("assignment", () => {
       skills: { ...partner.skills, research: 12, engineering: 11, product: 8, growth: 4, productivity: 8 },
     };
     moved.employees.push(extra);
-    const plan = planAutoAssign(moved);
-    expect(plan.assigned.every((row) => row.workerId === "free-1" || !moved.employees.find((w) => w.id === row.workerId)?.taskId)).toBe(true);
+    const singlePlan = planAutoAssign(moved, b);
+    expect(singlePlan.assigned.every((row) => row.workerId === "free-1")).toBe(true);
     const after = structuredClone(moved);
-    applyAutoAssign(after);
+    applyAutoAssign(after, b);
     expect(after.employees.find((w) => w.id === founder.id)!.taskId).toBe(b!.id);
-    expect([a!.id, b!.id]).toContain(after.employees.find((w) => w.id === extra.id)!.taskId);
+    expect(after.employees.find((w) => w.id === partner.id)!.taskId).toBe(a!.id);
+    expect(after.employees.find((w) => w.id === extra.id)!.taskId).toBe(b!.id);
+  });
+
+  it("auto-assign all automatically unassigns and reassigns people to appropriate positions across projects", () => {
+    let g = boot(15);
+    g = startNamedProduct(g, "chat", "writing");
+    g = startNamedProduct(g, "search", "image");
+    const [a, b] = g.tasks;
+    const founder = g.employees[0]!;
+    const partner = g.employees[1]!;
+    // Assign entire team to project a initially
+    g = applyCommand(g, { type: "assign", taskId: a!.id, workerId: founder.id })!;
+    g = applyCommand(g, { type: "assign", taskId: a!.id, workerId: partner.id })!;
+    expect(g.employees.every((w) => w.taskId === a!.id)).toBe(true);
+
+    // Auto assign all ignores that the whole team was on project a and reassigns across projects
+    const after = applyCommand(g, { type: "autoAssign" })!;
+    expect(after.employees.some((w) => w.taskId === a!.id)).toBe(true);
+    expect(after.employees.some((w) => w.taskId === b!.id)).toBe(true);
   });
 
   it("covers every project before adding extra available teammates", () => {

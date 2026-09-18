@@ -82,15 +82,38 @@ export interface AutoAssignResult {
 
 const MAX_AUTO_ASSIGN_TEAM_SIZE = 4;
 
-export function planAutoAssign(state: GameState, _legacyTask?: Task): AutoAssignResult {
-  const projects = state.tasks.filter((task) => task.type === "crisis" || task.progress < task.requiredProgress);
-  const open = idleWorkers(state);
+export function planAutoAssign(state: GameState, target?: Task | string): AutoAssignResult {
+  const targetTask = typeof target === "string" ? state.tasks.find((t) => t.id === target) : target;
+  const isSingleTask = Boolean(targetTask);
+
+  const projects = targetTask
+    ? (targetTask.type === "crisis" || targetTask.progress < targetTask.requiredProgress ? [targetTask] : [])
+    : state.tasks.filter((task) => task.type === "crisis" || task.progress < task.requiredProgress);
+
+  if (!projects.length) {
+    return { assigned: [] };
+  }
+
+  const open = isSingleTask
+    ? idleWorkers(state)
+    : state.employees.filter((w) => w.burnoutDays <= 0 && w.role !== "ai");
+
   const assigned: AutoAssignResult["assigned"] = [];
   const taken = new Set<string>();
 
   // Keep each project's simulated team in sync while planning so later picks
   // account for both team overhead and the people selected earlier in this plan.
-  const teams = new Map(projects.map((task) => [task.id, [...workersFor(task, state)]]));
+  // For single task, keep workers already on the task in the team count.
+  // For auto-assign all, clear active workers so everyone can be placed into the best position,
+  // keeping only resting workers in place on their respective tasks.
+  const teams = new Map(
+    projects.map((task) => [
+      task.id,
+      isSingleTask
+        ? [...workersFor(task, state)]
+        : workersFor(task, state).filter((w) => w.burnoutDays > 0),
+    ]),
+  );
 
   function addBest(coverageOnly: boolean): boolean {
     let best: { task: Task; worker: Employee; score: number; skill: SkillName } | null = null;
@@ -118,14 +141,17 @@ export function planAutoAssign(state: GameState, _legacyTask?: Task): AutoAssign
     teams.get(best.task.id)!.push(best.worker);
     const label = best.skill === "productivity" ? "pace" : best.skill;
     const firstOnProject = teams.get(best.task.id)!.filter((worker) => worker.burnoutDays <= 0).length === 1;
+    const prevTaskId = best.worker.taskId;
+    const isReassignment = Boolean(prevTaskId && prevTaskId !== best.task.id);
+    const verb = isReassignment ? "Reassigned" : "Assigned";
     assigned.push({
       taskId: best.task.id,
       workerId: best.worker.id,
       name: best.worker.name.split(" ")[0]!,
       skill: best.skill,
       reason: firstOnProject
-        ? `Assigned ${best.worker.name.split(" ")[0]} to ${best.task.name} — covering the project with the strongest available ${label} fit.`
-        : `Assigned ${best.worker.name.split(" ")[0]} to ${best.task.name} — strongest available ${label} fit for extra project depth.`,
+        ? `${verb} ${best.worker.name.split(" ")[0]} to ${best.task.name} — covering the project with the strongest available ${label} fit.`
+        : `${verb} ${best.worker.name.split(" ")[0]} to ${best.task.name} — strongest available ${label} fit for extra project depth.`,
     });
     return true;
   }
@@ -144,14 +170,26 @@ export function planAutoAssign(state: GameState, _legacyTask?: Task): AutoAssign
   return { assigned };
 }
 
-export function applyAutoAssign(state: GameState, _legacyTask?: Task): AutoAssignResult {
-  const plan = planAutoAssign(state);
-  for (const row of plan.assigned) {
-    const worker = state.employees.find((w) => w.id === row.workerId);
-    const task = state.tasks.find((item) => item.id === row.taskId);
-    if (!worker || !task || worker.taskId || worker.burnoutDays > 0) continue;
-    worker.taskId = task.id;
+export function applyAutoAssign(state: GameState, target?: Task | string): AutoAssignResult {
+  const targetTask = typeof target === "string" ? state.tasks.find((t) => t.id === target) : target;
+  const isSingleTask = Boolean(targetTask);
+  const plan = planAutoAssign(state, targetTask);
+
+  if (isSingleTask) {
+    for (const row of plan.assigned) {
+      const worker = state.employees.find((w) => w.id === row.workerId);
+      const task = state.tasks.find((item) => item.id === row.taskId);
+      if (!worker || !task || worker.taskId || worker.burnoutDays > 0) continue;
+      worker.taskId = task.id;
+    }
+  } else {
+    const assignedTaskByWorkerId = new Map(plan.assigned.map((row) => [row.workerId, row.taskId]));
+    for (const worker of state.employees) {
+      if (worker.burnoutDays > 0 || worker.role === "ai") continue;
+      worker.taskId = assignedTaskByWorkerId.get(worker.id) ?? null;
+    }
   }
+
   return plan;
 }
 

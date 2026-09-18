@@ -427,6 +427,21 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .product-sheet { margin-bottom:32px; }
 .product-sheet>header { display:flex;gap:16px;align-items:center;margin-bottom:24px; }
 .product-sheet h3 { font:30px var(--font-display);margin:3px 0; }
+.product-name-header-row { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+.product-name-header-row h3 { margin:0; }
+.product-rename-btn { display:inline-flex;align-items:center;gap:4px;background:#e1e7db;border:1px solid #bcc9b8;color:#355342;font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;cursor:pointer;line-height:1.2;transition:all .15s ease; }
+.product-rename-btn:hover { background:#d2ded0;border-color:#9eb19a;color:#203a2c; }
+.product-rename-inline-box { display:flex;align-items:center;gap:8px;margin:4px 0 6px;flex-wrap:wrap; }
+.product-rename-input-wrap { position:relative;display:inline-flex;align-items:center;max-width:100%; }
+.product-name-field-input { background:#fbfbf7;border:1px solid #b2c0af;color:#25382b;font:13px/1.2 var(--font-ui);font-weight:600;padding:6px 46px 6px 10px;border-radius:3px;width:240px;max-width:100%;box-shadow:inset 0 1px 2px rgba(0,0,0,0.04); }
+.product-name-field-input:focus { outline:2px solid #bd6438;outline-offset:1px;background:#ffffff; }
+.char-counter { position:absolute;right:8px;font-size:10px;color:#7b8e7d;font-variant-numeric:tabular-nums;pointer-events:none; }
+.char-counter-label { font-variant-numeric:tabular-nums; }
+.rename-btn-group { display:flex;gap:5px;align-items:center; }
+.rename-btn-group .game-btn { padding:4px 10px;font-size:11px; }
+.lab-product-name-block { margin:12px 0 6px;padding:10px 12px;background:#e2ebd9;border:1px solid #c5d4be;border-radius:3px; }
+.lab-product-name-block .product-rename-input-wrap { width:100%; }
+.lab-product-name-block .product-name-field-input { width:100%; }
 .product-sheet header p { color:#718272;font-size:11px; }
 .ready-stamp { margin-left:auto;font-size:9px;color:#678c68;letter-spacing:.1em;border:1px solid #aebea5;padding:7px; }
 .launch-points { display:flex;gap:27px;align-items:center;background:#dfe6d7;padding:13px 18px;margin-bottom:22px; }
@@ -570,8 +585,39 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .primary-action:disabled { background:#b5bdab;color:#ecedde; }
 .disabled-reason { font-size:9px;line-height:1.6;display:block;color:#738567;margin-top:9px; }
 .market-feedback { font-size:11px;line-height:1.8;margin:20px 0;color:#647c69;min-height:45px; }
-.end-turn { width:100%;padding:14px;background:#365a54;color:#f0f3df;font-size:12px;border-radius:3px; }
-.end-turn:disabled { opacity:.5; }
+.end-turn { width:100%;padding:14px;background:#365a54;color:#f0f3df;font-size:12px;border-radius:3px;cursor:pointer;font-weight:600;transition:background .2s; }
+.end-turn:hover:not(:disabled) { background:#2a4b45; }
+.end-turn:disabled { opacity:.5;cursor:not-allowed; }
+.end-turn.ready-to-end { background:#9c5531;color:#fff6e8;animation:pulse-subtle 2s infinite; }
+.end-turn.ready-to-end:hover { background:#834423; }
+
+/* Tactical Operations & Ops Points */
+.ops-meter { display:flex;align-items:center;gap:6px;font-size:11px; }
+.ops-pips { display:flex;align-items:center;gap:3px; }
+.ops-pip { width:9px;height:9px;border-radius:50%;background:#48635c;border:1px solid #63847b;transition:all .2s; }
+.ops-pip.filled { background:#70c995;border-color:#a2e6be;box-shadow:0 0 6px rgba(112,201,149,0.5); }
+.ops-pip.banked { background:#e8a84c;border-color:#ffd685;box-shadow:0 0 6px rgba(232,168,76,0.5); }
+.ops-pip.empty { background:#384f4a;border-color:#4e6761;opacity:.6; }
+
+.tactical-selector { display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:12px 0 8px; }
+.tactical-btn { padding:7px 5px;background:#d2dcce;border:1px solid #b8c8b2;color:#354e42;font-size:10px;border-radius:3px;cursor:pointer;text-align:center;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all .15s; }
+.tactical-btn:hover:not(:disabled) { background:#c4d3bf;border-color:#9eb098; }
+.tactical-btn.active { background:#3a5e50;color:#f0f4ea;border-color:#2a473b;box-shadow:0 2px 4px rgba(0,0,0,0.15); }
+.tactical-btn:disabled { opacity:.45;cursor:not-allowed; }
+.tactical-btn small { font-size:8px;opacity:.85;font-weight:normal; }
+
+.tactical-cost-badge { display:inline-block;font-size:9px;padding:2px 6px;background:#cad6c4;color:#2f4639;border-radius:2px;font-weight:600;margin-top:3px; }
+
+.market-feed { margin:14px 0;background:#e5ded0;border-radius:3px;padding:8px 10px;max-height:115px;overflow-y:auto;font-size:10px; }
+.market-feed-title { font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#7e6153;font-weight:700;margin-bottom:6px;display:flex;justify-content:space-between; }
+.market-feed-item { padding:4px 0;border-bottom:1px solid #d8cfbe;line-height:1.4;color:#453a33; }
+.market-feed-item:last-child { border-bottom:none; }
+.market-feed-tag { font-weight:700;padding:1px 4px;border-radius:2px;font-size:8px;margin-right:4px;display:inline-block; }
+.market-feed-tag.player { background:#bad4be;color:#22472b; }
+.market-feed-tag.rival { background:#e2b6a8;color:#5c2417; }
+.market-feed-tag.network { background:#c2d2df;color:#1e3d54; }
+
+@keyframes pulse-subtle { 0%,100%{box-shadow:0 0 0 0 rgba(189,102,59,0.4);} 50%{box-shadow:0 0 0 6px rgba(189,102,59,0);} }
 .market-help { padding-top:25px;margin-top:24px;border-top:1px solid #bdcbb5;font-size:10px; }
 .market-help p { line-height:1.7;margin-top:7px;color:#7b8a72; }
 .market-results { height:100%;overflow:auto;background:#294247;display:grid;place-items:center;padding:12px; }
@@ -964,3 +1010,12 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .studio-caption { position:absolute; bottom:26px; left:0; right:0; text-align:center; pointer-events:none; }
 .studio-caption h2 { font-size:25px; margin:4px 0; }
 .studio-caption p { color:#71808a; font-size:12px; }
+
+/* Achievement toast entrance animation */
+@keyframes bounce-once {
+  0%   { opacity:0; transform: translateX(-50%) translateY(-20px) scale(0.92); }
+  40%  { opacity:1; transform: translateX(-50%) translateY(4px)   scale(1.03); }
+  60%  { transform: translateX(-50%) translateY(-2px) scale(0.99); }
+  100% { transform: translateX(-50%) translateY(0)    scale(1);    }
+}
+.animate-bounce-once { animation: bounce-once 0.5s ease-out forwards; }

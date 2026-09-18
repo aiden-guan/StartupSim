@@ -8,9 +8,75 @@ import { money } from '../format';
 import { CharacterPortrait } from '../shared/CharacterPortrait';
 import { GameButton } from '../shared/controls';
 import { RecruitingIcon } from '../visuals/RecruitingIcon';
+import { DilutionModal } from './DilutionModal';
+
 function EmployeeDetails({employee:w,game}:{employee:Employee;game:GameState}) {
   const dispatch=useGame(s=>s.dispatch), task=game.tasks.find(t=>t.id===w.taskId);
-  return <div className="employee-details"><div className="employee-identity"><CharacterPortrait look={w.look} robot={w.role==='robot'}/><div><span className="eyebrow">{w.role}</span><h3>{w.name}</h3><p>{w.title}</p></div></div><div className="employee-status"><i className={w.burnoutDays?'resting':''}/>{w.burnoutDays?`Resting for ${w.burnoutDays} days`:task?task.name:'Available'}</div><div className="skill-bars">{Object.entries(w.skills).map(([skill,n])=><div key={skill}><span>{skill}</span><i><b style={{width:`${Math.min(100,n*10)}%`}}/></i><strong>{n.toFixed(1)}</strong></div>)}</div><div className="employee-facts"><div><small>Salary / year</small><strong>{money(w.salary)}</strong></div><div><small>Happiness</small><strong>{w.happiness.toFixed(1)} / 10</strong></div><div><small>Burnout risk</small><strong>{Math.round(w.burnoutRisk*100)}%</strong></div><div><small>Location</small><strong>{w.remote?'Remote':'In the office'}</strong></div></div><div className="trait-list">{w.traits.map(t=><p key={t}><b>{traitById[t]?.name??t}</b><span>{traitById[t]?.description}</span></p>)}</div><GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>Assign to a project →</GameButton>{w.role!=='founder'&&<GameButton tone="danger" disabled={w.role==='cofounder'&&game.onboarding.tutorialEnabled&&!game.company.seenMarket} title={game.onboarding.tutorialEnabled&&!game.company.seenMarket?'Keep your cofounder through the first launch':'End employment'} onClick={()=>dispatch({type:'fire',workerId:w.id})}>Let go</GameButton>}</div>;
+  const [diluting, setDiluting] = useState(false);
+
+  return (
+    <div className="employee-details">
+      <div className="employee-identity">
+        <CharacterPortrait look={w.look} robot={w.role==='robot'}/>
+        <div>
+          <span className="eyebrow">{w.role}</span>
+          <h3>{w.name}</h3>
+          <p>{w.title}</p>
+        </div>
+      </div>
+      <div className="employee-status">
+        <i className={w.burnoutDays?'resting':''}/>
+        {w.burnoutDays?`Resting for ${w.burnoutDays} days`:task?task.name:'Available'}
+      </div>
+      <div className="skill-bars">
+        {Object.entries(w.skills).map(([skill,n])=>(
+          <div key={skill}>
+            <span>{skill}</span>
+            <i><b style={{width:`${Math.min(100,n*10)}%`}}/></i>
+            <strong>{n.toFixed(1)}</strong>
+          </div>
+        ))}
+      </div>
+      <div className="employee-facts">
+        <div><small>Salary / year</small><strong>{money(w.salary)}</strong></div>
+        <div><small>Equity stake</small><strong className={w.equity > 0 ? "text-[#ad7155]" : ""}>{(w.equity * 100).toFixed(2)}%</strong></div>
+        <div><small>Happiness</small><strong>{w.happiness.toFixed(1)} / 10</strong></div>
+        <div><small>Burnout risk</small><strong>{Math.round(w.burnoutRisk*100)}%</strong></div>
+      </div>
+      <div className="trait-list">
+        {w.traits.map(t=><p key={t}><b>{traitById[t]?.name??t}</b><span>{traitById[t]?.description}</span></p>)}
+      </div>
+      <div className="flex flex-col gap-2 mt-4">
+        <GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>Assign to a project →</GameButton>
+        {w.role!=='founder' && w.equity > 0 && (
+          <GameButton
+            tone="danger"
+            onClick={()=>setDiluting(true)}
+            title={`Dilute ${w.name}'s ${(w.equity*100).toFixed(2)}% equity stake`}
+          >
+            Dilute stake
+          </GameButton>
+        )}
+        {w.role!=='founder'&& (
+          <GameButton
+            tone="danger"
+            disabled={w.role==='cofounder'&&game.onboarding.tutorialEnabled&&!game.company.seenMarket}
+            title={game.onboarding.tutorialEnabled&&!game.company.seenMarket?'Keep your cofounder through the first launch':'End employment'}
+            onClick={()=>dispatch({type:'fire',workerId:w.id})}
+          >
+            Let go
+          </GameButton>
+        )}
+      </div>
+      {diluting && (
+        <DilutionModal
+          worker={w}
+          game={game}
+          onClose={()=>setDiluting(false)}
+        />
+      )}
+    </div>
+  );
 }
 export function PeoplePanel({game}:{game:GameState}) {
   const [id,setId]=useState(game.employees[0]?.id);

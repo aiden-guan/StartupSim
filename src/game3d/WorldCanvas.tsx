@@ -61,9 +61,10 @@ function Scene() {
     if (drawer) setDrawer(drawer);
   };
 
+  const hasCompute = Boolean(view?.environment && view.environment.computeTier > 0);
   const office =
     level <= 0 ? (
-      <Apartment onObject={onObject} perks={view?.perks ?? []} brand={brand} standingDesks={standing} employeeCount={view?.agents.length??2} />
+      <Apartment onObject={onObject} perks={view?.perks ?? []} brand={brand} standingDesks={standing} employeeCount={view?.agents.length??2} hasCompute={hasCompute} />
     ) : level === 1 ? (
       <GarageOffice onObject={onObject} perks={view?.perks ?? []} brand={brand} visual={view?.environment} quality={quality}/>
     ) : level === 2 ? (

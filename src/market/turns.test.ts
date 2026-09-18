@@ -6,7 +6,7 @@ import { Rng } from "../simulation/rng";
 import type { GameState, Product } from "../simulation/types";
 import { competitors } from "../data/competitors";
 import { aiSelectMove, calculateInfluence, getLegalMoves, launchStrength, startMarketSession } from "./marketMap";
-import { processRivalTurn, resolveMarketTurn, resolveSideAction } from "./turns";
+import { processRivalTurn, resolveEndTurn, resolveMarketTurn, resolveSideAction, resolveTacticalAction } from "./turns";
 
 class FixedRng extends Rng {
   constructor(private value: number) {
@@ -191,5 +191,125 @@ describe("rival processing", () => {
     const session = openBattle(state, product, 28);
     const move = processRivalTurn(state, session, new FixedRng(0));
     expect(session.lastRivalMove === null || move !== null).toBe(true);
+  });
+});
+
+describe("tactical turn-based operations & Ops economy", () => {
+  it("allows multiple actions in a single turn until Ops are exhausted", () => {
+    const { state, product } = setup(30);
+    const session = openBattle(state, product, 30);
+    expect(session.playerOps).toBe(3);
+    const initialTurn = session.turn;
+
+    const legal = getLegalMoves(session, "player", product.levels.distribution);
+    const target = legal.expand[0] ?? legal.reinforce[0]!;
+
+    // Action 1: Pitch (-1 Ops)
+    const act1 = resolveTacticalAction(state, new FixedRng(0), { nodeId: target, tactic: "pitch" });
+    expect(act1.ok).toBe(true);
+    expect(session.playerOps).toBe(2);
+    expect(session.turn).toBe(initialTurn); // Turn does NOT advance!
+
+    // Action 2: Fortify (-1 Ops)
+    const beach = session.playerBeachhead;
+    const act2 = resolveTacticalAction(state, new FixedRng(0), { nodeId: beach, tactic: "fortify" });
+    expect(act2.ok).toBe(true);
+    expect(session.playerOps).toBe(1);
+    expect(session.nodes.find((n) => n.id === beach)?.fortified).toBe(true);
+    expect(session.turn).toBe(initialTurn); // Still in player turn!
+
+    // Action 3: Pitch (-1 Ops)
+    const act3 = resolveTacticalAction(state, new FixedRng(0), { nodeId: beach, tactic: "pitch" });
+    expect(act3.ok).toBe(true);
+    expect(session.playerOps).toBe(0);
+
+    // Action 4: Blocked due to insufficient Ops
+    const act4 = resolveTacticalAction(state, new FixedRng(0), { nodeId: beach, tactic: "pitch" });
+    expect(act4.ok).toBe(false);
+    expect(act4.reason).toContain("Not enough Ops");
+  });
+
+  it("PR Blitz spends cash, adds company hype, and penetrates resistance", () => {
+    const { state, product } = setup(31);
+    const session = openBattle(state, product, 31);
+    state.company.cash = 10000;
+    const initialHype = state.company.hype;
+
+    const legal = getLegalMoves(session, "player", product.levels.distribution);
+    const target = legal.expand[0] ?? legal.reinforce[0]!;
+
+    const res = resolveTacticalAction(state, new FixedRng(0), { nodeId: target, tactic: "blitz" });
+    expect(res.ok).toBe(true);
+    expect(state.company.cash).toBe(8500); // Spent $1,500
+    expect(state.company.hype).toBe(initialHype + 2);
+    expect(session.playerOps).toBe(1); // Spent 2 Ops (3 - 2 = 1)
+    expect(res.result?.tactic).toBe("blitz");
+    expect(res.result?.factors.some((f) => f.label.includes("PR Blitz"))).toBe(true);
+  });
+
+  it("Viral loop ripples bonus influence into connected neighbors", () => {
+    const { state, product } = setup(32);
+    const session = openBattle(state, product, 32);
+    // Find or set a friendly node with viral trait
+    const beach = session.nodes.find((n) => n.id === session.playerBeachhead)!;
+    beach.trait = "viral";
+
+    const res = resolveTacticalAction(state, new FixedRng(0), { nodeId: beach.id, tactic: "viral" });
+    expect(res.ok).toBe(true);
+    // Neighbors of beachhead received +2 ripple influence
+    const nbrIds = session.edges.filter((e) => e.a === beach.id || e.b === beach.id).map((e) => e.a === beach.id ? e.b : e.a);
+    const neighbor = session.nodes.find((n) => nbrIds.includes(n.id))!;
+    expect(neighbor.playerInfluence).toBeGreaterThanOrEqual(2);
+  });
+
+  it("Competitive Poach strips rival influence directly", () => {
+    const { state, product } = setup(33);
+    const session = openBattle(state, product, 33);
+    const rivalBeach = session.nodes.find((n) => n.id === session.rivalBeachhead)!;
+    rivalBeach.rivalInfluence = 20;
+
+    const res = resolveSideAction(state, session, new FixedRng(0), "player", "contest", rivalBeach.id, product.levels, product.combo, "poach");
+    expect(res.success).toBe(true);
+    // Rival influence was stripped by ~35%
+    expect(rivalBeach.rivalInfluence).toBeLessThan(20);
+  });
+
+  it("End Turn banks unspent Ops, activates defensive posture, runs viral spread, and refreshes Ops", () => {
+    const { state, product } = setup(34);
+    const session = openBattle(state, product, 34);
+    session.turn = 1;
+    session.playerOps = 2; // Has 2 unspent Ops
+    const turnsLeftBefore = session.turnsLeft;
+
+    const endResult = resolveEndTurn(state, new FixedRng(0));
+    expect(endResult.ok).toBe(true);
+    expect(session.turnsLeft).toBe(turnsLeftBefore - 1);
+    expect(session.turn).toBe(2);
+
+    // Next turn has base 3 Ops + 1 banked Ops = 4 Ops!
+    expect(session.playerOps).toBe(4);
+    // Action log recorded the end turn / bank event
+    expect(session.actionLog.some((l) => l.summary.includes("Banked 1 Ops"))).toBe(true);
+  });
+
+  it("Dominating a platform hub awards +1 Ops per turn", () => {
+    const { state, product } = setup(35);
+    const session = startMarketSession(state, product, new Rng(35));
+    session.firstMarket = false;
+    state.marketBattle = session;
+
+    // Find a hub, link to player beachhead, and dominate it
+    const hub = session.nodes.find((n) => n.trait === "platform_hub")!;
+    session.edges.push({ a: session.playerBeachhead, b: hub.id });
+    hub.playerDominated = true;
+    hub.playerInfluence = 20;
+    hub.playerShare = 85;
+    hub.playerIsolated = false;
+
+    // Rival fails roll with 0.99
+    resolveEndTurn(state, new FixedRng(0.99));
+
+    // Base 3 Ops + 1 Hub Bonus = 4 Max Ops!
+    expect(session.playerMaxOps).toBe(4);
   });
 });

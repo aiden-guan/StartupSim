@@ -1,7 +1,7 @@
-import { offices } from "../data/offices";
-import { BALANCE } from "../config/balance";
-import type { GameState } from "./types";
-import { monthlyArr } from "./conditions";
+import { offices } from "../data/offices.js";
+import { BALANCE } from "../config/balance.js";
+import type { GameState } from "./types.js";
+import { monthlyArr } from "./conditions.js";
 
 export { monthlyArr };
 
