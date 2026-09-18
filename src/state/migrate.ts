@@ -6,6 +6,9 @@ import { normalizeLook } from "../simulation/look";
 import { reconcileTutorial } from "../simulation/tutorial";
 import { setPause } from "../simulation/pause";
 import type { GameState } from "../simulation/types";
+import { initSocialState, isMilestoneSatisfied, applySocialMilestone } from "../simulation/social";
+import { SOCIAL_MILESTONES } from "../data/social";
+import { Rng } from "../simulation/rng";
 
 export function migrateGameState(raw: GameState): GameState {
   const state = structuredClone(raw);
@@ -132,6 +135,27 @@ export function migrateGameState(raw: GameState): GameState {
   setPause(state,"results",Boolean(state.marketResult));
   setPause(state,"productReady",false);
   setPause(state,"settings",false);
+
+  if (!state.social) {
+    const r = new Rng(state.meta.seed || 1);
+    state.social = initSocialState(state, r);
+    for (const milestone of SOCIAL_MILESTONES) {
+      if (!state.social.triggeredMilestones.includes(milestone.id) && isMilestoneSatisfied(milestone.id, state)) {
+        state.social.triggeredMilestones.push(milestone.id);
+        const { newPosts, newDms } = applySocialMilestone(state, milestone, r);
+        state.social.posts.push(...newPosts);
+        state.social.dms.push(...newDms);
+      }
+    }
+    state.social.posts = state.social.posts.slice(0, BALANCE.SOCIAL_POSTS_CAP);
+    state.social.dms = state.social.dms.slice(0, BALANCE.SOCIAL_DMS_CAP);
+  } else {
+    state.social.posts ??= [];
+    state.social.dms ??= [];
+    state.social.triggeredMilestones ??= ["genesis"];
+    state.social.lastAmbientTick ??= state.clock.tick;
+  }
+
   reconcileTutorial(state);
   return state;
 }

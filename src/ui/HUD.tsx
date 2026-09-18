@@ -42,11 +42,14 @@ export const NAV_GROUPS:{id:string;label:string;items:{id:DrawerId;label:string;
   {id:'infrastructure',label:'Infrastructure',items:[{id:'compute',label:'Compute',need:'compute'}]},
   {id:'company',label:'Company',items:[{id:'company',label:'Office & saves'},{id:'perks',label:'Culture & promotion',need:'perks'}]},
   {id:'world',label:'World',items:[{id:'world',label:'The world',need:'world'}]},
-  {id:'inbox',label:'Inbox',items:[{id:'inbox',label:'Messages'}]},
+  {id:'inbox',label:'Comms',items:[{id:'inbox',label:'Inbox'},{id:'social',label:'Radar & Social'}]},
 ];
 export function HUD({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch),drawer=useGame(s=>s.drawer),setDrawer=useGame(s=>s.setDrawer);
-  const unread=game.inbox.filter(m=>!m.read).length,run=runwayMonths(game);
+  const unreadMail=game.inbox.filter(m=>!m.read).length;
+  const unreadDms=game.social?.dms?.filter(d=>!d.read).length ?? 0;
+  const totalCommsUnread=unreadMail + unreadDms;
+  const run=runwayMonths(game);
   const ready=game.products.find(p=>p.status==='ready');
   const burnedCount=game.employees.filter(e=>e.burnoutDays>0).length;
   const lowRunway=run<2 && run>0 && game.company.cash<25000;
@@ -75,7 +78,7 @@ export function HUD({game}:{game:GameState}) {
         const items=group.items.filter(i=>!i.need||game.unlocks[i.need]);
         if(!items.length)return null;
         const active=items.some(i=>i.id===drawer);
-        return <button key={group.id} data-tutorial={group.id==='products'?'new-product':`${group.id}-nav`} aria-pressed={active} onClick={()=>setDrawer(active?null:items[0]!.id)}><GameIcon name={group.id}/><span>{group.label}</span>{group.id==='inbox'&&unread>0&&<b>{unread}</b>}{group.id==='products'&&ready&&<i className="dock-dot"/>}</button>;
+        return <button key={group.id} data-tutorial={group.id==='products'?'new-product':`${group.id}-nav`} aria-pressed={active} onClick={()=>setDrawer(active?null:items[0]!.id)}><GameIcon name={group.id}/><span>{group.label}</span>{group.id==='inbox'&&totalCommsUnread>0&&<b>{totalCommsUnread}</b>}{group.id==='products'&&ready&&<i className="dock-dot"/>}</button>;
       })}
     </nav>
   </div>;

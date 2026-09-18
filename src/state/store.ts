@@ -16,10 +16,12 @@ export interface EventFrame {
   id: string;
   headline: string;
   body: string;
-  surface: "news" | "gameplay";
+  surface: "news" | "gameplay" | "social";
   impact?: string;
   mailId?: string;
   requiresResponse?: boolean;
+  sender?: string;
+  senderOrg?: string;
 }
 
 export interface Departure {
@@ -150,6 +152,21 @@ export const useGame = create<AppState>((set, get) => ({
           impact: gameplayMail.impact,
           mailId: gameplayMail.id,
           requiresResponse: gameplayMail.requiresResponse,
+          sender: gameplayMail.sender?.name ?? gameplayMail.from,
+          senderOrg: gameplayMail.sender?.organization,
+        };
+      }
+    }
+    if (next && prev && next.social && prev.social && !patch.eventFrame) {
+      const newDms = next.social.dms.filter((dm) => !prev.social.dms.some((pdm) => pdm.id === dm.id));
+      if (newDms.length > 0) {
+        const firstDm = newDms[0]!;
+        patch.eventFrame = {
+          id: firstDm.id,
+          headline: `DM from @${firstDm.actorId}`,
+          body: firstDm.text,
+          surface: "social",
+          requiresResponse: false,
         };
       }
     }

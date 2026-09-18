@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { models } from "../../data/models";
+import { calculateModelImpact } from "../../simulation/modelImpact";
 import type { DepartmentId, GameState } from "../../simulation/types";
 import { isModelAvailable, providerForModel } from "../../simulation/effects";
 import { useGame } from "../../state/store";
@@ -53,14 +54,34 @@ export function ComputePanel({ game }: { game: GameState }) {
           return <button key={model.id} className={`${selected.id === model.id ? "inspecting" : ""} ${game.currentModelId === model.id ? "selected" : ""} ${available ? "" : "unavailable"}`} aria-pressed={selected.id === model.id} onClick={() => setSelectedId(model.id)}><ModelGlyph modelId={model.id} /><span className="model-card-copy"><small>{model.provider}</small><strong>{model.name}</strong><span>{modelPricePerMTok(model.costPerMTok)} / million tokens</span><span className="model-tags">{modelTags(model).map((tag) => <em key={tag}>{tag}</em>)}</span><b>{available ? game.currentModelId === model.id ? "Current default" : "Available" : `${model.provider} offline · ${days}d`}</b></span></button>;
         })}</div>
         <aside className={`model-detail ${selectedAvailable ? "" : "unavailable"}`}>
-          <div className="detail-heading"><div><span className="eyebrow">{selected.provider}</span><h3>{selected.name}</h3></div><CompanyMark name={selected.provider} /></div>
-          <MiniaturePreview item={{ kind: "model", id: selected.id }} label={`${selected.name} model miniature`} />
-          <div className="model-strengths">{modelTags(selected).map((tag) => <span key={tag}>{tag}</span>)}</div>
-          <p>{selected.open ? "Open weights make this model flexible to run and adapt." : selected.capability >= 9 ? "Frontier capability, priced for work that justifies it." : selected.speed >= 8 ? "A fast model for products that value response time." : "A balanced hosted model for everyday product work."}</p>
-          <div className="model-summary"><span><small>Cost</small><strong>{modelPricePerMTok(selected.costPerMTok)} / MTok</strong></span><span><small>Best read</small><strong>{modelTags(selected)[0]}</strong></span></div>
-          <details className="advanced-details"><summary>Compare exact stats</summary><dl>{[["Capability", selected.capability], ["Speed", selected.speed], ["Reliability", selected.reliability], ["Context", selected.context], ["Safety", selected.safety]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value} / 10</dd></div>)}</dl></details>
-          {!selectedAvailable && <p className="inline-requirement">{selected.provider} is offline. Choose another provider.</p>}
-          <GameButton className="detail-action" tone="primary" disabled={!selectedAvailable || game.currentModelId === selected.id} title={!selectedAvailable ? `${selected.provider} is unavailable` : game.currentModelId === selected.id ? "Already the default model" : `Use ${selected.name} for new products`} onClick={() => dispatch({ type: "setCompanyModel", modelId: selected.id })}>{game.currentModelId === selected.id ? "Current default" : "Set as default"}</GameButton>
+          {(() => {
+            const impact = calculateModelImpact({ model: selected, technologies: game.company.technologies });
+            const devPct = Math.round((impact.devSpeedMultiplier - 1) * 100);
+            const capPct = Math.round((impact.demandMultiplier - 1) * 100);
+            return (
+              <>
+                <div className="detail-heading"><div><span className="eyebrow">{selected.provider}</span><h3>{selected.name}</h3></div><CompanyMark name={selected.provider} /></div>
+                <MiniaturePreview item={{ kind: "model", id: selected.id }} label={`${selected.name} model miniature`} />
+                <div className="model-strengths">{modelTags(selected).map((tag) => <span key={tag}>{tag}</span>)}</div>
+                <p>{selected.open ? "Open weights: gives you hosting independence and a 10% self-hosting token cost discount." : selected.capability >= 9 ? "Frontier intelligence: highest market quality and demand conversion, priced for work that justifies premium compute." : selected.speed >= 8 ? "High velocity: accelerates product development speed and keeps runtime fast." : "A balanced hosted model for reliable everyday product workloads."}</p>
+                <div className="model-strategic-impact" style={{ margin: '10px 0', padding: '10px', background: '#eef2e7', borderRadius: 6, fontSize: 11 }}>
+                  <span className="eyebrow" style={{ display: 'block', marginBottom: 6 }}>Strategic profile</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', lineHeight: 1.4 }}>
+                    <div><strong>Dev speed:</strong> {devPct >= 0 ? `+${devPct}%` : `${devPct}%`}</div>
+                    <div><strong>Baseline demand:</strong> {capPct >= 0 ? `+${capPct}%` : `${capPct}%`}</div>
+                    <div><strong>Reliability:</strong> {selected.reliability}/10 ({(impact.reliabilityContribution * 100).toFixed(0)} pts)</div>
+                    <div><strong>Effective token:</strong> {modelPricePerMTok(impact.effectiveTokenPrice)}/M</div>
+                  </div>
+                  {impact.strengths.length > 0 && <div style={{ marginTop: 6, color: '#3d6148' }}>✓ {impact.strengths[0]}</div>}
+                  {impact.tradeoffs.length > 0 && <div style={{ marginTop: 2, color: '#8f4f38' }}>⚠ {impact.tradeoffs[0]}</div>}
+                </div>
+                <div className="model-summary"><span><small>Cost</small><strong>{modelPricePerMTok(selected.costPerMTok)} / MTok</strong></span><span><small>Best fit</small><strong>{modelTags(selected)[0]}</strong></span></div>
+                <details className="advanced-details"><summary>Compare exact stats</summary><dl>{[["Capability", selected.capability], ["Speed", selected.speed], ["Reliability", selected.reliability], ["Context", selected.context], ["Safety", selected.safety]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value} / 10</dd></div>)}</dl></details>
+                {!selectedAvailable && <p className="inline-requirement">{selected.provider} is offline. Choose another provider.</p>}
+                <GameButton className="detail-action" tone="primary" disabled={!selectedAvailable || game.currentModelId === selected.id} title={!selectedAvailable ? `${selected.provider} is unavailable` : game.currentModelId === selected.id ? "Already the default model" : `Use ${selected.name} for new products`} onClick={() => dispatch({ type: "setCompanyModel", modelId: selected.id })}>{game.currentModelId === selected.id ? "Current default" : "Set as default"}</GameButton>
+              </>
+            );
+          })()}
         </aside>
       </div>
     </section>

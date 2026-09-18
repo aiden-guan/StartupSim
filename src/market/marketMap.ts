@@ -1,6 +1,7 @@
 import { BALANCE } from "../config/balance";
 import { competitors as competitorDefs, type CompetitorDef } from "../data/competitors";
 import { modelById } from "../data/models";
+import { calculateModelImpact, calculateWeeklyProductInference } from "../simulation/modelImpact";
 import { primitiveById } from "../data/primitives";
 import { PRICING_MODELS } from "../data/pricing";
 import { GTM_STRATEGIES } from "../data/gtm";
@@ -1050,7 +1051,14 @@ export function calculateMarketEntryResult(
   const strategy = GTM_STRATEGIES[product.gtmStrategy] ?? GTM_STRATEGIES["product-led"];
   const fit = gtmFitAnalysis(state, product, strategy.id);
   const execution = gtmExecutionMultiplier(fit.score);
-  const demand = marketDemandMultiplier(state, product);
+  const model = modelById[product.modelId];
+  const modelImpact = model ? calculateModelImpact({
+    model,
+    product,
+    technologies: state.company.technologies,
+    worldInferenceCostIndex: state.world.inferenceCostIndex,
+  }) : null;
+  const demand = marketDemandMultiplier(state, product) * (modelImpact?.demandMultiplier ?? 1);
 
   // Economics: Users
   const rawUsers = segments.reduce((sum, seg) => {
@@ -1060,16 +1068,18 @@ export function calculateMarketEntryResult(
   const users = Math.max(0, Math.round(rawUsers * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand * scaleMult * userOutcomeMult));
 
   // Inference cost
-  const model = modelById[product.modelId];
   const pa = primitiveById[product.combo[0]];
   const pb = primitiveById[product.combo[1]];
-  const weight = (pa?.computeWeight ?? 1) * (pb?.computeWeight ?? 1);
-  const agenty = product.combo.includes("agent") || product.combo.includes("computer-use") ? 1.8 : 1;
-  const baseTokensPerUser = BALANCE.BASE_TOKENS_PER_USER_WEEK ?? 7_000;
-  const tokens = users * baseTokensPerUser * pricing.tokenMultiplier * weight * agenty;
-  const price = model?.costPerMTok ?? 8;
-  const efficiency = 1 + (state.company.technologies.includes("efficient-inference") ? -0.12 : 0);
-  const weeklyInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency) * state.world.inferenceCostIndex);
+  const weeklyInference = model ? calculateWeeklyProductInference({
+    users,
+    combo: product.combo,
+    pricingTokenMultiplier: pricing.tokenMultiplier,
+    model,
+    hasEfficientInferenceTech: state.company.technologies.includes("efficient-inference"),
+    worldInferenceCostIndex: state.world.inferenceCostIndex,
+    computeWeightA: pa?.computeWeight ?? 1,
+    computeWeightB: pb?.computeWeight ?? 1,
+  }) : 0;
 
   // Economics: Revenue
   const baseRevenue = segments.reduce((sum, seg) => {
@@ -1176,7 +1186,13 @@ export function applyMarketEntryResults(
 
   // Reliability calculation
   const model = modelById[product.modelId];
-  product.reliability = Math.min(
+  const modelImpact = model ? calculateModelImpact({
+    model,
+    product,
+    technologies: state.company.technologies,
+    worldInferenceCostIndex: state.world.inferenceCostIndex,
+  }) : null;
+  product.reliability = modelImpact?.estimatedReliability ?? Math.min(
     0.98,
     0.5 + product.points.engineering / 400 + (model?.reliability ?? 5) / 20,
   );

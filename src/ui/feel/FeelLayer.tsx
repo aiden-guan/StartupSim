@@ -9,8 +9,8 @@ export function FeelLayer() {
   const setDrawer = useGame((s) => s.setDrawer);
 
   useEffect(() => {
-    if (!eventFrame || eventFrame.surface !== "gameplay") return;
-    const t = window.setTimeout(() => setEventFrame(null), eventFrame.requiresResponse ? 8000 : 4200);
+    if (!eventFrame || (eventFrame.surface !== "gameplay" && eventFrame.surface !== "social")) return;
+    const t = window.setTimeout(() => setEventFrame(null), eventFrame.requiresResponse ? 8000 : 4500);
     return () => window.clearTimeout(t);
   }, [eventFrame, setEventFrame]);
 
@@ -24,26 +24,82 @@ export function FeelLayer() {
     <>
       {eventFrame?.surface === "gameplay" && eventFrame.requiresResponse ? (
         <div className="game-event-layer" role="alert" aria-live="assertive" aria-atomic="true">
-          <article className="game-event-card" aria-label="Company event">
+          <article className="game-event-card" aria-label="New message received">
             <header className="game-event-header">
-              <div className="game-event-mark" aria-hidden="true">!</div>
+              <div className="game-event-mark" aria-hidden="true" style={{ backgroundColor: "#2e5241" }}>✉</div>
               <div>
-                <span className="game-event-kicker">Company event · Decision required</span>
-                <h3>{eventFrame.headline}</h3>
+                <span className="game-event-kicker" style={{ color: "#2e5241" }}>
+                  New message received · Response required
+                </span>
+                {eventFrame.sender ? (
+                  <div className="text-[11px] font-semibold text-[#1c2e24] mt-0.5">
+                    From: {eventFrame.sender}{eventFrame.senderOrg ? ` (${eventFrame.senderOrg})` : ""}
+                  </div>
+                ) : null}
+                <h3 style={{ fontSize: "16px", marginTop: "2px", lineHeight: "1.3" }}>{eventFrame.headline}</h3>
               </div>
             </header>
             {eventFrame.impact ? (
               <div className="game-event-impact">
-                <span>Effect on your company</span>
+                <span>Consequences</span>
                 <strong>{eventFrame.impact}</strong>
               </div>
             ) : null}
-            <p className="game-event-body">{eventFrame.body}</p>
+            <p className="game-event-body">{eventFrame.body.slice(0, 160)}{eventFrame.body.length > 160 ? "…" : ""}</p>
             <footer className="game-event-footer">
-              <span>Paused until you respond</span>
-              {eventFrame.mailId ? <button onClick={() => { setDrawer("inbox"); setEventFrame(null); }}>Open event brief →</button> : null}
+              <span>Simulation paused</span>
+              {eventFrame.mailId ? (
+                <button
+                  onClick={() => {
+                    setDrawer("inbox");
+                    setEventFrame(null);
+                  }}
+                  style={{
+                    background: "#2e5241",
+                    color: "#f5f3e9",
+                    padding: "4px 9px",
+                    borderRadius: "3px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Open Inbox →
+                </button>
+              ) : null}
             </footer>
           </article>
+        </div>
+      ) : null}
+      {eventFrame?.surface === "social" ? (
+        <div className="game-event-layer" role="status" aria-live="polite">
+          <aside
+            className="game-event-card cursor-pointer"
+            style={{ borderLeftColor: "#3c6b53", borderColor: "#8ea38a" }}
+            onClick={() => {
+              setDrawer("social");
+              setEventFrame(null);
+            }}
+          >
+            <header className="game-event-header">
+              <div
+                className="game-event-mark"
+                style={{ backgroundColor: "#3c6b53" }}
+                aria-hidden="true"
+              >
+                @
+              </div>
+              <div>
+                <span className="game-event-kicker" style={{ color: "#3c6b53" }}>
+                  Radar & Social
+                </span>
+                <h3 className="text-base font-semibold">{eventFrame.headline}</h3>
+              </div>
+            </header>
+            <p className="game-event-body">{eventFrame.body}</p>
+            <footer className="game-event-footer">
+              <span className="text-xs text-[#3c6b53] font-medium">Click to view in Radar →</span>
+            </footer>
+          </aside>
         </div>
       ) : null}
       {officeCaption ? (

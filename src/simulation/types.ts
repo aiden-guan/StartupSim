@@ -77,6 +77,7 @@ export type DrawerId =
   | "compute"
   | "world"
   | "inbox"
+  | "social"
   | "hiring"
   | "perks"
   | "funding"
@@ -290,6 +291,22 @@ export interface EmployeeProfileSnapshot {
   projectImpact?: string;
 }
 
+export interface MailSenderMeta {
+  name?: string;
+  role?: string;
+  organization?: string;
+  handle?: string;
+  avatarInitial?: string;
+  avatarColor?: string;
+}
+
+export interface MailRecipientMeta {
+  name?: string;
+  role?: string;
+  organization?: string;
+  handle?: string;
+}
+
 export interface Mail {
   id: string;
   at: CalendarDate;
@@ -305,6 +322,8 @@ export interface Mail {
   eventId?: string;
   employeeId?: string;
   profile?: EmployeeProfileSnapshot;
+  sender?: MailSenderMeta;
+  recipient?: MailRecipientMeta;
   read: boolean;
   requiresResponse: boolean;
 }
@@ -585,6 +604,48 @@ export interface FinancialBreakdown {
   companyOperations: number;
 }
 
+export interface SocialActor {
+  id: string;
+  name: string;
+  handle: string;
+  bio: string;
+  role: "bully" | "skeptic_friend" | "supporter" | "rival" | "investor_reject" | "former_coworker" | "influencer" | "journalist" | "customer";
+  avatarBg: string;
+  avatarInitial: string;
+  verified: boolean;
+}
+
+export interface SocialPost {
+  id: string;
+  actorId: string;
+  text: string;
+  tick: number;
+  date: CalendarDate;
+  likes: number;
+  reposts: number;
+  milestoneId?: string;
+  kind?: "post" | "quote" | "reply";
+  replyToActorId?: string;
+  quotePost?: { author: string; handle: string; text: string };
+}
+
+export interface SocialDm {
+  id: string;
+  actorId: string;
+  text: string;
+  tick: number;
+  date: CalendarDate;
+  read: boolean;
+  milestoneId?: string;
+}
+
+export interface SocialState {
+  posts: SocialPost[];
+  dms: SocialDm[];
+  triggeredMilestones: string[];
+  lastAmbientTick: number;
+}
+
 export interface GameState {
   meta: {
     schemaVersion: number;
@@ -610,6 +671,7 @@ export interface GameState {
   board: BoardState | null;
   inbox: Mail[];
   news: NewsItem[];
+  social: SocialState;
   unlocks: Unlocks;
   onboarding: OnboardingState;
   stats: Stats;

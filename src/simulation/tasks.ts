@@ -3,6 +3,8 @@ import { allocateTrainingCompute, isComputeTask } from "./compute";
 import { communicationMultiplier } from "./overhead";
 import { companySkill } from "./workers";
 import { uid, type Rng } from "./rng";
+import { modelById } from "../data/models";
+import { calculateModelImpact } from "./modelImpact";
 
 const DAILY = 0.22;
 
@@ -38,13 +40,15 @@ export function developTask(state: GameState, task: Task, allocation?: ReturnTyp
 
   switch (task.type) {
     case "product": {
-      task.progress += productivity;
       const p = state.products.find((x) => x.id === task.productId);
+      const model = p ? modelById[p.modelId] : undefined;
+      const speedMult = model ? calculateModelImpact({ model, product: p, technologies: state.company.technologies }).devSpeedMultiplier : 1;
+      task.progress += productivity * speedMult;
       if (p) {
-        p.points.product += scale("product");
-        p.points.growth += scale("growth");
-        p.points.engineering += scale("engineering");
-        p.points.research += scale("research");
+        p.points.product += scale("product") * speedMult;
+        p.points.growth += scale("growth") * speedMult;
+        p.points.engineering += scale("engineering") * speedMult;
+        p.points.research += scale("research") * speedMult;
       }
       break;
     }
@@ -110,7 +114,11 @@ export function taskEstimate(state: GameState, task: Task) {
   const active = workers.filter((w) => w.burnoutDays <= 0);
   const efficiency = communicationMultiplier(active.length,managementRelief(state));
   const skill = (name:SkillName,scale=false)=>companySkill(state,name,active,scale);
-  const raw = task.type==='research' ? skill('engineering')+skill('research')+skill('product')/3 : task.type==='lobby'||task.type==='hiring' ? skill('growth',task.type==='lobby') : task.type==='special'||task.type==='training' ? (skill('research',true)+skill('engineering',true)+skill('product',true))/3 : skill('productivity');
+  const product = task.type === 'product' ? state.products.find((p) => p.id === task.productId) : null;
+  const model = product ? modelById[product.modelId] : undefined;
+  const speedMult = model ? calculateModelImpact({ model, product, technologies: state.company.technologies }).devSpeedMultiplier : 1;
+  const rawBase = task.type==='research' ? skill('engineering')+skill('research')+skill('product')/3 : task.type==='lobby'||task.type==='hiring' ? skill('growth',task.type==='lobby') : task.type==='special'||task.type==='training' ? (skill('research',true)+skill('engineering',true)+skill('product',true))/3 : skill('productivity');
+  const raw = task.type === 'product' ? rawBase * speedMult : rawBase;
   const allocation = allocateTrainingCompute(state);
   const compute = allocation.byTask.get(task.id);
   const computeScale = isComputeTask(task) ? (compute?.ratio ?? (taskComputeDemandFallback(state, task) > 0 ? allocation.ratio : 1)) : 1;

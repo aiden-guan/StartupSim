@@ -6,6 +6,7 @@ import type { CompanyBrand, CompanyState, DepartmentId, Employee, GameState, Unl
 import { DEFAULT_FOUNDER_LOOK, founderLook, normalizeLook } from "./look";
 import { Rng, uid } from "./rng";
 import { skipTutorial } from "./tutorial";
+import { handleFor, initSocialState } from "./social";
 
 const depts: DepartmentId[] = [
   "engineering",
@@ -229,12 +230,31 @@ export function createNewGame(input: NewGameInput): GameState {
         id: uid(rng, "mail"),
         at: { year: 2022, month: 11, day: 30 },
         from: identity.mentorEmail,
+        sender: {
+          name: "S. Vance",
+          role: "Founding Mentor & Angel",
+          organization: "Y-Syndicate",
+          handle: identity.mentorEmail,
+          avatarInitial: "S",
+          avatarColor: "#2980b9",
+        },
+        recipient: {
+          name: input.founderName.trim() || "Founder",
+          organization: input.companyName.trim() || "Startup",
+          handle: `${handleFor(input.founderName.trim() || "Founder")}@${handleFor(input.companyName.trim() || "Startup")}.ai`,
+        },
         subject: "You have a company now",
         body: "Lease is month-to-month. Cloud credits expire in spirit, not in fact. Build something that talks.",
         read: false,
         requiresResponse: false,
       },
     ],
+    social: {
+      posts: [],
+      dms: [],
+      triggeredMilestones: [],
+      lastAmbientTick: 0,
+    },
     news: [],
     unlocks: emptyUnlocks(),
     onboarding: { finished: [], tutorialEnabled: true, slideIndex: 0, version: 2,
@@ -268,6 +288,8 @@ export function createNewGame(input: NewGameInput): GameState {
     endingNote: null,
     settings: defaultSettings(),
   };
+
+  state.social = initSocialState(state, rng);
 
   if (input.skipTutorial) skipTutorial(state);
 

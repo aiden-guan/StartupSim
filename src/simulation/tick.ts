@@ -21,6 +21,8 @@ import { harvestProduct } from "./products";
 import type { GameState, Mail, Task } from "./types";
 import { detectEnding } from "./endings";
 import { growWorker, updateBurnout } from "./workers";
+import { handleFor, tickSocial } from "./social";
+import { buildAcquisitionMail } from "./acquisitionMail";
 
 function rng(state: GameState): Rng {
   return new Rng(state.meta.rngState);
@@ -44,14 +46,15 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
         p.points.research += 12;
       }
     }
+    setPause(state, "productReady", true);
     state.news.unshift({
       id: uid(r, "news"),
       at: { ...state.clock.date },
       headline: `${p?.name ?? task.name} is ready to configure`,
-      body: "Development finished. Launch points can be spent and the product can enter the market. Company time keeps running.",
+      body: "Development finished. Launch points can be spent and the product can enter the market.",
       tone: "hype",
       createdTick: state.clock.tick,
-      impact: "Open Products to configure the launch. The simulation was not paused.",
+      impact: "Open Products to configure the launch. Simulation paused for launch setup.",
       read: false,
       source: "Studio",
       category: "internal",
@@ -88,6 +91,19 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
       id: uid(r, "mail"),
       at: { ...state.clock.date },
       from: "ops",
+      sender: {
+        name: "Internal Ops",
+        role: "Incident Command",
+        organization: state.company.name,
+        handle: `ops@${handleFor(state.company.name)}.ai`,
+        avatarInitial: "O",
+        avatarColor: "#475569",
+      },
+      recipient: {
+        name: state.founder.name || "Founder",
+        organization: state.company.name,
+        handle: `${handleFor(state.founder.name || "Founder")}@${handleFor(state.company.name)}.ai`,
+      },
       subject: success ? `${task.name} contained` : `${task.name} leaked`,
       body: success ? task.successBody ?? "Handled." : task.failureBody ?? "Not handled.",
       read: false,
@@ -127,6 +143,19 @@ export function buildPoachMail(state: GameState, r: Rng, mail: Mail): Mail | nul
       ? `${employee.title} on ${task.name}.`
       : "Not currently assigned to an active project.";
   mail.employeeId = employee.id;
+  mail.sender = {
+    name: "Marcus Vance",
+    role: "Partner",
+    organization: "Apex Executive Search",
+    handle: "mvance@apexsearch.io",
+    avatarInitial: "A",
+    avatarColor: "#b33939",
+  };
+  mail.recipient = {
+    name: state.founder.name || "Founder",
+    organization: state.company.name,
+    handle: `${handleFor(state.founder.name || "Founder")}@${handleFor(state.company.name)}.ai`,
+  };
   mail.profile = {
     employeeId: employee.id,
     name: employee.name,
@@ -180,6 +209,19 @@ export function buildProviderOutageMail(state: GameState, r: Rng, mail: Mail): b
   if (!fallbackModels.length) return false;
   const names = affected.map((product) => product.name);
   const productLabel = names.length === 1 ? names[0]! : `${names.length} active products`;
+  mail.sender = {
+    name: `${provider} Status & Incident Ops`,
+    role: "Incident Commander",
+    organization: provider,
+    handle: `incident-response@${handleFor(provider)}.status.io`,
+    avatarInitial: provider[0],
+    avatarColor: "#b55400",
+  };
+  mail.recipient = {
+    name: state.founder.name || "Founder",
+    organization: state.company.name,
+    handle: `${handleFor(state.founder.name || "Founder")}@${handleFor(state.company.name)}.ai`,
+  };
   mail.subject = `${provider} is down — ${productLabel} affected`;
   mail.body = `${provider} has taken its inference API offline for an incident window. Your deployed products using this provider are still running, but requests are failing and only a fraction of weekly revenue will be collected until you migrate or service returns.`;
   mail.context = [
@@ -231,6 +273,19 @@ function releaseExpiredProviderOutages(state: GameState, r: Rng): void {
       id: uid(r, "mail"),
       at: { ...state.clock.date },
       from: "compute",
+      sender: {
+        name: `${outage.provider} Status Operations`,
+        role: "Incident Resolution",
+        organization: outage.provider,
+        handle: `incident-response@${handleFor(outage.provider)}.status.io`,
+        avatarInitial: outage.provider[0],
+        avatarColor: "#2d6a4f",
+      },
+      recipient: {
+        name: state.founder.name || "Founder",
+        organization: state.company.name,
+        handle: `${handleFor(state.founder.name || "Founder")}@${handleFor(state.company.name)}.ai`,
+      },
       subject: `${outage.provider} service restored`,
       body: `${outage.provider} has cleared the incident. Its models are available again for new products and product migrations.`,
       eventKind: "recovery",
@@ -283,6 +338,26 @@ function maybeEvents(state: GameState, r: Rng): void {
   };
   if (ev.id === "poach" && !buildPoachMail(state, r, mail)) return;
   if (ev.id === "provider-outage" && !buildProviderOutageMail(state, r, mail)) return;
+  if (ev.id === "acquisition-inbound") {
+    buildAcquisitionMail(state, r, mail);
+  }
+  if (!mail.recipient) {
+    mail.recipient = {
+      name: state.founder.name || "Founder",
+      organization: state.company.name,
+      handle: `${handleFor(state.founder.name || "Founder")}@${handleFor(state.company.name)}.ai`,
+    };
+  }
+  if (!mail.sender) {
+    mail.sender = {
+      name: ev.from.charAt(0).toUpperCase() + ev.from.slice(1),
+      role: "Industry Contact",
+      organization: ev.from,
+      handle: `${handleFor(ev.from)}@ecosystem.ai`,
+      avatarInitial: ev.from[0]?.toUpperCase() ?? "E",
+      avatarColor: "#4f46e5",
+    };
+  }
   state.inbox.unshift(mail);
   applyEffects(state, scaleEffects(state, ev.effects, severity, r));
   if (ev.crisis) {
@@ -337,6 +412,19 @@ function competitorTick(state: GameState, r: Rng): void {
           id: uid(r, "mail"),
           at: { ...state.clock.date },
           from: "people",
+          sender: {
+            name: extra.name,
+            role: extra.title,
+            organization: state.company.name,
+            handle: `${handleFor(extra.name)}@${handleFor(state.company.name)}.ai`,
+            avatarInitial: extra.name[0],
+            avatarColor: "#57534e",
+          },
+          recipient: {
+            name: state.founder.name || "Founder",
+            organization: state.company.name,
+            handle: `${handleFor(state.founder.name || "Founder")}@${handleFor(state.company.name)}.ai`,
+          },
           subject: `${extra.name} left for ${c.name}`,
           body: "They took the offer. The desk is already empty.",
           read: false,
@@ -407,6 +495,7 @@ export function tickDay(state: GameState): GameState {
     const r = rng(draft);
     draft.clock.date = addDays(draft.clock.date, 1);
     draft.clock.tick += 1;
+    tickSocial(draft, r);
     releaseExpiredProviderOutages(draft, r);
     draft.hiring.cooldownDays = Math.max(0, draft.hiring.cooldownDays - 1);
     draft.funding.cooldownDays = Math.max(0, draft.funding.cooldownDays - 1);
@@ -523,6 +612,19 @@ export function tickDay(state: GameState): GameState {
         id: uid(r, "mail"),
         at: { ...draft.clock.date },
         from: "board",
+        sender: {
+          name: "Lead Board Director",
+          role: "Board of Directors",
+          organization: "Investor Syndicate",
+          handle: `board@${handleFor(draft.company.name)}.ai`,
+          avatarInitial: "B",
+          avatarColor: "#1e3a8a",
+        },
+        recipient: {
+          name: draft.founder.name || "Founder",
+          organization: draft.company.name,
+          handle: `${handleFor(draft.founder.name || "Founder")}@${handleFor(draft.company.name)}.ai`,
+        },
         subject: "Quarterly",
         body: `ARR vs target: ${(ratio * 100).toFixed(0)}%. Approval sits at ${draft.board.approval.toFixed(0)}.`,
         read: false,

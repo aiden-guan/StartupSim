@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BALANCE } from '../../config/balance';
 import { models, modelById } from '../../data/models';
+import { calculateModelImpact, calculateWeeklyProductInference } from '../../simulation/modelImpact';
 import { primitives, primitiveById } from '../../data/primitives';
 import { findRecipe } from '../../data/recipes';
 import { PRICING_MODELS } from '../../data/pricing';
@@ -180,22 +181,31 @@ function projectLaunchEconomics(p: Product, game: GameState) {
   const strategy = GTM_STRATEGIES[p.gtmStrategy] ?? GTM_STRATEGIES['product-led'];
   const fit = gtmFitAnalysis(game, p, strategy.id);
   const execution = gtmExecutionMultiplier(fit.score);
-  const demand = marketDemandMultiplier(game, p);
   const model = modelById[p.modelId];
+  const modelImpact = model ? calculateModelImpact({
+    model,
+    product: p,
+    technologies: game.company.technologies,
+    worldInferenceCostIndex: game.world.inferenceCostIndex,
+  }) : null;
+  const demand = marketDemandMultiplier(game, p) * (modelImpact?.demandMultiplier ?? 1);
   const pa = primitiveById[p.combo[0]];
   const pb = primitiveById[p.combo[1]];
-  const weight = (pa?.computeWeight ?? 1) * (pb?.computeWeight ?? 1);
-  const agenty = p.combo.includes('agent') || p.combo.includes('computer-use') ? 1.8 : 1;
 
   // Typical competitive beachhead + expansion foothold projection (~7,000 baseline users)
   const scaleMult = 1 + p.levels.deployment * 0.15;
   const estUsers = Math.max(100, Math.round(7_000 * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand * scaleMult * 0.8));
 
-  const baseTokens = BALANCE.BASE_TOKENS_PER_USER_WEEK ?? 7_000;
-  const tokens = estUsers * baseTokens * pricing.tokenMultiplier * weight * agenty;
-  const price = model?.costPerMTok ?? 8;
-  const efficiency = 1 + (game.company.technologies.includes('efficient-inference') ? -0.12 : 0);
-  const estInference = Math.round(((tokens * price) / 1_000_000) * Math.max(0.35, efficiency) * game.world.inferenceCostIndex);
+  const estInference = model ? calculateWeeklyProductInference({
+    users: estUsers,
+    combo: p.combo,
+    pricingTokenMultiplier: pricing.tokenMultiplier,
+    model,
+    hasEfficientInferenceTech: game.company.technologies.includes('efficient-inference'),
+    worldInferenceCostIndex: game.world.inferenceCostIndex,
+    computeWeightA: pa?.computeWeight ?? 1,
+    computeWeightB: pb?.computeWeight ?? 1,
+  }) : 0;
 
   // Baseline competitive revenue projection
   const baseRevenue =
@@ -227,6 +237,7 @@ function projectLaunchEconomics(p: Product, game: GameState) {
     strategy,
     fit,
     model,
+    modelImpact,
     estUsers,
     estRevenue,
     estInference,
@@ -294,20 +305,46 @@ export function ProductsPanel({game}:{game:GameState}) {
             </div>
           </div>
           <div>
-            <span className="eyebrow">Powered by</span>
+            <span className="eyebrow">Powered by AI Model</span>
             <div className="choice-row">
-              {models.filter(m => game.ownedModels.includes(m.id)).map(m => (
-                <button
-                  key={m.id}
-                  disabled={!isModelAvailable(game, m.id)}
-                  title={isModelAvailable(game, m.id) ? `Use ${m.name}` : `${providerForModel(m.id) ?? m.provider} is currently unavailable`}
-                  aria-pressed={p.modelId === m.id}
-                  onClick={() => dispatch({ type: 'setModel', productId: p.id, modelId: m.id })}
-                >
-                  {m.name} ({money(m.costPerMTok)}/MTok){!isModelAvailable(game, m.id) ? ' · offline' : ''}
-                </button>
-              ))}
+              {models.filter(m => game.ownedModels.includes(m.id)).map(m => {
+                const impact = calculateModelImpact({ model: m, product: p, technologies: game.company.technologies });
+                const demandPct = Math.round((impact.demandMultiplier - 1) * 100);
+                const devPct = Math.round((impact.devSpeedMultiplier - 1) * 100);
+                const desc = `${m.name}: ${demandPct >= 0 ? '+' : ''}${demandPct}% demand, ${devPct >= 0 ? '+' : ''}${devPct}% dev speed, ${money(impact.effectiveTokenPrice)}/MTok`;
+                return (
+                  <button
+                    key={m.id}
+                    disabled={!isModelAvailable(game, m.id)}
+                    title={isModelAvailable(game, m.id) ? desc : `${providerForModel(m.id) ?? m.provider} is currently unavailable`}
+                    aria-pressed={p.modelId === m.id}
+                    onClick={() => dispatch({ type: 'setModel', productId: p.id, modelId: m.id })}
+                  >
+                    {m.name} ({money(m.costPerMTok)}/MTok){!isModelAvailable(game, m.id) ? ' · offline' : ''}
+                  </button>
+                );
+              })}
             </div>
+            {(() => {
+              const currentModel = modelById[p.modelId];
+              const impact = currentModel ? calculateModelImpact({ model: currentModel, product: p, technologies: game.company.technologies }) : null;
+              if (!impact) return null;
+              return (
+                <div className="model-strategic-callout" style={{ fontSize: 11, color: '#3d4d42', margin: '8px 0 0', padding: '8px 11px', background: '#edf1e8', border: '1px solid #d4ded0', borderRadius: 4 }}>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontWeight: 600, color: '#273f32' }}>
+                    <span>Launch demand: {impact.demandMultiplier >= 1 ? `+${Math.round((impact.demandMultiplier - 1) * 100)}%` : `${Math.round((impact.demandMultiplier - 1) * 100)}%`}</span>
+                    <span>Dev velocity: {impact.devSpeedMultiplier >= 1 ? `+${Math.round((impact.devSpeedMultiplier - 1) * 100)}%` : `${Math.round((impact.devSpeedMultiplier - 1) * 100)}%`}</span>
+                    <span>Reliability: {Math.round(impact.estimatedReliability * 100)}% (+{(impact.retentionContribution * 100).toFixed(1)}%/wk ret)</span>
+                    <span>Tokens: {money(impact.effectiveTokenPrice)}/MTok</span>
+                  </div>
+                  {impact.reasons.length > 0 && (
+                    <div style={{ marginTop: 5, fontSize: 10, color: '#526658', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {impact.reasons.map((r) => <span key={r} style={{ background: '#dce5d4', padding: '2px 6px', borderRadius: 3 }}>{r}</span>)}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
         <section className="gtm-strategy-selector">

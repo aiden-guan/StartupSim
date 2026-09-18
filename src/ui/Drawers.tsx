@@ -3,7 +3,7 @@ import type { GameState } from "../simulation/types";
 import { useGame } from "../state/store";
 import { ProductsPanel, TasksPanel } from "./products/panels";
 import { NAV_GROUPS } from "./HUD";
-import { CompanyPanel, ComputePanel, FinancePanel, FundingPanel, InboxPanel, PerksPanel, ResearchPanel, WorldPanel } from "./systems/panels";
+import { CompanyPanel, ComputePanel, FinancePanel, FundingPanel, InboxPanel, PerksPanel, ResearchPanel, SocialPanel, WorldPanel } from "./systems/panels";
 import { HiringPanel, PeoplePanel } from "./team/panels";
 
 export function Drawers({ game }: { game: GameState }) {
@@ -37,6 +37,8 @@ export function Drawers({ game }: { game: GameState }) {
       <WorldPanel game={game} />
     ) : drawer === "inbox" ? (
       <InboxPanel game={game} />
+    ) : drawer === "social" ? (
+      <SocialPanel game={game} />
     ) : (
       <CompanyPanel game={game} />
     );
@@ -52,6 +54,7 @@ export function Drawers({ game }: { game: GameState }) {
     perks: "Culture & Promotion",
     world: "World",
     inbox: "Inbox",
+    social: "Radar & Social",
     company: "Company",
   };
   const group = NAV_GROUPS.find(g=>g.items.some(i=>i.id===drawer));

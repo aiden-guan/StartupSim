@@ -93,6 +93,8 @@ export type GameCommand =
   | { type: "mailChoice"; mailId: string; choiceId: string }
   | { type: "readMail"; mailId: string }
   | { type: "readNews"; newsId: string }
+  | { type: "readSocialDm"; dmId?: string; actorId?: string }
+  | { type: "likeSocialPost"; postId: string }
   | { type: "killProduct"; productId: string }
   | { type: "retire" }
   | { type: "debug"; action: string; amount?: number; id?: string };
@@ -242,7 +244,8 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         if (!p || p.status !== "ready" || draft.marketBattle || draft.marketResult) break;
         if (draft.onboarding.tutorialEnabled && !draft.company.seenMarket && currentTutorialSlide(draft)?.id !== "enter-market") break;
         draft.marketBattle = startMarketSession(draft, p, r);
-        setPause(draft, "productReady", false);
+        const hasOtherReady = draft.products.some((other) => other.id !== p.id && other.status === "ready");
+        setPause(draft, "productReady", hasOtherReady);
         setPause(draft, "market", true);
         recordTutorialEvent(draft, "enteredFirstMarket");
         break;
@@ -376,6 +379,8 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           session.turn += 1;
         }
         applyMarketEntryResults(draft, session, r);
+        const hasOtherReady = draft.products.some((other) => other.id !== p.id && other.status === "ready");
+        setPause(draft, "productReady", hasOtherReady);
         setPause(draft, "market", false);
         setPause(draft, "results", true);
         break;
@@ -680,9 +685,28 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         if (item) item.read = true;
         break;
       }
+      case "readSocialDm": {
+        if (!draft.social?.dms) break;
+        for (const dm of draft.social.dms) {
+          if ((command.dmId && dm.id === command.dmId) || (command.actorId && dm.actorId === command.actorId)) {
+            dm.read = true;
+          }
+        }
+        break;
+      }
+      case "likeSocialPost": {
+        if (!draft.social?.posts) break;
+        const post = draft.social.posts.find((p) => p.id === command.postId);
+        if (post) {
+          post.likes = (post.likes ?? 0) + 1;
+        }
+        break;
+      }
       case "killProduct": {
         const p = draft.products.find((x) => x.id === command.productId);
         if (p) p.status = "deprecated";
+        const hasOtherReady = draft.products.some((other) => other.status === "ready");
+        if (!hasOtherReady) setPause(draft, "productReady", false);
         break;
       }
       case "retire": {
