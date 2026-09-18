@@ -1,8 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import * as THREE from 'three';
-import { primitiveIconPaths } from '../../ui/shared/PrimitiveIcons';
 import { Bevel } from '../geometry/Bevel';
 
 const accents = ['#c8764d', '#d39a55', '#7e9e91', '#7294a5', '#9d8fa9', '#b38979'];
@@ -13,7 +11,6 @@ const charcoal = '#282c30';
 const screen = '#5599ff';
 const teal = '#486d68';
 
-export type ProductForm = 'screen' | 'speaker' | 'machine' | 'lab' | 'terminal';
 type SculptFamily = 'scribe' | 'portal' | 'orb' | 'lab' | 'machine' | 'voice' | 'screen' | 'ledger' | 'learning' | 'shield' | 'market' | 'terminal' | 'world' | 'recursive';
 
 function hashParts(parts: [string, string]): number {
@@ -43,50 +40,13 @@ function familyFor(parts: [string, string]): SculptFamily {
 export function productArtifactSpec(a: string, b: string) {
   const parts = [a, b].sort() as [string, string];
   const seed = hashParts(parts);
-  const has = (ids: string[]) => parts.some((part) => ids.includes(part));
-  const form: ProductForm = has(['robotics', 'hardware', 'computer-use']) ? 'machine'
-    : has(['science', 'biology', 'health', 'auto-research']) ? 'lab'
-    : has(['voice']) ? 'speaker'
-    : has(['image', 'video', 'vision', 'avatar', 'entertainment']) ? 'screen'
-    : 'terminal';
   return {
     parts,
     seed,
-    form,
     family: familyFor(parts),
     variant: seed % 4,
     accent: accents[seed % accents.length]!,
-    fins: 1 + (seed % 3),
   };
-}
-
-function RaisedIcon({ id, x, color }: { id: string; x: number; color: string }) {
-  const path = primitiveIconPaths[id];
-  const strokes = useMemo(() => {
-    if (!path) return [];
-    const drawing = new SVGLoader().parse(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${path}" fill="none" stroke="#fff" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/></svg>`);
-    return drawing.paths.flatMap((shape) => shape.subPaths
-      .filter((subPath) => subPath.getPoints().length > 1)
-      .map((subPath) => SVGLoader.pointsToStroke(subPath.getPoints(8), SVGLoader.getStrokeStyle(1.65, '#fff', 'round', 'round'))));
-  }, [path]);
-  return <group position={[x, .92, .405]}>
-    <Bevel size={[.65, .65, .035]} color="#34474a" radius={.045} />
-    <group position={[0, 0, .025]} scale={[.023, -.023, .023]}>
-      {strokes.map((geometry, index) => <mesh key={index} geometry={geometry} position={[-12, -12, 0]}><meshStandardMaterial color={color} roughness={.75} side={2}/></mesh>)}
-    </group>
-  </group>;
-}
-
-function Platform({ spec }: { spec: ReturnType<typeof productArtifactSpec> }) {
-  return <>
-    <Bevel position={[0, .09, 0]} size={[2.35, .18, 1.48]} color="#c9b9a0" radius={.09} />
-    <Bevel position={[0, .23, -.04]} size={[2.1, .13, 1.2]} color="#364b4b" radius={.07} />
-    <Bevel position={[0, .34, .35]} size={[1.76, .055, .07]} color={spec.accent} radius={.02} />
-    <RaisedIcon id={spec.parts[0]} x={-.43} color="#f1eadb" />
-    <RaisedIcon id={spec.parts[1]} x={.43} color="#f1eadb" />
-    <Bevel position={[0, .92, .42]} size={[.12, .12, .03]} rotation={[0, 0, Math.PI / 4]} color={spec.accent} />
-    {[-.76, .76].map((x) => <mesh key={x} position={[x, .34, .42]}><sphereGeometry args={[.028, 8, 6]}/><meshStandardMaterial color="#ebdfc5"/></mesh>)}
-  </>;
 }
 
 function ScribeSculpt({ spec }: { spec: ReturnType<typeof productArtifactSpec> }) {
@@ -254,10 +214,7 @@ function SculptedConcept({ spec }: { spec: ReturnType<typeof productArtifactSpec
 /** A distinct low-poly concept maquette for each technology pairing. */
 export function ProductArtifact({ a, b }: { a: string; b: string }) {
   const spec = productArtifactSpec(a, b);
-  return <group>
-    <Platform spec={spec}/>
-    <SculptedConcept spec={spec}/>
-  </group>;
+  return <SculptedConcept spec={spec}/>;
 }
 
 function QuestionMarkCurve() {
