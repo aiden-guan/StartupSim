@@ -1,3 +1,4 @@
+import { offices } from "../data/offices";
 import { BALANCE } from "../config/balance";
 import { locations } from "../data/locations";
 import { traitById } from "../data/traits";
@@ -57,9 +58,10 @@ export function workerSkill(worker: Employee, state: GameState, name: SkillName)
 export function workerHappiness(worker: Employee, state: GameState): number {
   const base = worker.happiness + workerSelfBonus(worker, "happiness") + companyTraitBonus(state, "happiness");
   const fairness = worker.salary <= 0 ? 1 : Math.min(1.2, worker.salary / Math.max(60_000, worker.salary));
-  const office = 1 + state.company.officeLevel * 0.04;
+  const office = offices[state.company.officeLevel];
+  const officeBonus = 1 + (office?.morale ?? state.company.officeLevel * 4) / 100;
   const backlash = Math.max(0.4, 1 - state.company.backlash / 200);
-  return Math.max(0, base * office * backlash * (0.7 + 0.3 * fairness));
+  return Math.max(0, base * officeBonus * backlash * (0.7 + 0.3 * fairness));
 }
 
 export function companySkill(
@@ -84,7 +86,8 @@ export function companySkill(
     return s + (def?.skills[name] ?? 0) / 8;
   }, 0);
   const bureau = 1 - Math.min(0.45, state.company.culture.bureaucracy / 200);
-  return Math.max(0, (total + loc) * bureau);
+  const officeProd = 1 + (offices[state.company.officeLevel]?.productivity ?? 0) / 100;
+  return Math.max(0, (total + loc) * bureau * officeProd);
 }
 
 export function idleWorkers(state: GameState): Employee[] {
@@ -104,11 +107,11 @@ export function updateBurnout(state: GameState, rng: Rng, worker: Employee): voi
   }
   const happy = Math.max(0.4, workerHappiness(worker, state));
   const extra = workerSelfBonus(worker, "burnoutRate");
-  worker.burnoutRisk += (BALANCE.BASE_BURNOUT_RATE + extra) / Math.sqrt(happy);
+  const retention = 1 - (offices[state.company.officeLevel]?.retention ?? 0) / 220;
+  worker.burnoutRisk += ((BALANCE.BASE_BURNOUT_RATE + extra) / Math.sqrt(happy)) * retention;
   if (rng.next() < worker.burnoutRisk + 0.008) {
     worker.burnoutDays = rng.int(BALANCE.MIN_BURNOUT_DAYS, BALANCE.MAX_BURNOUT_DAYS);
     worker.burnoutRisk = 0;
-    worker.taskId = null;
   }
 }
 

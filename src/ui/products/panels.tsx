@@ -8,9 +8,11 @@ import { availableGtmStrategies, GTM_STRATEGIES } from '../../data/gtm';
 import { currentTutorialSlide } from '../../simulation/tutorial';
 import { canAffordStat, launchCosts, requiredFor } from '../../simulation/products';
 import { taskEstimate } from '../../simulation/tasks';
+import { reassignmentImpact, relevantSkillsFor } from '../../simulation/staffing';
+import { computeBlockReason } from '../../simulation/compute';
 import { isModelAvailable, providerForModel } from '../../simulation/effects';
 import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from '../../simulation/gtm';
-import type { BusinessModel, GameState, LaunchStat, Product } from '../../simulation/types';
+import type { BusinessModel, Employee, GameState, LaunchStat, Product, Task } from '../../simulation/types';
 import { useGame } from '../../state/store';
 import { money, pct } from '../format';
 import { GameButton } from '../shared/controls';
@@ -87,20 +89,92 @@ export function TasksPanel({game}:{game:GameState}) {
       return <section key={task.id} className="project-sheet"><div className="project-heading"><div><span className="eyebrow">{task.type} · {p?`Difficulty ${p.difficulty.toFixed(1)}`:'Team project'}</span><h3>{task.name}</h3></div><div className="project-time"><strong>{estimate.days===null?'No team assigned':`~${estimate.days} days`}</strong><small>{estimate.days===null?'Assign people below to begin':'At the current team’s pace'}</small></div></div>
         <div data-tutorial="task-progress"><div className="progress-label"><span>{Math.min(100,task.progress/task.requiredProgress*100).toFixed(0)}% complete</span><span>{estimate.daily.toFixed(1)} progress / day</span></div><div className="progress-track"><i style={{width:`${Math.min(100,task.progress/task.requiredProgress*100)}%`}}/></div></div>
         <div className="team-efficiency"><span>Team efficiency <strong>{pct(estimate.efficiency*100)}</strong></span><span>Coordination overhead −{Math.round((1-estimate.efficiency)*100)}%</span></div>
-        {estimate.workers.length===0?<div className="no-team-alert" role="alert"><strong>⚠ NO TEAM ASSIGNED</strong><span>Progress is halted. Assign available teammates below to begin development.</span></div>:<div className="team-active-note"><span>Assigned team: <strong>{estimate.workers.length} active</strong> · ~{estimate.days} days remaining</span></div>}
-        <div className="assignment-grid" data-tutorial="assign-crew">{game.employees.map(w=>{
-          const assigned=w.taskId===task.id;
-          const other=game.tasks.find(t=>t.id===w.taskId);
-          return <button key={w.id} className={`worker-assignment ${assigned?'assigned':''}`} data-tutorial={task.productId===game.onboarding.firstProductId?`assign-${w.role}`:undefined} aria-pressed={assigned} disabled={w.burnoutDays>0} title={w.burnoutDays>0?`Resting for ${w.burnoutDays} days`:other&&!assigned?`Reassign from ${other.name}`:assigned?'Unassign from this project':'Assign to this project'} onClick={()=>dispatch(assigned?{type:'unassign',workerId:w.id}:{type:'assign',workerId:w.id,taskId:task.id})}>
-            <CharacterPortrait look={w.look} robot={w.role==='robot'}/><div><strong>{w.name}</strong><small>{w.role==='founder'?'Founder':w.role==='cofounder'?'Cofounder':w.title}</small><span>ENG {w.skills.engineering.toFixed(0)} · R&D {w.skills.research.toFixed(0)} · SPEED {w.skills.productivity.toFixed(0)}</span><em>{w.burnoutDays>0?`Resting · ${w.burnoutDays}d`:assigned?'✓ Working on this':other?`On ${other.name}`:'Available · click to assign'}</em></div>
-          </button>;
-        })}</div>
-        {estimate.workers.length>0&&<div className="skill-contributions">{(['engineering','product','growth','research'] as const).map(skill=><span key={skill}>{skill}<b>{estimate.workers.reduce((s,w)=>s+(w.burnoutDays?0:w.skills[skill]),0).toFixed(1)}</b></span>)}</div>}
+        {estimate.computeBlocked&&<div className="no-team-alert" role="status"><strong>Blocked by compute</strong><span>{computeBlockReason(game,task)??`${task.name} cannot advance until you buy GPU capacity or restore API credits.`}</span><GameButton onClick={()=>useGame.getState().setDrawer('compute')}>Open compute →</GameButton></div>}
+        {estimate.workers.length===0?<div className="no-team-alert" role="alert"><strong>⚠ NO TEAM ASSIGNED</strong><span>Progress is halted. Assign available teammates below to begin development.</span></div>:<div className="team-active-note"><span>Assigned team: <strong>{estimate.workers.filter(w=>w.burnoutDays<=0).length} active</strong>{estimate.resting?` · ${estimate.workers.filter(w=>w.burnoutDays>0).length} resting`:''} · {estimate.days===null?'waiting':`~${estimate.days} days remaining`}</span></div>}
+        <ProjectStaffing game={game} task={task}/>
+        {estimate.workers.length>0&&<div className="skill-contributions">{relevantSkillsFor(task).filter(s=>s!=='productivity').map(skill=><span key={skill}>{skill}<b>{estimate.workers.reduce((s,w)=>s+(w.burnoutDays?0:w.skills[skill]),0).toFixed(1)}</b></span>)}</div>}
       </section>;
     })}</div>
     {!game.tasks.length&&!showLab&&!intro&&<div className="empty-state"><h3>The studio is clear.</h3><p>Ready products are waiting in Products & launches.</p><GameButton onClick={()=>useGame.getState().setDrawer('products')}>View products →</GameButton></div>}
   </div>;
 }
+
+function workerState(game: GameState, worker: Employee, task: Task) {
+  if (worker.burnoutDays > 0) return { id: "resting" as const, label: `Resting · ${worker.burnoutDays}d · stays on ${game.tasks.find(t=>t.id===worker.taskId)?.name ?? "assignment"}` };
+  if (worker.taskId === task.id) return { id: "assigned" as const, label: "Working on this" };
+  const other = game.tasks.find((t) => t.id === worker.taskId);
+  if (other) return { id: "elsewhere" as const, label: `On ${other.name}` };
+  return { id: "available" as const, label: "Available" };
+}
+
+function ProjectStaffing({ game, task }: { game: GameState; task: Task }) {
+  const dispatch = useGame((s) => s.dispatch);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const pending = pendingId ? game.employees.find((w) => w.id === pendingId) : null;
+  const impact = pending ? reassignmentImpact(game, pending, task) : null;
+  const skills = relevantSkillsFor(task).filter((s) => s !== "productivity").slice(0, 3);
+  const note = game.lastStaffing?.taskId === task.id ? game.lastStaffing.lines : [];
+
+  function requestAssign(worker: Employee) {
+    if (worker.burnoutDays > 0) return;
+    if (worker.taskId === task.id) {
+      dispatch({ type: "unassign", workerId: worker.id });
+      return;
+    }
+    if (worker.taskId) {
+      setPendingId(worker.id);
+      return;
+    }
+    dispatch({ type: "assign", workerId: worker.id, taskId: task.id });
+  }
+
+  return (
+    <div>
+      <div className="assign-toolbar">
+        <GameButton onClick={() => dispatch({ type: "autoAssign", taskId: task.id })}>Auto Assign</GameButton>
+        <small>Uses unassigned people only. Does not pull anyone off another project.</small>
+      </div>
+      {note.length > 0 && <p className="auto-assign-note">{note.join(" ")}</p>}
+      {pending && impact?.fromTask && (
+        <div className="assign-confirm" role="dialog" aria-label="Confirm reassignment">
+          <p>
+            {pending.name.split(" ")[0]} is currently assigned to {impact.fromTask.name}.
+            {impact.lossPct > 0 ? ` Moving them will reduce ${impact.fromTask.name}'s expected development rate by ~${impact.lossPct}%.` : ""}
+          </p>
+          <div className="assign-confirm-actions">
+            <GameButton onClick={() => setPendingId(null)}>Cancel</GameButton>
+            <GameButton tone="primary" onClick={() => { dispatch({ type: "assign", workerId: pending.id, taskId: task.id, confirm: true }); setPendingId(null); }}>Reassign</GameButton>
+          </div>
+        </div>
+      )}
+      <div className="assignment-grid" data-tutorial="assign-crew">
+        {game.employees.map((w) => {
+          const state = workerState(game, w, task);
+          return (
+            <button
+              key={w.id}
+              className={`worker-assignment ${state.id}`}
+              data-tutorial={task.productId === game.onboarding.firstProductId ? `assign-${w.role}` : undefined}
+              aria-pressed={state.id === "assigned"}
+              disabled={w.burnoutDays > 0}
+              title={state.label}
+              onClick={() => requestAssign(w)}
+            >
+              <CharacterPortrait look={w.look} robot={w.role === "robot"} />
+              <div>
+                <strong>{w.name}</strong>
+                <small>{w.role === "founder" ? "Founder" : w.role === "cofounder" ? "Cofounder" : w.title}</small>
+                <span>{skills.map((skill) => `${skill.slice(0, 3).toUpperCase()} ${w.skills[skill].toFixed(0)}`).join(" · ")}</span>
+                <em>{state.id === "assigned" ? "✓ Working on this" : state.label}</em>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function projectLaunchEconomics(p: Product, game: GameState) {
   const pricing = PRICING_MODELS[p.businessModel] ?? PRICING_MODELS.freemium;
   const strategy = GTM_STRATEGIES[p.gtmStrategy] ?? GTM_STRATEGIES['product-led'];

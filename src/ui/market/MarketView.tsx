@@ -30,14 +30,15 @@ export function MarketView({ game }: { game: GameState }) {
 
   const canExpand = legal.expand.includes(selectedNode.id);
   const canReinforce = legal.reinforce.includes(selectedNode.id);
-  const isLegal = canExpand || canReinforce;
-  const actionType: "expand" | "reinforce" = canExpand ? "expand" : "reinforce";
+  const canContest = legal.contest.includes(selectedNode.id);
+  const isLegal = canExpand || canReinforce || canContest;
+  const actionType: "expand" | "reinforce" | "contest" = canContest ? "contest" : canExpand ? "expand" : "reinforce";
 
   const preview = previewAction(
     session,
     selectedNode.id,
     "player",
-    actionType,
+    actionType === "contest" ? "expand" : actionType,
     product?.levels.capability ?? 0,
     product?.combo ?? ["chat", "api"],
   );
@@ -47,10 +48,10 @@ export function MarketView({ game }: { game: GameState }) {
   const excessLoad = Math.max(0, session.playerScaleUsed - session.playerScaleCapacity);
 
   const reason = !isLegal
-    ? selectedNode.playerDominated
+    ? selectedNode.playerDominated && !canReinforce
       ? "Market already dominated"
-      : selectedNode.rivalDominated
-      ? "Competitor has dominated this market"
+      : selectedNode.rivalDominated && !canContest
+      ? "Competitor hold is out of reach"
       : "Segment out of network reach"
     : "";
 
@@ -59,7 +60,9 @@ export function MarketView({ game }: { game: GameState }) {
     dispatch({ type: "selectMarketNode", nodeId });
     const n = session.nodes.find((item) => item.id === nodeId);
     if (n) {
-      if (legal.expand.includes(nodeId)) {
+      if (legal.contest.includes(nodeId)) {
+        setFeedback(`Contested market: Challenge the incumbent in ${n.name}.`);
+      } else if (legal.expand.includes(nodeId)) {
         setFeedback(`Adjacent opportunity: Expand into ${n.name}.`);
       } else if (legal.reinforce.includes(nodeId)) {
         setFeedback(`Established foothold: Reinforce ${n.name} to increase market share.`);
@@ -73,29 +76,18 @@ export function MarketView({ game }: { game: GameState }) {
 
   function handleExecuteAction() {
     if (locked || !isLegal) return;
-    const targetName = selectedNode.name;
-    const beforeDom = selectedNode.playerDominated;
-
     dispatch({
       type: "marketAction",
       nodeId: selectedNode.id,
       action: actionType,
     });
-
-    const afterSession = useGame.getState().game?.marketBattle;
-    const updated = afterSession?.nodes.find((n) => n.id === selectedNode.id);
-
-    if (updated?.playerDominated && !beforeDom) {
-      audio.play("success", game.settings);
-      setFeedback(`Market Dominated! ${targetName} now belongs decisively to your product.`);
-    } else {
-      audio.play("click", game.settings);
-      setFeedback(
-        actionType === "expand"
-          ? `Foothold established in ${targetName}. Competitor responded.`
-          : `Reinforced position in ${targetName}. Customer preference increased.`,
-      );
-    }
+    const after = useGame.getState().game;
+    const result = after?.marketBattle?.lastResolution;
+    const summary = result?.summary ?? after?.marketBattle?.lastRivalMove?.summary ?? "Turn resolved.";
+    if (result?.dominated) audio.play("success", game.settings);
+    else if (result && !result.success) audio.play("warn", game.settings);
+    else audio.play("click", game.settings);
+    setFeedback(summary);
   }
 
   return (
@@ -465,7 +457,7 @@ export function MarketView({ game }: { game: GameState }) {
                   }}
                 >
                   <span style={{ display: "block", color: "#486350", fontWeight: 600 }}>
-                    Projected after {actionType.toUpperCase()}:
+                    Projected after {actionType === "contest" ? "CONTEST" : actionType.toUpperCase()}:
                   </span>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
                     <span>
@@ -546,11 +538,13 @@ export function MarketView({ game }: { game: GameState }) {
               title={reason || `Execute ${actionType} on ${selectedNode.name}`}
               onClick={handleExecuteAction}
             >
-              {actionType === "expand" ? "Expand Into Market →" : "Reinforce Position →"}
+              {actionType === "contest" ? "Contest This Market →" : actionType === "expand" ? "Expand Into Market →" : "Reinforce Position →"}
             </button>
             <small className="disabled-reason">
               {reason ||
-                (actionType === "expand"
+                (actionType === "contest"
+                  ? "Attempts to break an incumbent hold. Failure costs cash and momentum."
+                  : actionType === "expand"
                   ? "Establishes a customer foothold from adjacent supported positions."
                   : "Strengthens current market share and prepares support for adjacent nodes.")}
             </small>
@@ -561,6 +555,13 @@ export function MarketView({ game }: { game: GameState }) {
             {feedback}
           </p>
 
+          {session.lastResolution && (
+            <div className="market-resolution" role="status">
+              <span className="eyebrow">What happened</span>
+              <p>{session.lastResolution.summary}</p>
+              {session.lastResolution.factors[0] ? <small>Main factor: {session.lastResolution.factors[0].label}</small> : null}
+            </div>
+          )}
           {session.lastRivalMove && (
             <div
               style={{
@@ -576,8 +577,12 @@ export function MarketView({ game }: { game: GameState }) {
                 Rival Counter-Move
               </span>
               <div>
-                <strong>{rival?.name ?? "Rival"}</strong> {session.lastRivalMove.action}ed in{" "}
-                <strong>{session.lastRivalMove.nodeName}</strong>.
+                {session.lastRivalMove.summary ?? (
+                  <>
+                    <strong>{rival?.name ?? "Rival"}</strong> {session.lastRivalMove.action}ed in{" "}
+                    <strong>{session.lastRivalMove.nodeName}</strong>.
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -589,7 +594,8 @@ export function MarketView({ game }: { game: GameState }) {
             disabled={locked}
             onClick={() => {
               dispatch({ type: "marketEndTurn" });
-              setFeedback("Turn passed. Rival evaluated their next strategic expansion.");
+              const after = useGame.getState().game?.marketBattle;
+              setFeedback(after?.lastRivalMove?.summary ?? "Turn passed. Rival evaluated their next strategic expansion.");
             }}
           >
             Pass Turn →
@@ -599,8 +605,8 @@ export function MarketView({ game }: { game: GameState }) {
           <div className="market-help">
             <b>Expand · Connect · Dominate</b>
             <p>
-              Expand into adjacent segments to build your network. Strongly held nodes give +Support to
-              neighbors. Decisive influence triggers Dominance, routing the rival out of that segment.
+              Expand, reinforce, or contest adjacent holds. Territory can change hands. Failed attacks spend cash
+              and weaken momentum. Competitors act after every player move.
             </p>
           </div>
         </aside>

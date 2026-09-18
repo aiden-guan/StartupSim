@@ -274,13 +274,44 @@ export function getProductFit(
   return Math.max(-2, Math.min(2, score));
 }
 
+export interface MarketPowerContext {
+  productQuality: number;
+  launchCapability: number;
+  launchDistribution: number;
+  launchDeployment: number;
+  brand: number;
+  hype: number;
+  momentum: number;
+  gtmFit: number;
+  pricingPower: number;
+}
+
 export interface InfluenceBreakdown {
   base: number;
   fit: number;
   support: number;
   overloadPenalty: number;
   isolationPenalty: number;
+  quality?: number;
+  launch?: number;
+  brand?: number;
   totalInfluence: number;
+}
+
+export function productQualityScore(product: Product): number {
+  const pts = product.points.engineering + product.points.product + product.points.growth + product.points.research;
+  return Math.min(12, pts / 70);
+}
+
+export function launchStrength(product: Product, state: GameState): number {
+  return (
+    product.levels.capability * 1.25 +
+    product.levels.distribution * 1.05 +
+    product.levels.deployment * 0.85 +
+    productQualityScore(product) +
+    Math.sqrt(Math.max(0, state.company.hype)) * 0.16 +
+    product.gtmFit / 28
+  );
 }
 
 export function calculateInfluence(
@@ -290,6 +321,7 @@ export function calculateInfluence(
   action: "expand" | "reinforce",
   capabilityLevel: number,
   combo: [string, string],
+  power?: MarketPowerContext,
 ): InfluenceBreakdown {
   const node = session.nodes.find((n) => n.id === nodeId);
   if (!node) {
@@ -310,6 +342,9 @@ export function calculateInfluence(
 
   const fit = getProductFit(node, combo);
   const support = getConnectedSupport(session, nodeId, side);
+  const quality = power ? Math.round(power.productQuality * 0.55) : 0;
+  const launch = power ? Math.round((power.launchDistribution + power.gtmFit / 40) * 0.35) : 0;
+  const brand = power ? Math.round(power.brand * 0.4 + power.momentum * 0.25) : 0;
 
   const used = side === "player" ? session.playerScaleUsed : session.rivalScaleUsed;
   const cap = side === "player" ? session.playerScaleCapacity : session.rivalScaleCapacity;
@@ -318,11 +353,12 @@ export function calculateInfluence(
 
   const isIso = side === "player" ? node.playerIsolated : node.rivalIsolated;
   const isoPen = isIso ? 0.25 : 0;
+  const contestPen = Math.min(0.28, (node.contestPenalty ?? 0) * 0.08);
 
   // Resistance factor: high resistance slows down expansion
   const resFactor = Math.max(1, node.resistance * 0.35);
 
-  let raw = (base + fit + support) * (1 - overloadPen) * (1 - isoPen);
+  let raw = (base + fit + support + quality + launch + brand) * (1 - overloadPen) * (1 - isoPen) * (1 - contestPen);
   raw = Math.max(1, Math.round(raw / resFactor));
 
   return {
@@ -331,6 +367,9 @@ export function calculateInfluence(
     support,
     overloadPenalty: Math.round(overloadPen * 100),
     isolationPenalty: Math.round(isoPen * 100),
+    quality,
+    launch,
+    brand,
     totalInfluence: Math.max(1, raw),
   };
 }
@@ -342,6 +381,7 @@ export function previewAction(
   action: "expand" | "reinforce",
   capabilityLevel: number,
   combo: [string, string],
+  power?: MarketPowerContext,
 ): {
   projectedPlayerShare: number;
   projectedRivalShare: number;
@@ -374,6 +414,7 @@ export function previewAction(
     action,
     capabilityLevel,
     combo,
+    power,
   );
 
   const pInf = side === "player"
@@ -435,9 +476,10 @@ export function getLegalMoves(
   session: MarketSession,
   side: "player" | "rival",
   distributionLevel: number,
-): { expand: string[]; reinforce: string[] } {
+): { expand: string[]; reinforce: string[]; contest: string[] } {
   const expand: string[] = [];
   const reinforce: string[] = [];
+  const contest: string[] = [];
 
   const friendlyFootholds = session.nodes.filter((n) =>
     side === "player"
@@ -448,33 +490,38 @@ export function getLegalMoves(
   // If no footholds, allow beachhead
   if (!friendlyFootholds.length) {
     const bId = side === "player" ? session.playerBeachhead : session.rivalBeachhead;
-    return { expand: [bId], reinforce: [] };
+    return { expand: [bId], reinforce: [], contest: [] };
   }
+
+  const adjacentToFriendly = (nodeId: string) => {
+    const nbrs = getNeighbors(session.edges, nodeId);
+    return nbrs.some((nbrId) =>
+      session.nodes.some((n) =>
+        n.id === nbrId &&
+        (side === "player" ? isMeaningfulFoothold(n, "player") : isMeaningfulFoothold(n, "rival"))
+      )
+    );
+  };
 
   for (const node of session.nodes) {
     const hasPresence = side === "player" ? node.playerInfluence > 0 : node.rivalInfluence > 0;
     const isEnemyDominated = side === "player" ? node.rivalDominated : node.playerDominated;
+    const enemyShare = side === "player" ? node.rivalShare : node.playerShare;
 
-    if (isEnemyDominated) {
+    if (isEnemyDominated || enemyShare >= 55) {
+      if (adjacentToFriendly(node.id) || hasPresence) contest.push(node.id);
       continue;
     }
 
     if (hasPresence) {
       reinforce.push(node.id);
     } else {
-      // Check if reachable via adjacent friendly nodes
       const nbrs = getNeighbors(session.edges, node.id);
-      const isAdjacentToFriendly = nbrs.some((nbrId) =>
-        session.nodes.some((n) =>
-          n.id === nbrId &&
-          (side === "player" ? isMeaningfulFoothold(n, "player") : isMeaningfulFoothold(n, "rival"))
-        )
-      );
+      const isAdjacentToFriendly = adjacentToFriendly(node.id);
 
       if (isAdjacentToFriendly) {
         expand.push(node.id);
       } else if (distributionLevel >= 3) {
-        // High Distribution allows 2-hop expansion
         const isTwoHops = nbrs.some((nbrId) => {
           const secondNbrs = getNeighbors(session.edges, nbrId);
           return secondNbrs.some((snId) =>
@@ -491,7 +538,7 @@ export function getLegalMoves(
     }
   }
 
-  return { expand, reinforce };
+  return { expand, reinforce, contest };
 }
 
 export function applyAction(
@@ -501,6 +548,7 @@ export function applyAction(
   action: "expand" | "reinforce",
   capabilityLevel: number,
   combo: [string, string],
+  power?: MarketPowerContext,
 ): void {
   const node = session.nodes.find((n) => n.id === nodeId);
   if (!node) return;
@@ -512,6 +560,7 @@ export function applyAction(
     action,
     capabilityLevel,
     combo,
+    power,
   );
 
   if (side === "player") {
@@ -591,9 +640,14 @@ export function startMarketSession(
     const isPlayerBeach = tn.id === playerBeachhead;
     const isRivalBeach = tn.id === rivalBeachhead;
 
-    // Beachheads start with strong starting foothold
-    const pInf = isPlayerBeach ? 6 + product.levels.capability : 0;
-    const rInf = isRivalBeach ? 6 + rivalLevels.capability : 0;
+    // Beachheads start with a foothold scaled by launch quality
+    const launch = launchStrength(product, state);
+    const pInf = isPlayerBeach
+      ? Math.round(4 + product.levels.capability + Math.max(0, launch - 2) * 0.9)
+      : 0;
+    const rInf = isRivalBeach
+      ? Math.round(5 + rivalLevels.capability + (first ? 0 : (def?.difficulty ?? 1)))
+      : 0;
 
     const shares = calculateShares(
       pInf,
@@ -642,12 +696,17 @@ export function startMarketSession(
     rivalBeachhead,
     current: "player",
     selectedNodeId: playerBeachhead,
-    playerScaleCapacity: 4 + product.levels.deployment * 2,
+    playerScaleCapacity: 3 + product.levels.deployment * 2 + Math.round(Math.max(0, launchStrength(product, state) - 3) * 0.4),
     rivalScaleCapacity: 4 + (first ? 0 : def?.difficulty ?? 1) * 2,
     playerScaleUsed: 0,
     rivalScaleUsed: 0,
     firstMarket: first,
     lastRivalMove: null,
+    lastResolution: null,
+    playerMomentum: Math.max(-2, Math.min(4, Math.round(launchStrength(product, state) - 4))),
+    rivalMomentum: first ? 0 : (def?.difficulty ?? 1),
+    busy: false,
+    turnNonce: 0,
     tutorialStep: first ? 0 : 99,
     pieces: [
       { id: playerBeachhead, owner: "player", moves: 1, health: 4 },
@@ -720,16 +779,25 @@ export function aiSelectMove(
   rng: Rng,
   rivalDef: CompetitorDef,
   rivalLevels: LaunchLevels,
-): { action: "expand" | "reinforce"; nodeId: string } | null {
+  product?: Product,
+  state?: GameState,
+): { action: "expand" | "reinforce" | "contest"; nodeId: string } | null {
   const legal = getLegalMoves(session, "rival", rivalLevels.distribution);
-  const allMoves: { action: "expand" | "reinforce"; nodeId: string }[] = [
+  const allMoves: { action: "expand" | "reinforce" | "contest"; nodeId: string }[] = [
     ...legal.expand.map((id) => ({ action: "expand" as const, nodeId: id })),
     ...legal.reinforce.map((id) => ({ action: "reinforce" as const, nodeId: id })),
+    ...((session.firstMarket && session.turn < 1) ? [] : legal.contest.map((id) => ({ action: "contest" as const, nodeId: id }))),
   ];
 
   if (!allMoves.length) return null;
 
-  const personality = session.firstMarket ? "opportunistic" : rivalDef.personality;
+  const overall = getOverallShares(session);
+  const personality = session.firstMarket
+    ? overall.player >= 28 ? "opportunistic" : rivalDef.personality
+    : overall.player >= 32 && (rivalDef.personality === "expansionist" || rivalDef.personality === "aggressive")
+      ? "challenger"
+      : rivalDef.personality;
+  const combo = product?.combo ?? (["chat", "api"] as [string, string]);
 
   // Score candidate moves
   let bestMove: (typeof allMoves)[0] | null = null;
@@ -743,16 +811,20 @@ export function aiSelectMove(
       session,
       move.nodeId,
       "rival",
-      move.action,
+      move.action === "contest" ? "expand" : move.action,
       rivalLevels.capability,
-      ["chat", "api"],
+      combo,
     );
 
     let score = 0;
+    const alreadyFriendlyDom = node.rivalDominated;
 
-    // 1. Dominance opportunity
-    if (preview.willDominate) {
+    // 1. Dominance opportunity (new flips only — stacking a locked segment is not a win)
+    if (preview.willDominate && !alreadyFriendlyDom) {
       score += 55;
+    }
+    if (move.action === "reinforce" && alreadyFriendlyDom) {
+      score -= 32;
     }
 
     // 2. Prevent player from dominating this node
@@ -776,6 +848,10 @@ export function aiSelectMove(
     if (move.action === "expand") {
       score += Math.max(0, 15 - node.resistance * 2);
     }
+    if (move.action === "contest") {
+      score += 18 + node.value * 4;
+      if (node.playerDominated) score += 38;
+    }
 
     // 6. Connected support & Hub control
     const support = getConnectedSupport(session, move.nodeId, "rival");
@@ -795,18 +871,31 @@ export function aiSelectMove(
     // Personality adjustments
     if (personality === "aggressive") {
       if (node.playerInfluence > 0) score += 20;
-      if (preview.willDominate) score += 25;
+      if (preview.willDominate && !alreadyFriendlyDom) score += 25;
+      if (move.action === "contest") score += 22;
       if (projectedLoad > session.rivalScaleCapacity) score += 5; // Tolerates overload
     } else if (personality === "expansionist") {
       if (move.action === "expand") score += 22;
+      if (move.action === "contest" && node.playerDominated) score += 24;
       if (node.trait === "platform_hub") score += 15;
     } else if (personality === "defensive") {
       if (move.action === "reinforce") score += 25;
       if (node.id === session.rivalBeachhead) score += 30;
+      if (node.rivalShare >= 40 && move.action === "contest") score -= 10;
       if (projectedLoad > session.rivalScaleCapacity) score -= 25; // Strongly avoids overload
     } else if (personality === "opportunistic") {
       if (node.playerIsolated) score += 30;
       if (node.resistance <= 2) score += 15;
+      if (move.action === "contest" && (session.playerMomentum ?? 0) < 0) score += 24;
+    } else if (personality === "challenger") {
+      if (node.playerShare >= 40) score += 28;
+      if (node.playerDominated) score += 34;
+      if (move.action === "contest") score += 26;
+      if (overall.player >= 55) score += 18;
+    }
+
+    if (state && product) {
+      score += productQualityScore(product) * (move.action === "contest" ? -0.8 : 0.2);
     }
 
     // Tie-breaking with small deterministic seeded float
@@ -815,6 +904,15 @@ export function aiSelectMove(
     if (score > bestScore) {
       bestScore = score;
       bestMove = move;
+    }
+  }
+
+  if (bestMove?.action === "reinforce") {
+    const stacked = session.nodes.find((n) => n.id === bestMove!.nodeId);
+    if (stacked?.rivalDominated) {
+      const contestPlayer = allMoves.find((m) => m.action === "contest" && session.nodes.some((n) => n.id === m.nodeId && n.playerDominated));
+      const expand = allMoves.find((m) => m.action === "expand");
+      bestMove = contestPlayer ?? expand ?? bestMove;
     }
   }
 
@@ -846,7 +944,7 @@ export function executeRivalTurn(
       session,
       move.nodeId,
       "rival",
-      move.action,
+      move.action === "contest" ? "expand" : move.action,
       rivalLevels.capability,
       ["chat", "api"],
     );

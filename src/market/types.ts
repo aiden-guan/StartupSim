@@ -62,6 +62,7 @@ export interface MarketNodeState {
   rivalIsolated: boolean;
   isPlayerBeachhead: boolean;
   isRivalBeachhead: boolean;
+  contestPenalty?: number;
 }
 
 export interface MarketSession {
@@ -85,13 +86,35 @@ export interface MarketSession {
   rivalScaleUsed: number;
   firstMarket: boolean;
   lastRivalMove?: {
-    action: "expand" | "reinforce";
+    action: "expand" | "reinforce" | "contest";
     nodeId: string;
     nodeName: string;
+    success?: boolean;
+    summary?: string;
   } | null;
+  lastResolution?: MarketActionResult | null;
+  playerMomentum?: number;
+  rivalMomentum?: number;
+  busy?: boolean;
+  turnNonce?: number;
   tutorialStep?: number;
   pieces?: { id: string; owner: "player" | "ai"; moves: number; health: number }[];
   tiles?: any[];
+}
+
+export interface MarketActionResult {
+  success: boolean;
+  action: "expand" | "reinforce" | "contest" | "pass";
+  nodeId: string;
+  nodeName: string;
+  side: "player" | "rival";
+  territoryChanged: boolean;
+  dominated: boolean;
+  influenceDelta: number;
+  momentumDelta: number;
+  cashCost: number;
+  factors: { label: string; weight: number }[];
+  summary: string;
 }
 
 export interface MarketSegmentResult {

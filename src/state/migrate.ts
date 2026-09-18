@@ -112,9 +112,25 @@ export function migrateGameState(raw: GameState): GameState {
     state.onboarding.slideIndex = Math.max(0, Math.min(state.onboarding.slideIndex, (step?.slides.length ?? 1)-1));
   }
   if (state.pendingMentor === "clock" && state.onboarding.events.includes("startedClock")) state.onboarding.events = state.onboarding.events.filter(e=>e!=="startedClock");
+  state.hiring.lastResult ??= null;
+  state.lastStaffing ??= null;
+  state.compute.trainingReserved ??= 0;
+  for (const item of state.news) {
+    item.read ??= true;
+    item.source ??= "The Wire";
+    item.category ??= item.tone === "markets" ? "markets" : "industry";
+  }
+  if (state.marketBattle && "nodes" in state.marketBattle) {
+    state.marketBattle.playerMomentum ??= 0;
+    state.marketBattle.rivalMomentum ??= 0;
+    state.marketBattle.busy = false;
+    state.marketBattle.turnNonce ??= 0;
+    state.marketBattle.lastResolution ??= null;
+    for (const node of state.marketBattle.nodes) node.contestPenalty ??= 0;
+  }
   setPause(state,"market",Boolean(state.marketBattle));
   setPause(state,"results",Boolean(state.marketResult));
-  setPause(state,"productReady",!state.marketBattle && state.products.some(p=>p.status==="ready"));
+  setPause(state,"productReady",false);
   setPause(state,"settings",false);
   reconcileTutorial(state);
   return state;

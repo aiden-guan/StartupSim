@@ -277,6 +277,19 @@ export type GameplayEventKind =
   | "decision"
   | "recovery";
 
+export interface EmployeeProfileSnapshot {
+  employeeId: string;
+  name: string;
+  title: string;
+  role: Employee["role"];
+  look: CharacterLook;
+  skills: Skills;
+  salary: number;
+  taskName: string | null;
+  tenureDays: number;
+  projectImpact?: string;
+}
+
 export interface Mail {
   id: string;
   at: CalendarDate;
@@ -290,6 +303,8 @@ export interface Mail {
   impact?: string;
   createdTick?: number;
   eventId?: string;
+  employeeId?: string;
+  profile?: EmployeeProfileSnapshot;
   read: boolean;
   requiresResponse: boolean;
 }
@@ -312,6 +327,19 @@ export interface NewsItem {
   chainStage?: number;
   createdTick?: number;
   impact?: string;
+  read?: boolean;
+  source?: string;
+  category?: string;
+}
+
+export interface HireResult {
+  candidateId: string;
+  name: string;
+  accepted: boolean;
+  reason?: string;
+  role?: string;
+  salary?: number;
+  at: number;
 }
 
 export interface Candidate {
@@ -590,7 +618,9 @@ export interface GameState {
     channelId: string | null;
     candidates: Candidate[];
     cooldownDays: number;
+    lastResult?: HireResult | null;
   };
+  lastStaffing?: { taskId: string; lines: string[]; at: number } | null;
   funding: {
     lastRound: string | null;
     offers: FundingOffer[];

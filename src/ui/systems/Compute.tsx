@@ -4,6 +4,7 @@ import type { DepartmentId, GameState } from "../../simulation/types";
 import { isModelAvailable, providerForModel } from "../../simulation/effects";
 import { useGame } from "../../state/store";
 import { fixedComputeCost, inferenceCoverage, monthlyCompute } from "../../simulation/derived";
+import { allocateTrainingCompute, leftoverCapacityDaily } from "../../simulation/compute";
 import { modelTags } from "../../visuals/registry";
 import { modelPricePerMTok, money } from "../format";
 import { GameButton } from "../shared/controls";
@@ -20,6 +21,8 @@ export function ComputePanel({ game }: { game: GameState }) {
   const demand = game.products.filter((product) => SERVICE_PRODUCT_STATUSES.has(product.status)).reduce((sum, product) => sum + product.weeklyInference, 0);
   const coverage = inferenceCoverage(game);
   const load = coverage > 0 ? Math.min(100, demand / coverage * 100) : 0;
+  const training = allocateTrainingCompute(game);
+  const leftover = leftoverCapacityDaily(game);
   const outage = game.providerOutages.find((item) => item.untilTick > game.clock.tick);
   const affectedProducts = outage ? game.products.filter((product) => SERVICE_PRODUCT_STATUSES.has(product.status) && providerForModel(product.modelId) === outage.provider) : [];
   const outageDays = outage ? Math.max(1, outage.untilTick - game.clock.tick) : 0;
@@ -34,8 +37,10 @@ export function ComputePanel({ game }: { game: GameState }) {
     </div>
     {outage && <section className="provider-outage-banner" role="status"><CompanyMark name={outage.provider} /><div><span className="eyebrow">Active gameplay event</span><strong>{outage.provider} is unavailable</strong><p>{affectedProducts.length ? `${affectedProducts.length} active product${affectedProducts.length > 1 ? "s are" : " is"} exposed. Revenue is reduced until you migrate or service returns.` : "No active product is currently exposed. The provider remains unavailable for new selections."}</p><small>{outageDays} days remaining · choose a fallback in the Inbox event</small></div></section>}
     <section className="capacity-display" data-tutorial="compute-capacity"><div className="rack-graphic">{Array.from({ length: 5 }, (_, index) => <div key={index}><i /><i /><span /></div>)}</div><div><span className="eyebrow">Self-hosted inference</span><strong>{money(coverage)}<small>equivalent API cost covered / week</small></strong><div className="progress-track"><i style={{ width: `${load}%` }} /></div><p>{coverage ? `${Math.round(load)}% capacity in use` : "Using hosted APIs · no dedicated GPUs"} · {money(Math.max(0, demand - coverage))}/week served by APIs</p></div></section>
-    <div className="compute-metrics">{[["API credits", money(game.compute.apiCredits)], ["Fixed cloud / month", money(fixedComputeCost(game))], ["Total compute / month", money(monthlyCompute(game))]].map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
-    <div className="gpu-controls"><div><h4>Rent GPU capacity</h4><p>Each GPU covers $800 of weekly inference and costs $2,400/month. Unused capacity still costs money.</p></div><div className="stepper"><button aria-label="Rent fewer GPUs" disabled={game.compute.rentedGpus === 0} onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus - 1 })}>−</button><output>{game.compute.rentedGpus}</output><button aria-label="Rent more GPUs" onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus + 1 })}>+</button></div></div>
+    <div className="compute-metrics">{[["API credits", money(game.compute.apiCredits)], ["Training budget / day", money(game.compute.apiCredits + leftover)], ["Training demand / day", money(training.demand)], ["Fixed cloud / month", money(fixedComputeCost(game))], ["Total compute / month", money(monthlyCompute(game))]].map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
+    {training.blocked && <p className="inline-warning">Blocked by compute. Product and research work cannot advance until you rent GPUs, buy a cluster, or restore API credits.</p>}
+    {training.demand > 0 && !training.blocked && training.ratio < 1 && <p className="inline-warning">Training compute is oversubscribed. Development is running at {Math.round(training.ratio * 100)}% speed. Add capacity or pause a project.</p>}
+    <div className="gpu-controls"><div><h4>Rent GPU capacity</h4><p>Each GPU covers $800 of weekly inference and leftover capacity can train models. Unused racks still cost money.</p></div><div className="stepper"><button aria-label="Rent fewer GPUs" disabled={game.compute.rentedGpus === 0} onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus - 1 })}>−</button><output>{game.compute.rentedGpus}</output><button aria-label="Rent more GPUs" onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus + 1 })}>+</button></div></div>
     <div className="cluster-row"><p>Owned cluster · {game.compute.ownedCluster} units<br /><small>Four units add $480/week of coverage with no rental charge.</small></p><GameButton disabled={game.company.cash < 400_000} title={game.company.cash < 400_000 ? `Need ${money(400_000 - game.company.cash)} more` : "Add four owned compute units"} onClick={() => dispatch({ type: "buyCluster" })}>Buy cluster · $400k</GameButton></div>
 
     <section className="model-selector">

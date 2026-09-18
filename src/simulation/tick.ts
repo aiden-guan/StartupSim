@@ -12,9 +12,12 @@ import { applyEffects, isProviderAvailable, providerForModel } from "./effects";
 import { allSatisfied, monthlyArr } from "./conditions";
 import { addDays, isMonthStart, isQuarterStart, isWeekStart, isYearStart } from "./date";
 import { fixedComputeCost, inferenceCoverage, monthlyBurn, monthlyCompanyOperations, monthlyPayroll, monthlyRent, valuationOf } from "./derived";
-import { harvestProduct } from "./products";
+import { allocateTrainingCompute, consumeTrainingCompute } from "./compute";
+import { companyStage, eventFitsStage, scaleEffects, severityForEvent } from "./eventEconomy";
+import { departureImpact } from "./staffing";
 import { Rng, uid } from "./rng";
 import { developTask, makeTask, unassignAll } from "./tasks";
+import { harvestProduct } from "./products";
 import type { GameState, Mail, Task } from "./types";
 import { detectEnding } from "./endings";
 import { growWorker, updateBurnout } from "./workers";
@@ -41,7 +44,18 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
         p.points.research += 12;
       }
     }
-    setPause(state, "productReady", true);
+    state.news.unshift({
+      id: uid(r, "news"),
+      at: { ...state.clock.date },
+      headline: `${p?.name ?? task.name} is ready to configure`,
+      body: "Development finished. Launch points can be spent and the product can enter the market. Company time keeps running.",
+      tone: "hype",
+      createdTick: state.clock.tick,
+      impact: "Open Products to configure the launch. The simulation was not paused.",
+      read: false,
+      source: "Studio",
+      category: "internal",
+    });
     recordTutorialEvent(state, "firstProductReady");
     return;
   }
@@ -105,6 +119,26 @@ export function buildPoachMail(state: GameState, r: Rng, mail: Mail): Mail | nul
   const nextBurn = currentBurn + increase / 12;
   const currentRunway = state.company.cash / currentBurn;
   const nextRunway = state.company.cash / nextBurn;
+  const task = employee.taskId ? state.tasks.find((t) => t.id === employee.taskId) : undefined;
+  const leaveHit = departureImpact(state, employee).lossPct;
+  const projectImpact = task && leaveHit > 0
+    ? `${employee.title} on ${task.name}. Expected development rate decreases by ~${leaveHit}% if they leave.`
+    : task
+      ? `${employee.title} on ${task.name}.`
+      : "Not currently assigned to an active project.";
+  mail.employeeId = employee.id;
+  mail.profile = {
+    employeeId: employee.id,
+    name: employee.name,
+    title: employee.title,
+    role: employee.role,
+    look: employee.look,
+    skills: employee.skills,
+    salary: employee.salary,
+    taskName: task?.name ?? null,
+    tenureDays: employee.tenureDays,
+    projectImpact,
+  };
   mail.subject = `${employee.name} received an outside offer`;
   mail.body = `${employee.name} received a written offer from a frontier lab. They will stay if you match the base salary. No signing bonus is due today.`;
   mail.context = [
@@ -112,13 +146,15 @@ export function buildPoachMail(state: GameState, r: Rng, mail: Mail): Mail | nul
     { label: "Competing offer", value: `$${offer.toLocaleString()}/yr` },
     { label: "Added payroll", value: `+$${increase.toLocaleString()}/yr` },
     { label: "Runway impact", value: `${currentRunway.toFixed(1)} mo → ${nextRunway.toFixed(1)} mo` },
+    { label: "Current project", value: task?.name ?? "Unassigned" },
+    { label: "If they leave", value: projectImpact },
   ];
   mail.warning = nextRunway < 2.5 ? "Matching leaves less than 2.5 months of runway at the current burn rate." : undefined;
   mail.choices = [
     { id: "match", label: "Match the offer", effects: [{ type: "setSalary", value: { employeeId: employee.id, salary: offer } }, { type: "morale", value: 6 }], consequences: [`Salary becomes $${offer.toLocaleString()}/yr`, `Monthly payroll increases by $${Math.round(increase / 12).toLocaleString()}`], warning: mail.warning },
-    { id: "let-go", label: "Let them walk", effects: [{ type: "loseEmployee", value: employee.id }, { type: "competitorBoost", value: 1 }], consequences: [`${employee.name} leaves immediately`, "A competitor gains technical capability"] },
+    { id: "let-go", label: "Let them walk", effects: [{ type: "loseEmployee", value: employee.id }, { type: "competitorBoost", value: 1 }], consequences: [`${employee.name} leaves immediately`, projectImpact, "A competitor gains technical capability"] },
   ];
-  mail.impact = `Choose between ${employee.name}'s higher payroll or losing a trained employee immediately.`;
+  mail.impact = `Choose between ${employee.name}'s higher payroll or losing a trained employee immediately. ${projectImpact}`;
   mail.requiresResponse = true;
   return mail;
 }
@@ -216,6 +252,7 @@ function maybeEvents(state: GameState, r: Rng): void {
   const eligible = events.filter((ev) => {
     if (!ev.eventKind && !ev.effects?.length && !ev.choices?.length && !ev.crisis) return false;
     if (!allSatisfied(ev.conditions, state)) return false;
+    if (!eventFitsStage(ev.id, companyStage(state))) return false;
     const previous = state.inbox.find((mail) => mail.eventId === ev.id || mail.subject === ev.title);
     if (!ev.repeatable && previous) return false;
     return !(ev.repeatable && previous?.createdTick !== undefined && state.clock.tick - previous.createdTick < ev.cooldownDays);
@@ -223,6 +260,13 @@ function maybeEvents(state: GameState, r: Rng): void {
   if (!eligible.length) return;
   const weighted = eligible.flatMap((ev) => Array.from({ length: Math.max(1, ev.weight) }, () => ev));
   const ev = r.pick(weighted);
+  const severity = severityForEvent(ev.eventKind, ev.id);
+  const scaledChoices = ev.choices
+    ? structuredClone(ev.choices).map((choice) => ({
+        ...choice,
+        effects: scaleEffects(state, choice.effects, severity, r) ?? choice.effects,
+      }))
+    : undefined;
   const mail: Mail = {
     id: uid(r, "mail"),
     at: { ...state.clock.date },
@@ -231,7 +275,7 @@ function maybeEvents(state: GameState, r: Rng): void {
     body: ev.body,
     eventKind: ev.eventKind,
     impact: ev.impact,
-    choices: ev.choices ? structuredClone(ev.choices) : undefined,
+    choices: scaledChoices,
     read: false,
     requiresResponse: Boolean(ev.choices?.length),
     createdTick: state.clock.tick,
@@ -240,7 +284,7 @@ function maybeEvents(state: GameState, r: Rng): void {
   if (ev.id === "poach" && !buildPoachMail(state, r, mail)) return;
   if (ev.id === "provider-outage" && !buildProviderOutageMail(state, r, mail)) return;
   state.inbox.unshift(mail);
-  applyEffects(state, ev.effects);
+  applyEffects(state, scaleEffects(state, ev.effects, severity, r));
   if (ev.crisis) {
     const t = makeTask(r, {
       type: "crisis",
@@ -250,13 +294,12 @@ function maybeEvents(state: GameState, r: Rng): void {
       skillNeed: ev.crisis.need,
       skillVal: 0,
       dueWeeks: ev.crisis.dueWeeks,
-      successEffects: ev.crisis.success,
-      failureEffects: ev.crisis.failure,
+      successEffects: scaleEffects(state, ev.crisis.success, severity, r),
+      failureEffects: scaleEffects(state, ev.crisis.failure, severity, r),
       successBody: ev.crisis.successBody,
       failureBody: ev.crisis.failureBody,
     });
     state.tasks.push(t);
-    setPause(state, "manual", true);
   }
 }
 
@@ -316,6 +359,9 @@ function newsTick(state: GameState, r: Rng): void {
       chainStage: index,
       createdTick: state.clock.tick,
       impact: stage.impact,
+      read: false,
+      source: "The Wire",
+      category: stage.tone === "markets" ? "markets" : stage.tone === "panic" ? "regulation" : "industry",
     });
     applyEffects(state, stage.effects);
     state.news = state.news.slice(0, 60);
@@ -365,8 +411,10 @@ export function tickDay(state: GameState): GameState {
     draft.hiring.cooldownDays = Math.max(0, draft.hiring.cooldownDays - 1);
     draft.funding.cooldownDays = Math.max(0, draft.funding.cooldownDays - 1);
 
+    const allocation = allocateTrainingCompute(draft);
+    consumeTrainingCompute(draft, allocation);
     for (const task of [...draft.tasks]) {
-      const done = developTask(draft, task);
+      const done = developTask(draft, task, allocation);
       if (task.type === "crisis" && isWeekStart(draft.clock.date)) {
         task.dueWeeks = (task.dueWeeks ?? 1) - 1;
         task.progress += 1;

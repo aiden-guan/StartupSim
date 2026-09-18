@@ -382,23 +382,24 @@ describe("Economics & Launch Outcome Tests", () => {
     expect(product.marketSegments?.length).toBeGreaterThan(0);
   });
 
-  it("legal moves exclude enemy-dominated nodes and allow player to reinforce friendly dominated nodes", () => {
+  it("legal moves exclude enemy-dominated nodes from expand/reinforce and expose them as contestable", () => {
     const { state, product, rng } = setupGame(101);
     const session = startMarketSession(state, product, rng);
 
-    // Player beachhead is playerDominated
     const playerLegal = getLegalMoves(session, "player", 0);
     expect(playerLegal.reinforce).toContain(session.playerBeachhead);
 
-    // Rival beachhead is rivalDominated
-    expect(playerLegal.expand).not.toContain(session.rivalBeachhead);
-    expect(playerLegal.reinforce).not.toContain(session.rivalBeachhead);
+    for (const node of session.nodes.filter((n) => n.rivalDominated)) {
+      expect(playerLegal.expand).not.toContain(node.id);
+      expect(playerLegal.reinforce).not.toContain(node.id);
+    }
 
-    // Conversely, rival cannot expand into or reinforce player's beachhead
     const rivalLegal = getLegalMoves(session, "rival", 0);
     expect(rivalLegal.reinforce).toContain(session.rivalBeachhead);
-    expect(rivalLegal.expand).not.toContain(session.playerBeachhead);
-    expect(rivalLegal.reinforce).not.toContain(session.playerBeachhead);
+    for (const node of session.nodes.filter((n) => n.playerDominated)) {
+      expect(rivalLegal.expand).not.toContain(node.id);
+      expect(rivalLegal.reinforce).not.toContain(node.id);
+    }
   });
 
   it("delegates market launch successfully across all four strategic styles", () => {

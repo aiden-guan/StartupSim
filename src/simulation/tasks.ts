@@ -1,4 +1,5 @@
 import type { Employee, GameState, SkillName, Task } from "./types";
+import { allocateTrainingCompute, isComputeTask } from "./compute";
 import { communicationMultiplier } from "./overhead";
 import { companySkill } from "./workers";
 import { uid, type Rng } from "./rng";
@@ -16,11 +17,19 @@ export function managementRelief(state: GameState): number {
   return managers + tech;
 }
 
-export function developTask(state: GameState, task: Task): boolean {
+export function developTask(state: GameState, task: Task, allocation?: ReturnType<typeof allocateTrainingCompute>): boolean {
+  if (task.type !== "crisis" && task.progress >= task.requiredProgress) return true;
   const workers = workersFor(task, state);
-  const n = workers.length;
+  const n = workers.filter((w) => w.burnoutDays <= 0).length;
   if (!n && task.type !== "crisis") return false;
-  const mult = communicationMultiplier(n, managementRelief(state));
+  let computeScale = 1;
+  if (isComputeTask(task)) {
+    const row = allocation?.byTask.get(task.id);
+    if (row?.blocked || (allocation?.blocked && (row?.demand ?? 0) > 0)) return false;
+    if (row) computeScale = row.ratio;
+    if (computeScale <= 0) return false;
+  }
+  const mult = communicationMultiplier(n, managementRelief(state)) * computeScale;
   const productivity = companySkill(state, "productivity", workers) * DAILY * mult;
   const scale = (skill: SkillName, prodScale = true) => {
     const ticks = Math.max(1, task.requiredProgress / Math.max(0.4, productivity));
@@ -98,9 +107,25 @@ export function makeTask(
 /** Uses the same skill/overhead formula as development. No visual state enters the estimate. */
 export function taskEstimate(state: GameState, task: Task) {
   const workers = workersFor(task,state);
-  const efficiency = communicationMultiplier(workers.length,managementRelief(state));
-  const skill = (name:SkillName,scale=false)=>companySkill(state,name,workers,scale);
+  const active = workers.filter((w) => w.burnoutDays <= 0);
+  const efficiency = communicationMultiplier(active.length,managementRelief(state));
+  const skill = (name:SkillName,scale=false)=>companySkill(state,name,active,scale);
   const raw = task.type==='research' ? skill('engineering')+skill('research')+skill('product')/3 : task.type==='lobby'||task.type==='hiring' ? skill('growth',task.type==='lobby') : task.type==='special'||task.type==='training' ? (skill('research',true)+skill('engineering',true)+skill('product',true))/3 : skill('productivity');
-  const daily = workers.length ? raw * DAILY * efficiency : 0;
-  return {workers,efficiency,daily,days:daily>0?Math.ceil(Math.max(0,task.requiredProgress-task.progress)/daily):null};
+  const allocation = allocateTrainingCompute(state);
+  const compute = allocation.byTask.get(task.id);
+  const computeScale = isComputeTask(task) ? (compute?.ratio ?? (taskComputeDemandFallback(state, task) > 0 ? allocation.ratio : 1)) : 1;
+  const daily = active.length ? raw * DAILY * efficiency * computeScale : 0;
+  return {
+    workers,
+    efficiency,
+    daily,
+    days:daily>0?Math.ceil(Math.max(0,task.requiredProgress-task.progress)/daily):null,
+    computeBlocked: Boolean(isComputeTask(task) && compute?.blocked),
+    resting: workers.length > 0 && active.length < workers.length,
+    understaffed: active.length === 0,
+  };
+}
+
+function taskComputeDemandFallback(state: GameState, task: Task): number {
+  return isComputeTask(task) && workersFor(task, state).some((w) => w.burnoutDays <= 0) ? 1 : 0;
 }

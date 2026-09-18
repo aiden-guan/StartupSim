@@ -9,8 +9,8 @@ export function FeelLayer() {
   const setDrawer = useGame((s) => s.setDrawer);
 
   useEffect(() => {
-    if (!eventFrame) return;
-    const t = window.setTimeout(() => setEventFrame(null), eventFrame.surface === "gameplay" ? 6000 : 4200);
+    if (!eventFrame || eventFrame.surface !== "gameplay") return;
+    const t = window.setTimeout(() => setEventFrame(null), eventFrame.requiresResponse ? 8000 : 4200);
     return () => window.clearTimeout(t);
   }, [eventFrame, setEventFrame]);
 
@@ -22,13 +22,13 @@ export function FeelLayer() {
 
   return (
     <>
-      {eventFrame?.surface === "gameplay" ? (
-        <div className="game-event-layer" role={eventFrame.requiresResponse ? "alert" : "status"} aria-live={eventFrame.requiresResponse ? "assertive" : "polite"} aria-atomic="true">
+      {eventFrame?.surface === "gameplay" && eventFrame.requiresResponse ? (
+        <div className="game-event-layer" role="alert" aria-live="assertive" aria-atomic="true">
           <article className="game-event-card" aria-label="Company event">
             <header className="game-event-header">
               <div className="game-event-mark" aria-hidden="true">!</div>
               <div>
-                <span className="game-event-kicker">Company event · {eventFrame.requiresResponse ? "Decision required" : "Applied now"}</span>
+                <span className="game-event-kicker">Company event · Decision required</span>
                 <h3>{eventFrame.headline}</h3>
               </div>
             </header>
@@ -40,45 +40,8 @@ export function FeelLayer() {
             ) : null}
             <p className="game-event-body">{eventFrame.body}</p>
             <footer className="game-event-footer">
-              <span>{eventFrame.requiresResponse ? "Paused until you respond" : "State updated"}</span>
+              <span>Paused until you respond</span>
               {eventFrame.mailId ? <button onClick={() => { setDrawer("inbox"); setEventFrame(null); }}>Open event brief →</button> : null}
-            </footer>
-          </article>
-        </div>
-      ) : null}
-      {eventFrame?.surface === "news" ? (
-        <div className="news-flash-layer" role="status" aria-live="polite" aria-atomic="true">
-          <article className="news-post" aria-label="News flash">
-            <header className="news-post-header">
-              <div className="news-post-avatar" aria-hidden="true">W</div>
-              <div className="news-post-author">
-                <div className="news-post-author-line">
-                  <strong>The Wire</strong>
-                  <span className="news-post-verified" aria-label="Verified source">✓</span>
-                  <span className="news-post-handle">@founderwire · now</span>
-                </div>
-                <span className="news-post-context">World news</span>
-              </div>
-              <span className="news-post-menu" aria-hidden="true">···</span>
-            </header>
-            <div className="news-post-copy">
-              <h3>{eventFrame.headline}</h3>
-              <p>{eventFrame.body}</p>
-              {eventFrame.impact ? <div className="news-post-impact"><span>World impact</span>{eventFrame.impact}</div> : null}
-            </div>
-            <footer className="news-post-actions" aria-hidden="true">
-              <span className="news-post-action">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 8.6 8.6 0 0 1-3.4-.7L4 20l1.3-3.4A7.4 7.4 0 0 1 4.5 12 7.5 7.5 0 0 1 12 4.5a7.5 7.5 0 0 1 8 7Z" /></svg>
-              </span>
-              <span className="news-post-action">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m17 3 3 3-3 3M20 6H9a5 5 0 0 0-5 5v1M7 21l-3-3 3-3M4 18h11a5 5 0 0 0 5-5v-1" /></svg>
-              </span>
-              <span className="news-post-action">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20.8 8.8c0 5.5-8.8 10.2-8.8 10.2S3.2 14.3 3.2 8.8A4.6 4.6 0 0 1 12 6.1a4.6 4.6 0 0 1 8.8 2.7Z" /></svg>
-              </span>
-              <span className="news-post-action">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4M7.5 8.5 12 4l4.5 4.5M5 14v5h14v-5" /></svg>
-              </span>
             </footer>
           </article>
         </div>

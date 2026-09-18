@@ -80,7 +80,7 @@ describe("scaling pressure and event effects", () => {
       requiresResponse: true,
     });
     expect(mail?.subject).toContain("Mina Patel");
-    expect(mail?.context?.map((item) => item.label)).toEqual(["Current salary", "Competing offer", "Added payroll", "Runway impact"]);
+    expect(mail?.context?.map((item) => item.label)).toEqual(["Current salary", "Competing offer", "Added payroll", "Runway impact", "Current project", "If they leave"]);
     expect(mail?.choices?.[0]?.effects[0]).toMatchObject({ type: "setSalary", value: { employeeId: "eng-1", salary: 210_000 } });
     expect(mail?.warning).toContain("runway");
   });

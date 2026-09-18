@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { SPEED_OPTIONS } from '../config/balance';
 import { useCameraDirector } from '../game3d/camera/cameraStore';
 import { formatDate } from '../simulation/date';
@@ -6,7 +7,8 @@ import type { DrawerId, GameState } from '../simulation/types';
 import { useGame } from '../state/store';
 import { money } from './format';
 import { GameIcon } from './shared/Icons';
-import { taskEstimate } from '../simulation/tasks';
+import { ProgressStack } from './ProgressStack';
+import { NewsFeed } from './NewsFeed';
 
 function useAnimatedCash(value:number,reducedMotion:boolean,baseline:number) {
   const previous=useRef(value),frame=useRef(0),[display,setDisplay]=useState(value);
@@ -45,9 +47,7 @@ export const NAV_GROUPS:{id:string;label:string;items:{id:DrawerId;label:string;
 export function HUD({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch),drawer=useGame(s=>s.drawer),setDrawer=useGame(s=>s.setDrawer);
   const unread=game.inbox.filter(m=>!m.read).length,run=runwayMonths(game);
-  const activeTask=game.tasks.find(t=>t.type==='product')??game.tasks[0];
   const ready=game.products.find(p=>p.status==='ready');
-  const estimate=activeTask?taskEstimate(game,activeTask):null;
   const burnedCount=game.employees.filter(e=>e.burnoutDays>0).length;
   const lowRunway=run<2 && run>0 && game.company.cash<25000;
   const creditDepleted=game.compute.apiCredits<=0 && game.products.some(p=>p.status==='active') && game.compute.rentedGpus===0;
@@ -67,12 +67,8 @@ export function HUD({game}:{game:GameState}) {
       <button className="settings-button" aria-label="Settings" onClick={()=>useGame.getState().setSettingsOpen(true)}>⚙</button>
     </header>
     {game.clock.paused&&<div className="pause-caption">Ⅱ {game.clock.reasonPaused??'Paused'}</div>}
-    {!drawer&&!game.pendingMentor&&<div className="next-action">
-      <small>{ready?'READY TO LAUNCH':activeTask?'IN THE STUDIO':'YOUR NEXT MOVE'}</small>
-      <strong>{ready?.name??activeTask?.name??(game.company.seenMarket?'What will you build next?':'Your first product starts here.')}</strong>
-      {activeTask&&!ready&&<><div className="progress-track"><i style={{width:`${Math.min(100,activeTask.progress/activeTask.requiredProgress*100)}%`}}/></div><p>{estimate?.workers.length?`${estimate.workers.length} working · about ${estimate.days} days`:'No team assigned · add people to begin'}</p></>}
-      <button onClick={()=>setDrawer(ready?'products':'tasks')}>{ready?'Configure launch':activeTask?'View project':'Open product lab'} →</button>
-    </div>}
+    {!drawer&&!game.pendingMentor&&<ProgressStack game={game}/>}
+    {!game.pendingMentor&&!game.marketBattle&&!game.marketResult&&<NewsFeed game={game}/>}
     <button className="overview-button" onClick={()=>useCameraDirector.getState().overview(game.company.officeLevel)}>↗ Office overview</button>
     <nav className="game-dock" aria-label="Company navigation">
       {NAV_GROUPS.map(group=>{
@@ -84,4 +80,3 @@ export function HUD({game}:{game:GameState}) {
     </nav>
   </div>;
 }
-import { useEffect, useRef, useState } from 'react';

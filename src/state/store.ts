@@ -141,7 +141,7 @@ export const useGame = create<AppState>((set, get) => ({
     }
     if (next && prev && next.company.seenMarket && !next.pendingMentor) {
       const gameplayMail = next.inbox.find((mail) => mail.eventKind && !prev.inbox.some((previousMail) => previousMail.id === mail.id));
-      if (gameplayMail) {
+      if (gameplayMail?.requiresResponse) {
         patch.eventFrame = {
           id: gameplayMail.id,
           headline: gameplayMail.subject,
@@ -150,14 +150,6 @@ export const useGame = create<AppState>((set, get) => ({
           impact: gameplayMail.impact,
           mailId: gameplayMail.id,
           requiresResponse: gameplayMail.requiresResponse,
-        };
-      } else if (next.news[0] && next.news[0].id !== prev.news[0]?.id) {
-        patch.eventFrame = {
-          id: next.news[0].id,
-          headline: next.news[0].headline,
-          body: next.news[0].body,
-          surface: "news",
-          impact: next.news[0].impact,
         };
       }
     }
