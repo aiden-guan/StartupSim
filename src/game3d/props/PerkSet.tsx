@@ -2,11 +2,23 @@ import type { Vector3Tuple } from 'three';
 import { Bevel } from '../geometry/Bevel';
 import { officeScale } from '../environment/officeScale';
 import { Chair, CoffeeMachine, Couch, Desk, Fridge, Mug, Plant } from './Furniture';
+import { perkVisualIds } from '../../visuals/registry';
 
 type Perk={id:string;level:number;object?:string};
 const navy='#2b3e55', beige='#ded3c3', wood='#c89e6e', gray='#dedede', green='#5c6e5a';
+const perkMiniatureIds = {
+  coffee: true,
+  desks: true,
+  food: true,
+  rest: true,
+  play: true,
+  life: true,
+  transit: true,
+  gym: true,
+} satisfies Record<keyof typeof perkVisualIds, true>;
 
-function PerkVisual({perk,position}:{perk:Perk;position:Vector3Tuple}) {
+export function PerkVisual({perk,position=[0,0,0]}:{perk:Perk;position?:Vector3Tuple}) {
+  if (!(perk.id in perkMiniatureIds)) throw new Error(`Missing perk miniature definition: ${perk.id}`);
   const tier=perk.level;
   return <group position={position}>
     {perk.id==='coffee'&&<>

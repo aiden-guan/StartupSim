@@ -2,8 +2,6 @@ import { useState } from "react";
 import { locations } from "../../data/locations";
 import { lobbies } from "../../data/lobbies";
 import { offices } from "../../data/offices";
-import { perks } from "../../data/perks";
-import { promos } from "../../data/promos";
 import { specialProjects } from "../../data/specialProjects";
 import { verticals } from "../../data/verticals";
 import { formatDate } from "../../simulation/date";
@@ -15,12 +13,15 @@ import { GameButton } from "../shared/controls";
 import { competitors as competitorDefs } from "../../data/competitors";
 import { CharacterPortrait } from "../shared/CharacterPortrait";
 import { lookFromSeed } from "../../simulation/look";
+import { CompanyMark } from "../visuals/CompanyMark";
+import { archetypeLabel, worldConditionLabel } from "../../visuals/registry";
 
 
 export { ResearchPanel } from './Research';
 export { FinancePanel, FundingPanel } from './Finance';
 
 export { ComputePanel } from './Compute';
+export { CulturePromotionPanel as PerksPanel } from './CulturePromotion';
 
 function knownConsequence(effect:{type:string;value:unknown}):string|null {
   if(effect.type==='cash') return `${Number(effect.value)>=0?'+':''}${money(Number(effect.value))} cash`;
@@ -44,100 +45,26 @@ const EVENT_KIND_LABELS: Record<GameplayEventKind, string> = {
   recovery: "Service restored",
 };
 
-export function PerksPanel({ game }: { game: GameState }) {
-  const dispatch = useGame((s) => s.dispatch);
-  return (
-    <div className="space-y-3">
-      {game.unlocks.promo
-        ? promos.map((p) => {
-            const reason = game.company.cash < p.cost ? `Need ${money(p.cost - game.company.cash)} more` : '';
-            return (
-              <GameButton
-                key={p.id}
-                className="w-full text-left"
-                disabled={!!reason}
-                title={reason || p.description}
-                onClick={() => dispatch({ type: "startPromo", promoId: p.id })}
-              >
-                {p.name} · {money(p.cost)}
-              </GameButton>
-            );
-          })
-        : null}
-      {perks.map((perk) => {
-        const owned = game.company.perks.find((p) => p.id === perk.id);
-        const next = perk.upgrades[owned ? owned.level + 1 : 0];
-        const reason = !next
-          ? 'Max level reached'
-          : game.company.officeLevel < next.requiredOffice
-            ? `Requires office level ${next.requiredOffice}`
-            : game.company.cash < next.cost
-              ? `Need ${money(next.cost - game.company.cash)} more`
-              : '';
-        return (
-          <section key={perk.id} className="border border-white/10 p-3">
-            <div className="font-medium">{perk.name}</div>
-            <div className="text-[11px] text-[#9aa3b2]">{owned ? perk.upgrades[owned.level]?.name : "None yet"}</div>
-            {next ? (
-              <GameButton
-                className="mt-2"
-                disabled={!!reason}
-                title={reason || next.description}
-                onClick={() => dispatch({ type: "buyPerk", perkId: perk.id })}
-              >
-                {next.name} · {money(next.cost)}
-              </GameButton>
-            ) : (
-              <div className="mt-1 text-[11px] text-ledger">Maxed</div>
-            )}
-          </section>
-        );
-      })}
-    </div>
-  );
-}
-
 export function WorldPanel({ game }: { game: GameState }) {
   const [tab,setTab]=useState("news");
   const dispatch = useGame((s) => s.dispatch);
   const worldMeters=(['aiCapability','aiAdoption','automation','publicTrust','regulation','computeDemand','energyDemand','scientificProgress','economicDisruption','systemicRisk','openSourcePressure'] as const);
   const marketIndexes=[['Inference cost',game.world.inferenceCostIndex],['Talent cost',game.world.talentCostIndex],['Enterprise demand',game.world.enterpriseDemandIndex],['Consumer demand',game.world.consumerDemandIndex],['Developer demand',game.world.developerDemandIndex],['Compliance cost',game.world.complianceCostIndex]] as const;
+  const highLevelConditions: Array<{ kind: Parameters<typeof worldConditionLabel>[0]; label: string; value: number; baseline: number; note: string }> = [
+    { kind: 'momentum', label: 'AI momentum', value: (game.world.aiCapability + game.world.aiAdoption + game.world.scientificProgress) / 3, baseline: 50, note: 'Capability, adoption, and research pace.' },
+    { kind: 'demand', label: 'Customer demand', value: (game.world.enterpriseDemandIndex + game.world.consumerDemandIndex + game.world.developerDemandIndex) / 3 * 100, baseline: 100, note: 'Demand across enterprise, consumer, and developers.' },
+    { kind: 'pressure', label: 'Cost pressure', value: (game.world.inferenceCostIndex + game.world.talentCostIndex + game.world.complianceCostIndex) / 3 * 100, baseline: 100, note: 'Compute, hiring, and compliance costs.' },
+    { kind: 'climate', label: 'Public climate', value: (game.world.publicTrust + (100 - game.world.regulation) + (100 - game.world.systemicRisk)) / 3, baseline: 50, note: 'Trust, regulation, and perceived risk.' },
+  ];
   return (
     <div className="space-y-4">
       <nav className="world-tabs">{["news","competitors","economy","expansion"].map(id=><button key={id} aria-pressed={tab===id} onClick={()=>setTab(id)}>{id}</button>)}</nav>
       {tab==="news"&&<div className="news-wire">{game.news.map(n=><article key={n.id}><span className="eyebrow">{formatDate(n.at)} / {n.tone}{n.chainStage!==undefined?` / development ${n.chainStage+1}`:''}</span><h3>{n.headline}</h3><p>{n.body}</p>{n.impact&&<aside><strong>Simulation impact</strong>{n.impact}</aside>}</article>)}{!game.news.length&&<p>The wire is quiet. News arrives as company time passes.</p>}</div>}
-      {tab==="economy"&&<><h3 className="economy-title">{game.economy}</h3><p className="economy-caption">Macro conditions change demand, costs, hiring, and valuations. Index 100 is the starting market.</p>
-      {worldMeters.map((k) => (
-        <div key={k}>
-          <div className="flex justify-between font-mono text-[10px] uppercase">
-            <span>{k.replace(/([A-Z])/g,' $1')}</span>
-            <span>{game.world[k].toFixed(0)}</span>
-          </div>
-          <div className="h-1 bg-white/10">
-            <div className="h-full bg-gold" style={{ width: `${Math.min(100, game.world[k])}%` }} />
-          </div>
-        </div>
-      ))}
-      <div className="market-index-grid">{marketIndexes.map(([label,value])=><div key={label}><small>{label}</small><strong>{Math.round(value*100)}</strong><span>{value>1.02?'Above baseline':value<.98?'Below baseline':'Baseline'}</span></div>)}</div>
+      {tab==="economy"&&<><h3 className="economy-title">{game.economy}</h3><p className="economy-caption">The market story at a glance. Macro conditions change demand, costs, hiring, and valuations.</p>
+      <div className="economy-overview">{highLevelConditions.map((condition)=><article key={condition.label}><span>{condition.label}</span><strong>{worldConditionLabel(condition.kind,condition.value,condition.baseline)}</strong><div className="condition-track"><i style={{width:`${Math.max(4,Math.min(100,condition.baseline===100?condition.value/1.6:condition.value))}%`}}/></div><p>{condition.note}</p></article>)}</div>
+      <details className="economy-details"><summary>Detailed indicators</summary><div className="world-meter-list">{worldMeters.map((k) => (<div key={k}><div><span>{k.replace(/([A-Z])/g,' $1')}</span><strong>{game.world[k].toFixed(0)}</strong></div><div className="condition-track"><i style={{ width: `${Math.min(100, game.world[k])}%` }} /></div></div>))}</div><div className="market-index-grid">{marketIndexes.map(([label,value])=><div key={label}><small>{label}</small><strong>{Math.round(value*100)}</strong><span>{value>1.02?'Above baseline':value<.98?'Below baseline':'Baseline'}</span></div>)}</div></details>
       </>}
-      {tab==="competitors"&&game.competitors.map((c) => (
-        <div key={c.id} className="flex gap-3 border border-white/10 p-2">
-          <CharacterPortrait look={lookFromSeed(c.id, competitorDefs.find((d) => d.id === c.id)?.archetype)} className="h-14 w-12 shrink-0" />
-          <div className="flex flex-1 justify-between">
-            <div>
-              <div>{c.name}</div>
-              <div className="font-mono text-[10px] text-[#9aa3b2]">
-                {competitorDefs.find((d) => d.id === c.id)?.founder} · {c.personality} · {pct(c.marketShare)}
-              </div>
-            </div>
-            {game.unlocks.acquisitions && !c.disabled ? (
-              <button type="button" className="text-[11px] underline" onClick={() => dispatch({ type: "acquire", competitorId: c.id })}>
-                Acquire
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ))}
+      {tab==="competitors"&&<div className="competitor-list">{game.competitors.map((c) => { const def=competitorDefs.find((d)=>d.id===c.id); return <details key={c.id} className="competitor-card"><summary><CompanyMark company={c.id}/><span><strong>{c.name}</strong><small>{archetypeLabel(def?.archetype ?? c.archetype)} · {c.personality}</small></span><em><small>Market share</small><strong>{pct(c.marketShare)}</strong></em></summary><div className="competitor-detail"><CharacterPortrait look={lookFromSeed(c.id,def?.archetype)} /><div><p>{def?.description}</p><small>Founded by {def?.founder} · Focus: {def?.focus.join(', ')}</small></div>{game.unlocks.acquisitions&&!c.disabled?<button type="button" onClick={()=>dispatch({type:'acquire',competitorId:c.id})}>Acquire company</button>:null}</div></details>; })}</div>}
       {tab==="expansion"&&<div className="expansion-catalog">
       {game.unlocks.locations
         ? locations.map((l) => {

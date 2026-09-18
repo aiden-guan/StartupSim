@@ -12,6 +12,7 @@ import { lookFromSeed } from "../../simulation/look";
 import type { GameState } from "../../simulation/types";
 import { useGame } from "../../state/store";
 import { CharacterPortrait } from "../shared/CharacterPortrait";
+import { CompanyMark } from "../visuals/CompanyMark";
 
 export function MarketView({ game }: { game: GameState }) {
   const session = game.marketBattle!;
@@ -407,6 +408,7 @@ export function MarketView({ game }: { game: GameState }) {
         <aside className="market-orders">
           {/* Rival identity card */}
           <div className="rival-identity">
+            <CompanyMark company={session.competitorId} />
             <CharacterPortrait look={lookFromSeed(session.competitorId, rival?.archetype)} />
             <div>
               <span className="eyebrow">The Competition</span>
@@ -485,7 +487,7 @@ export function MarketView({ game }: { game: GameState }) {
             </div>
 
             {/* Conversion Influence Breakdown */}
-            <div
+            <details className="market-calculation"
               style={{
                 fontSize: 10,
                 borderTop: "1px solid #c9d6bf",
@@ -494,6 +496,8 @@ export function MarketView({ game }: { game: GameState }) {
                 color: "#526a57",
               }}
             >
+              <summary>Why this result?</summary>
+              <div className="market-calculation-body">
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>Base Capability</span>
                 <strong>{preview.breakdown.base}</strong>
@@ -531,7 +535,8 @@ export function MarketView({ game }: { game: GameState }) {
                 <span>Total Influence Added</span>
                 <strong style={{ color: "#244033" }}>+{preview.influenceToAdd}</strong>
               </div>
-            </div>
+              </div>
+            </details>
 
             {/* Main Action Button */}
             <button

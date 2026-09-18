@@ -1,7 +1,7 @@
 import { SPEED_OPTIONS } from '../config/balance';
 import { useCameraDirector } from '../game3d/camera/cameraStore';
 import { formatDate } from '../simulation/date';
-import { monthlyArr, monthlyBurn, runwayMonths } from '../simulation/derived';
+import { monthlyBurn, runwayMonths } from '../simulation/derived';
 import type { DrawerId, GameState } from '../simulation/types';
 import { useGame } from '../state/store';
 import { money } from './format';
@@ -58,7 +58,6 @@ export function HUD({game}:{game:GameState}) {
       <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className="brand-square" style={{background:game.company.brand.color}}/><span>{game.company.name}<small>{game.company.officeLevel===0?'Apartment headquarters':'Company headquarters'}</small></span></button>
       <button className={`hud-stat cash-stat ${cash.delta?`cash-${cash.delta.level} ${cash.delta.value>0?'cash-up':'cash-down'}`:''}`} onClick={()=>setDrawer('finance')} title="Open the ledger for a cash-flow breakdown"><small>Cash</small><strong aria-label={money(game.company.cash)}>{money(cash.display)}</strong>{cash.delta&&<span className="cash-delta">{cash.delta.value>0?'+':''}{money(cash.delta.value)}</span>}</button>
       <button className="hud-stat" onClick={()=>setDrawer('finance')} title={`Expected net burn ${money(burn)} per month`}><small>Runway</small><strong className={run<3?'warning':''}>{run>=99?'Profitable':`${run.toFixed(1)} months`}</strong></button>
-      <button className="hud-stat" onClick={()=>setDrawer('finance')}><small>Annual revenue</small><strong>{money(monthlyArr(game)*12)}</strong></button>
       {burnedCount>0&&<button className="hud-alert-badge" onClick={()=>setDrawer('people')} title={`${burnedCount} team member${burnedCount>1?'s are':' is'} resting due to burnout`}>⚠ {burnedCount} Resting</button>}
       {creditDepleted&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('compute')} title="API credits depleted · paying for all inference from cash">⚠ Credits depleted</button>}
       {lowRunway&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('finance')} title="Runway critically low · under 2 months">⚠ Low runway</button>}

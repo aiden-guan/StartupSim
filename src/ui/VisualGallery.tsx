@@ -40,6 +40,12 @@ import { CampusOffice, GarageOffice, HQOffice, MegaCampus, ResearchLab } from '.
 import { DynamicEnvironment } from '../game3d/environment/DynamicEnvironment';
 import { layoutFor } from '../game3d/navigation/layout';
 import { offices } from '../data/offices';
+import { perks } from '../data/perks';
+import { promos } from '../data/promos';
+import { models } from '../data/models';
+import { PerkVisual } from '../game3d/props/PerkSet';
+import { PromoVisual } from '../game3d/props/PromoVisuals';
+import { ModelVisual } from '../game3d/props/ModelVisuals';
 
 const assets: { name: string; component: ComponentType<{ position: Vector3Tuple }>; offset?: number }[] = [
   { name: 'Laptop', component: Laptop },
@@ -90,7 +96,7 @@ function EnvironmentPreview({level}:{level:number}) {
   return <>{shell}<DynamicEnvironment state={view.environment} quality="medium"/></>;
 }
 
-function Framing({ mode, level }: { mode:'characters'|'props'|'environments';level:number }) {
+function Framing({ mode, level }: { mode:'characters'|'props'|'environments'|'catalog';level:number }) {
   const { camera } = useThree();
   useLayoutEffect(() => {
     if(mode==='environments') {
@@ -99,21 +105,29 @@ function Framing({ mode, level }: { mode:'characters'|'props'|'environments';lev
       camera.lookAt(...layout.camera.target);
       camera.far=500;camera.updateProjectionMatrix();
     } else {
-      camera.position.set(mode==='props'?3.2:0,mode==='props'?2.5:1.95,mode==='props'?4.2:5.1);
-      camera.lookAt(0,mode==='props'?.65:.92,0);
+      const objectMode=mode==='props'||mode==='catalog';
+      camera.position.set(objectMode?3.2:0,objectMode?2.5:1.95,objectMode?4.2:5.1);
+      camera.lookAt(0,objectMode?.65:.92,0);
     }
   }, [camera, mode, level]);
   return null;
 }
 
 export function VisualGallery() {
-  const [mode, setMode] = useState<'characters' | 'props' | 'environments'>('characters');
+  const [mode, setMode] = useState<'characters' | 'props' | 'environments' | 'catalog'>('characters');
   const [index, setIndex] = useState(0);
   const propsMode = mode === 'props';
   const person = referenceLooks[index % referenceLooks.length]!;
   const asset = assets[index % assets.length]!;
   const Asset = asset.component;
   const environmentMode=mode==='environments';
+  const catalogMode=mode==='catalog';
+  const catalogAssets=[
+    ...perks.map((item)=>({kind:'perk' as const,id:item.id,name:`Culture · ${item.name}`,level:item.upgrades.length-1})),
+    ...promos.map((item)=>({kind:'promo' as const,id:item.id,name:`Promotion · ${item.name}`})),
+    ...models.map((item)=>({kind:'model' as const,id:item.id,name:`Model · ${item.name}`})),
+  ];
+  const catalogAsset=catalogAssets[index%catalogAssets.length]!;
 
   return (
     <main className="asset-studio">
@@ -135,10 +149,13 @@ export function VisualGallery() {
           {import.meta.env.DEV&&<button aria-pressed={environmentMode} onClick={() => { setMode('environments'); setIndex(0); }}>
             Environment preview
           </button>}
+          {import.meta.env.DEV&&<button aria-pressed={catalogMode} onClick={() => { setMode('catalog'); setIndex(0); }}>
+            Choice visuals
+          </button>}
         </div>
         <p>Matte materials. Clean geometry. Consistent proportions.</p>
         <div className="studio-options">
-          {(environmentMode?offices:propsMode ? assets : referenceLooks).map((item, i) => (
+          {(environmentMode?offices:catalogMode?catalogAssets:propsMode ? assets : referenceLooks).map((item, i) => (
             <button key={item.name} aria-pressed={index === i} onClick={() => setIndex(i)}>
               <small>{String(i + 1).padStart(2, '0')}</small>
               <div className="text-left">
@@ -162,7 +179,9 @@ export function VisualGallery() {
             shadow-normalBias={0.025}
           />
           <Framing mode={mode} level={index%offices.length}/>
-          {environmentMode?<EnvironmentPreview level={index%offices.length}/> : propsMode ? (
+          {environmentMode?<EnvironmentPreview level={index%offices.length}/> : catalogMode ? (
+            catalogAsset.kind==='perk'?<PerkVisual perk={{id:catalogAsset.id,level:catalogAsset.level}}/>:catalogAsset.kind==='promo'?<PromoVisual id={catalogAsset.id}/>:<ModelVisual modelId={catalogAsset.id}/>
+          ) : propsMode ? (
             <Asset position={[0, asset.offset ?? 0, 0]} />
           ) : (
             <>
@@ -177,10 +196,12 @@ export function VisualGallery() {
           {!environmentMode&&<ContactShadows opacity={0.28} scale={8} blur={2.8} far={3} resolution={512} />}
         </Canvas>
         <div className="studio-caption">
-          <span className="eyebrow">{environmentMode?'DEV ONLY • progression preview':propsMode ? 'Office things' : `${person.role} • Front / 3/4`}</span>
-          <h2>{environmentMode?offices[index%offices.length]!.name:propsMode ? asset.name : `${person.name} — ${person.role}`}</h2>
+          <span className="eyebrow">{environmentMode?'DEV ONLY • progression preview':catalogMode?'DEV ONLY • choice visual registry':propsMode ? 'Office things' : `${person.role} • Front / 3/4`}</span>
+          <h2>{environmentMode?offices[index%offices.length]!.name:catalogMode?catalogAsset.name:propsMode ? asset.name : `${person.name} — ${person.role}`}</h2>
           <p>
-            {propsMode
+            {catalogMode
+              ? 'The same procedural visual language used by management choices and the office.'
+              : propsMode
               ? 'Simple shapes. Clear silhouettes. Consistent style. Built from the same palette.'
               : environmentMode ? 'A derived visual fixture for reviewing scale and company progression.'
               : 'Simple geometry. Consistent proportions. Easy to model. Game-ready.'}

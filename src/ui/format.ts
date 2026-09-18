@@ -11,6 +11,10 @@ export function pct(n: number): string {
   return `${n.toFixed(0)}%`;
 }
 
+export function modelPricePerMTok(n: number): string {
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
 export function compact(n: number): string {
   return money(n).replace("$", "");
 }

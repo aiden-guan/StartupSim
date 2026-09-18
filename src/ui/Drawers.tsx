@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { GameState } from "../simulation/types";
 import { useGame } from "../state/store";
 import { ProductsPanel, TasksPanel } from "./products/panels";
@@ -8,6 +9,10 @@ import { HiringPanel, PeoplePanel } from "./team/panels";
 export function Drawers({ game }: { game: GameState }) {
   const drawer = useGame((s) => s.drawer);
   const setDrawer = useGame((s) => s.setDrawer);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [drawer]);
   if (!drawer) return null;
   const body =
     drawer === "tasks" ? (
@@ -44,7 +49,7 @@ export function Drawers({ game }: { game: GameState }) {
     finance: "Ledger",
     compute: "Infrastructure",
     funding: "Capital partners",
-    perks: "Culture",
+    perks: "Culture & Promotion",
     world: "World",
     inbox: "Inbox",
     company: "Company",
@@ -53,6 +58,6 @@ export function Drawers({ game }: { game: GameState }) {
   return <section className={`workspace workspace-${drawer}`} aria-label={titles[drawer] ?? drawer}>
     <header className="workspace-header"><div><span className="eyebrow">{group?.label} / {game.company.name}</span><h2>{titles[drawer] ?? drawer}</h2></div><button aria-label="Close workspace" onClick={()=>setDrawer(null)}>✕</button></header>
     {group && group.items.filter(i=>!i.need||game.unlocks[i.need]).length>1 && <nav className="workspace-tabs">{group.items.filter(i=>!i.need||game.unlocks[i.need]).map(item=><button key={item.id} aria-current={drawer===item.id?'page':undefined} onClick={()=>setDrawer(item.id)}>{item.label}</button>)}</nav>}
-    <div className="workspace-body panel-scroll">{body}</div>
+    <div ref={bodyRef} className="workspace-body panel-scroll">{body}</div>
   </section>;
 }
