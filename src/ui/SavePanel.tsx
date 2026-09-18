@@ -56,7 +56,7 @@ export function SavePanel({
       onLoad(next);
       setMessage("Loaded a save file into this browser.");
     } catch {
-      setMessage("That file is not a Founder Mode save.");
+      setMessage("That file is not a Compounding save.");
     }
   }
 

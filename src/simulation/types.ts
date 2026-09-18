@@ -326,6 +326,8 @@ export interface Mail {
   recipient?: MailRecipientMeta;
   read: boolean;
   requiresResponse: boolean;
+  autoChargeDays?: number;
+  autoCharged?: boolean;
 }
 
 export interface MailChoice {
@@ -549,6 +551,7 @@ export interface ClockState {
   tick: number;
   reasonPaused: string | null;
   pauseReasons: PauseReason[];
+  prePauseSpeed?: 0 | 1 | 2 | 4 | 8;
 }
 
 export interface CompanyState {

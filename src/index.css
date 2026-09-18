@@ -326,6 +326,9 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .auto-assign-note { margin:8px 0 12px;font-size:11px;color:#4a6358;background:#e4eee4;padding:8px 10px; }
 .mail-profile { display:flex;gap:12px;align-items:center;margin:12px 0;padding:10px;background:#e8ecd9; }
 .mail-profile .character-portrait { width:52px;height:64px; }
+.mail-profile-header { display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-size:11px;color:#4d5f52;line-height:1.4; }
+.mail-profile-header strong { font-size:12px;font-weight:600;color:#1e3226; }
+.mail-profile-dot { color:#7e9180; }
 .mail-profile em { display:block;font-size:11px;color:#4d5f52;margin-top:4px;font-style:normal; }
 .mail-skills { display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:10px;color:#536c5d; }
 .office-benefits { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0; }

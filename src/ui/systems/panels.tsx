@@ -15,6 +15,8 @@ import { CharacterPortrait } from "../shared/CharacterPortrait";
 import { lookFromSeed } from "../../simulation/look";
 import { CompanyMark } from "../visuals/CompanyMark";
 import { archetypeLabel, worldConditionLabel } from "../../visuals/registry";
+import { isMinorFee } from "../../simulation/pause";
+import { BALANCE } from "../../config/balance";
 
 
 export { ResearchPanel } from './Research';
@@ -174,7 +176,9 @@ export function InboxPanel({ game }: { game: GameState }) {
               </small>
               <strong>{m.subject}</strong>
               <span>
-                {m.eventKind
+                {m.autoCharged
+                  ? `Auto-charged · ${m.impact ?? "Paid automatically"}`
+                  : m.eventKind
                   ? `${m.requiresResponse ? "Decision required" : "Company update"} · ${m.impact ?? m.body.slice(0, 48)}`
                   : m.requiresResponse
                   ? "Response needed"
@@ -187,12 +191,18 @@ export function InboxPanel({ game }: { game: GameState }) {
       {mail ? (
         <article className="mail-letter">
           {mail.eventKind ? (
-            <aside className={`mail-event-status ${mail.requiresResponse ? "needs-response" : "applied"}`}>
+            <aside className={`mail-event-status ${mail.autoCharged ? "applied" : mail.requiresResponse ? "needs-response" : "applied"}`}>
               <div>
                 <span className="mail-event-badge">{EVENT_KIND_LABELS[mail.eventKind]}</span>
-                <strong>{mail.requiresResponse ? "Decision required" : "Applied now"}</strong>
+                <strong>
+                  {mail.autoCharged
+                    ? "Paid automatically"
+                    : mail.requiresResponse
+                    ? "Decision required"
+                    : "Applied now"}
+                </strong>
               </div>
-              <p>{mail.impact ?? "This event changes your operating state now."}</p>
+              <p>{mail.impact ?? (mail.autoCharged ? "Auto-debited after remaining unaddressed." : "This event changes your operating state now.")}</p>
             </aside>
           ) : null}
 
@@ -245,12 +255,16 @@ export function InboxPanel({ game }: { game: GameState }) {
             <div className="mail-profile">
               <CharacterPortrait look={mail.profile.look} />
               <div>
-                <strong>{mail.profile.name}</strong>
-                <small>
-                  {mail.profile.title}
-                  {mail.profile.taskName ? ` · ${mail.profile.taskName}` : ""}
-                </small>
-                <span>Salary {money(mail.profile.salary)} / year</span>
+                <div className="mail-profile-header">
+                  <strong>{mail.profile.name}</strong>
+                  <span className="mail-profile-dot">·</span>
+                  <span>
+                    {mail.profile.title}
+                    {mail.profile.taskName ? ` · ${mail.profile.taskName}` : ""}
+                  </span>
+                  <span className="mail-profile-dot">·</span>
+                  <span>Salary {money(mail.profile.salary)} / year</span>
+                </div>
                 {mail.profile.projectImpact ? <em>{mail.profile.projectImpact}</em> : null}
                 <div className="mail-skills">
                   {Object.entries(mail.profile.skills)
@@ -279,6 +293,40 @@ export function InboxPanel({ game }: { game: GameState }) {
           ) : null}
 
           {mail.warning && <p className="decision-warning">⚠ {mail.warning}</p>}
+
+          {mail.requiresResponse && isMinorFee(mail, game) && (
+            <div className="bg-[#fef9c3] border border-[#fde047] text-[#854d0e] rounded-md px-3 py-2 text-xs mb-3 flex items-center gap-2">
+              <span className="font-bold">⏱</span>
+              <span>
+                <strong>Net {mail.autoChargeDays ?? BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS} Terms:</strong> Will auto-charge in{" "}
+                <strong>
+                  {Math.max(
+                    0,
+                    (mail.autoChargeDays ?? BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS) -
+                      (mail.createdTick !== undefined ? game.clock.tick - mail.createdTick : 0)
+                  )}{" "}
+                  day
+                  {Math.max(
+                    0,
+                    (mail.autoChargeDays ?? BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS) -
+                      (mail.createdTick !== undefined ? game.clock.tick - mail.createdTick : 0)
+                  ) === 1
+                    ? ""
+                    : "s"}
+                </strong>{" "}
+                if not contested.
+              </span>
+            </div>
+          )}
+
+          {mail.autoCharged && (
+            <div className="bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] rounded-md px-3 py-2 text-xs mb-3 flex items-center gap-2">
+              <span className="font-bold">✓</span>
+              <span>
+                <strong>Auto-debited:</strong> Payment was debited automatically after payment terms expired with no contest.
+              </span>
+            </div>
+          )}
 
           <div className="decision-choices">
             {mail.choices?.map((c) => {

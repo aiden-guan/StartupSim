@@ -4,7 +4,7 @@ import { events } from "../data/events";
 import { NEWS_CHAINS, type NewsChain, type NewsStage } from "../data/news";
 import { modelById, models } from "../data/models";
 import { reconcileTutorial, recordTutorialEvent, updateUnlocks } from "./tutorial";
-import { setPause } from "./pause";
+import { isMinorFee, setPause } from "./pause";
 import { specialProjects } from "../data/specialProjects";
 import { techById } from "../data/technologies";
 import { applyMarketEntryResults } from "../market/marketMap";
@@ -341,6 +341,12 @@ function maybeEvents(state: GameState, r: Rng): void {
   if (ev.id === "acquisition-inbound") {
     buildAcquisitionMail(state, r, mail);
   }
+  if (isMinorFee(mail, state) || isMinorFee(mail)) {
+    mail.autoChargeDays = BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS;
+    if (mail.impact) {
+      mail.impact += ` · Auto-charges in ${mail.autoChargeDays} days if not contested.`;
+    }
+  }
   if (!mail.recipient) {
     mail.recipient = {
       name: state.founder.name || "Founder",
@@ -489,6 +495,59 @@ function checkEndings(state: GameState): void {
   setPause(state, "ended", true);
 }
 
+export function processMinorFeeAutoCharges(state: GameState, r: Rng): void {
+  for (const mail of state.inbox) {
+    if (!mail.requiresResponse || mail.autoCharged) continue;
+    if (!isMinorFee(mail, state) && !isMinorFee(mail) && !mail.autoChargeDays) continue;
+
+    const chargeDays = mail.autoChargeDays ?? BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS;
+    if (mail.createdTick === undefined) {
+      mail.createdTick = state.clock.tick;
+    }
+    const elapsed = state.clock.tick - mail.createdTick;
+    if (elapsed >= chargeDays) {
+      const payChoice =
+        mail.choices?.find(
+          (c) =>
+            c.id === "pay" ||
+            (c.label.toLowerCase().startsWith("pay") &&
+              c.effects?.some((e) => e.type === "cash" && Number(e.value) < 0))
+        ) ?? mail.choices?.[0];
+
+      if (payChoice) {
+        if (payChoice.effects) {
+          applyEffects(state, payChoice.effects);
+        }
+        mail.requiresResponse = false;
+        mail.choices = undefined;
+        mail.autoCharged = true;
+
+        const cashEffect = payChoice.effects?.find(
+          (e) => e.type === "cash" && typeof e.value === "number"
+        );
+        const chargedAmount = cashEffect ? Math.abs(Number(cashEffect.value)) : 0;
+        const formattedAmount = chargedAmount > 0 ? `$${chargedAmount.toLocaleString()}` : "fee";
+
+        mail.impact = `Auto-charged ${formattedAmount} after ${chargeDays} days without response.`;
+        mail.body = `${mail.body}\n\n[Auto-Charged: ${formattedAmount} debited automatically after ${chargeDays} days with no contest or payment.]`;
+
+        state.news.unshift({
+          id: uid(r, "news"),
+          at: { ...state.clock.date },
+          headline: `Auto-debit: ${mail.subject}`,
+          body: `An unaddressed invoice from ${mail.from} (${formattedAmount}) reached payment terms (${chargeDays} days) and was debited automatically.`,
+          tone: "neutral",
+          createdTick: state.clock.tick,
+          impact: `Cash debited: -${formattedAmount}`,
+          read: false,
+          source: "Accounting",
+          category: "ledger",
+        });
+      }
+    }
+  }
+}
+
 export function tickDay(state: GameState): GameState {
   return produce(state, (draft) => {
     if (draft.endingId || draft.marketBattle || draft.marketResult) return;
@@ -497,6 +556,7 @@ export function tickDay(state: GameState): GameState {
     draft.clock.tick += 1;
     tickSocial(draft, r);
     releaseExpiredProviderOutages(draft, r);
+    processMinorFeeAutoCharges(draft, r);
     draft.hiring.cooldownDays = Math.max(0, draft.hiring.cooldownDays - 1);
     draft.funding.cooldownDays = Math.max(0, draft.funding.cooldownDays - 1);
 

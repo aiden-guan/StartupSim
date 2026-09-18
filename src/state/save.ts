@@ -2,7 +2,8 @@ import { openDB } from "idb";
 import type { GameState } from "../simulation/types";
 import { migrateGameState } from "./migrate";
 
-const DB = "founder-mode";
+const DB = "compounding";
+const LEGACY_DB = "founder-mode";
 const STORE = "saves";
 
 async function db() {
@@ -23,7 +24,23 @@ export interface SaveMeta {
 
 export async function listSaves(): Promise<SaveMeta[]> {
   const database = await db();
-  const keys = await database.getAllKeys(STORE);
+  let keys = await database.getAllKeys(STORE);
+  if (keys.length === 0 && typeof indexedDB !== "undefined") {
+    try {
+      const oldDb = await openDB(LEGACY_DB, 1);
+      if (oldDb.objectStoreNames.contains(STORE)) {
+        const oldKeys = await oldDb.getAllKeys(STORE);
+        for (const key of oldKeys) {
+          const row = await oldDb.get(STORE, key);
+          if (row) await database.put(STORE, row, key);
+        }
+      }
+      oldDb.close();
+      keys = await database.getAllKeys(STORE);
+    } catch {
+      // Legacy DB migration is best effort
+    }
+  }
   const metas: SaveMeta[] = [];
   for (const key of keys) {
     const row = await database.get(STORE, key);
@@ -54,7 +71,19 @@ export async function writeSave(id: string, state: GameState): Promise<void> {
 
 export async function readSave(id: string): Promise<GameState | null> {
   const database = await db();
-  const row = await database.get(STORE, id);
+  let row = await database.get(STORE, id);
+  if (!row && typeof indexedDB !== "undefined") {
+    try {
+      const oldDb = await openDB(LEGACY_DB, 1);
+      if (oldDb.objectStoreNames.contains(STORE)) {
+        row = await oldDb.get(STORE, id);
+        if (row) await database.put(STORE, row, id);
+      }
+      oldDb.close();
+    } catch {
+      // Legacy DB fallback is best effort
+    }
+  }
   return row?.state ? migrateGameState(row.state) : null;
 }
 
@@ -75,7 +104,7 @@ export function importSave(raw: string): GameState {
   if (parsed && typeof parsed === "object" && parsed.company && parsed.clock) {
     return migrateGameState(parsed as GameState);
   }
-  throw new Error("Not a Founder Mode save file");
+  throw new Error("Not a Compounding save file");
 }
 
 export function downloadSaveFile(state: GameState): void {

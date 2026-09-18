@@ -1,4 +1,4 @@
-import { setPause } from "./pause";
+import { isLifeOrDeathEvent, setPause, syncPause } from "./pause";
 import type { TutorialAction } from "../data/onboarding";
 import { produce } from "immer";
 import { BALANCE } from "../config/balance";
@@ -132,10 +132,38 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       case "setSpeed":
         draft.clock.speed = command.speed;
         setPause(draft, "manual", command.speed === 0);
-        if (command.speed > 0 && (currentTutorialSlide(draft)?.id === "start-clock" || currentTutorialSlide(draft)?.id === "team-ready")) recordTutorialEvent(draft, "startedClock");
+        if (command.speed > 0) {
+          if (draft.clock.pauseReasons.includes("event")) {
+            draft.clock.prePauseSpeed = command.speed;
+          }
+          if (currentTutorialSlide(draft)?.id === "start-clock" || currentTutorialSlide(draft)?.id === "team-ready") {
+            recordTutorialEvent(draft, "startedClock");
+          }
+        }
         break;
       case "setPaused":
-        setPause(draft, command.reason === "Inbox" ? "event" : "manual", command.paused);
+        if (command.reason === "Inbox") {
+          if (command.paused) {
+            if (!draft.clock.prePauseSpeed) {
+              draft.clock.prePauseSpeed = draft.clock.speed > 0 ? draft.clock.speed : 1;
+            }
+          }
+          setPause(draft, "event", command.paused);
+          if (!command.paused) {
+            if (draft.clock.prePauseSpeed) {
+              draft.clock.speed = draft.clock.prePauseSpeed;
+              draft.clock.prePauseSpeed = undefined;
+            }
+          }
+        } else {
+          setPause(draft, "manual", command.paused);
+          if (!command.paused) {
+            if (draft.clock.prePauseSpeed) {
+              draft.clock.speed = draft.clock.prePauseSpeed;
+              draft.clock.prePauseSpeed = undefined;
+            }
+          }
+        }
         break;
       case "continueMarketResults":
         if (!draft.marketResult) break;
@@ -672,7 +700,19 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         mail.requiresResponse = false;
         mail.read = true;
         mail.choices = undefined;
-        if (!draft.inbox.some(m=>m.requiresResponse)) setPause(draft,"event",false);
+
+        const hasRemainingCritical = draft.inbox.some((m) => m.requiresResponse && isLifeOrDeathEvent(m, draft));
+        if (!hasRemainingCritical && !draft.endingId) {
+          setPause(draft, "event", false);
+          setPause(draft, "manual", false);
+          if (draft.clock.prePauseSpeed) {
+            draft.clock.speed = draft.clock.prePauseSpeed;
+            draft.clock.prePauseSpeed = undefined;
+          } else if (draft.clock.speed === 0) {
+            draft.clock.speed = 1;
+          }
+          syncPause(draft);
+        }
         break;
       }
       case "readMail": {

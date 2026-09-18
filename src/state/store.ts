@@ -11,6 +11,7 @@ import type { TutorialAction } from "../data/onboarding";
 import { migrateGameState } from "./migrate";
 import { writeSave } from "./save";
 import { audio } from "../audio/Audio";
+import { isLifeOrDeathEvent } from "../simulation/pause";
 
 export interface EventFrame {
   id: string;
@@ -22,6 +23,7 @@ export interface EventFrame {
   requiresResponse?: boolean;
   sender?: string;
   senderOrg?: string;
+  critical?: boolean;
 }
 
 export interface Departure {
@@ -144,6 +146,7 @@ export const useGame = create<AppState>((set, get) => ({
     if (next && prev && next.company.seenMarket && !next.pendingMentor) {
       const gameplayMail = next.inbox.find((mail) => mail.eventKind && !prev.inbox.some((previousMail) => previousMail.id === mail.id));
       if (gameplayMail?.requiresResponse) {
+        const isCritical = isLifeOrDeathEvent(gameplayMail, next);
         patch.eventFrame = {
           id: gameplayMail.id,
           headline: gameplayMail.subject,
@@ -154,8 +157,12 @@ export const useGame = create<AppState>((set, get) => ({
           requiresResponse: gameplayMail.requiresResponse,
           sender: gameplayMail.sender?.name ?? gameplayMail.from,
           senderOrg: gameplayMail.sender?.organization,
+          critical: isCritical,
         };
       }
+    }
+    if (cmd.type === "mailChoice" && get().eventFrame?.mailId === cmd.mailId) {
+      patch.eventFrame = null;
     }
     if (next && prev && next.social && prev.social && !patch.eventFrame) {
       const newDms = next.social.dms.filter((dm) => !prev.social.dms.some((pdm) => pdm.id === dm.id));
@@ -202,7 +209,7 @@ export const useGame = create<AppState>((set, get) => ({
       !next.pendingMentor &&
       !next.marketBattle &&
       !next.marketResult &&
-      next.inbox.some((m) => m.requiresResponse && !prev.inbox.some((p) => p.id === m.id))
+      next.inbox.some((m) => m.requiresResponse && isLifeOrDeathEvent(m, next) && !prev.inbox.some((p) => p.id === m.id))
     ) {
       get().dispatch({ type: "setPaused", paused: true, reason: "Inbox" });
     }

@@ -1,7 +1,7 @@
 export const identity = {
-  title: "FOUNDER MODE",
+  title: "Compounding",
   subtitle: "Late 2022. Two laptops. No product.",
-  shortTitle: "FM",
+  shortTitle: "Compounding",
   mentorName: "Marcus Vale",
   mentorTitle: "Partner · Compound Capital",
   mentorEmail: "marcus@compound.capital",

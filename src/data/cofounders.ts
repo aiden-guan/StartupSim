@@ -15,7 +15,7 @@ export interface CofounderDef {
   department: DepartmentId;
 }
 
-/** Stylized Founder Mode likenesses built entirely from the shared CharacterLook kit. */
+/** Stylized Compounding likenesses built entirely from the shared CharacterLook kit. */
 export const cofounders: CofounderDef[] = [
   {
     id: "steve-wozniak", name: "Steve Wozniak", title: "Circuit Architect",

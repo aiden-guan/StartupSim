@@ -7,6 +7,7 @@ export function FeelLayer() {
   const setEventFrame = useGame((s) => s.setEventFrame);
   const setOfficeCaption = useGame((s) => s.setOfficeCaption);
   const setDrawer = useGame((s) => s.setDrawer);
+  const isPaused = useGame((s) => s.game?.clock.paused ?? false);
 
   useEffect(() => {
     if (!eventFrame || (eventFrame.surface !== "gameplay" && eventFrame.surface !== "social")) return;
@@ -26,10 +27,19 @@ export function FeelLayer() {
         <div className="game-event-layer" role="alert" aria-live="assertive" aria-atomic="true">
           <article className="game-event-card" aria-label="New message received">
             <header className="game-event-header">
-              <div className="game-event-mark" aria-hidden="true" style={{ backgroundColor: "#2e5241" }}>✉</div>
+              <div
+                className="game-event-mark"
+                aria-hidden="true"
+                style={{ backgroundColor: eventFrame.critical ? "#991b1b" : "#2e5241" }}
+              >
+                {eventFrame.critical ? "⚠" : "✉"}
+              </div>
               <div>
-                <span className="game-event-kicker" style={{ color: "#2e5241" }}>
-                  New message · response required
+                <span
+                  className="game-event-kicker"
+                  style={{ color: eventFrame.critical ? "#991b1b" : "#2e5241" }}
+                >
+                  {eventFrame.critical ? "Critical crisis · action required" : "New message · response required"}
                 </span>
                 {eventFrame.sender ? (
                   <div className="text-[11px] font-semibold text-[#1c2e24] mt-0.5">
@@ -47,7 +57,7 @@ export function FeelLayer() {
             ) : null}
             <p className="game-event-body">{eventFrame.body.slice(0, 160)}{eventFrame.body.length > 160 ? "…" : ""}</p>
             <footer className="game-event-footer">
-              <span>Simulation paused</span>
+              <span>{isPaused ? "Simulation paused" : "Simulation running"}</span>
               {eventFrame.mailId ? (
                 <button
                   onClick={() => {
@@ -55,7 +65,7 @@ export function FeelLayer() {
                     setEventFrame(null);
                   }}
                   style={{
-                    background: "#2e5241",
+                    background: eventFrame.critical ? "#991b1b" : "#2e5241",
                     color: "#f5f3e9",
                     padding: "4px 9px",
                     borderRadius: "3px",

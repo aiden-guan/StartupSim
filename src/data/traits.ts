@@ -31,7 +31,7 @@ export const traits: TraitDef[] = [
   { id: "paper-machine", name: "Paper Machine", description: "A preprint is a product, in a sense.", worker: { research: 7, growth: -3 } },
   { id: "posts", name: "Posts Through It", description: "The strategy is a thread.", worker: { growth: 7, research: -2 }, company: { hype: 1 } },
   { id: "empathy", name: "User Empathy", description: "Has actually watched someone use the thing.", worker: { product: 6, growth: 2 } },
-  // Founder Mode roster traits. Modest, specialized bonuses keep the choice in the base skills and equity tradeoff.
+  // Compounding roster traits. Modest, specialized bonuses keep the choice in the base skills and equity tradeoff.
   { id: "circuit-craft", name: "Circuit Craft", description: "Makes the prototype sing; leaves the launch plan to others.", worker: { engineering: 4, product: 1, growth: -1 } },
   { id: "systems-builder", name: "Systems Builder", description: "Connects components carefully, even when the demo is due.", worker: { engineering: 3, research: 2, productivity: -1 } },
   { id: "search-systems", name: "Search Systems", description: "Sees a bigger research problem behind the immediate task.", worker: { research: 4, product: 1, productivity: -1 } },

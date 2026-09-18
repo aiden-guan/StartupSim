@@ -1,6 +1,7 @@
 import { techById } from "../data/technologies";
 import { modelById } from "../data/models";
 import type { Effect, GameState, WorldState } from "./types";
+import { setPause } from "./pause";
 
 const SERVICE_PRODUCT_STATUSES = new Set(["active", "mature", "declining"]);
 const MIGRATABLE_PRODUCT_STATUSES = new Set(["development", "ready", "active", "mature", "declining"]);
@@ -188,7 +189,7 @@ export function applyEffect(state: GameState, effect: Effect): void {
     case "ending":
       if (typeof v === "string") {
         state.endingId = v;
-        state.clock.paused = true;
+        setPause(state, "ended", true);
       }
       break;
     case "regulation":
