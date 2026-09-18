@@ -91,6 +91,7 @@ export interface LeaderboardQueryResponse {
   entries: LeaderboardEntry[];
   total: number;
   userRank?: number;
+  source?: "global" | "local";
 }
 
 export interface LeaderboardSubmitResponse {

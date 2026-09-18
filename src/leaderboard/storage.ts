@@ -1,320 +1,223 @@
 import type { LeaderboardEntry, LeaderboardFilter } from "./types.js";
 
-export const SEEDED_LEGENDS: LeaderboardEntry[] = [
-  {
-    id: "legend_sama",
-    handle: "SAMA",
-    companyName: "OpenBrain",
-    founderName: "Sam Altman",
-    score: 1_450_000,
-    tier: "SSS",
-    endingId: "monopoly",
-    endingTitle: "Infrastructure",
-    valuation: 157_000_000_000,
-    cash: 12_000_000_000,
-    arr: 11_400_000_000,
-    year: 2026,
-    daysElapsed: 1150,
-    productsCount: 6,
-    employeesCount: 45,
-    achievements: [
-      "first-ship",
-      "ten-k-arr",
-      "one-m-arr",
-      "ten-m-arr",
-      "unicorn-club",
-      "decacorn",
-      "infrastructure-monopoly",
-      "frontier-builder",
-      "sovereign-silicon",
-      "megawatt-mind",
-      "hype-beast",
-    ],
-    quote: "The compute curve bends upward.",
-    verified: true,
-    createdAt: 1700000000000,
-  },
-  {
-    id: "legend_ilya",
-    handle: "ILYA",
-    companyName: "SafeIntelligence",
-    founderName: "Ilya Sutskever",
-    score: 1_180_000,
-    tier: "SS",
-    endingId: "ai-science",
-    endingTitle: "Discovery Engine",
-    valuation: 5_000_000_000,
-    cash: 1_000_000_000,
-    arr: 0,
-    year: 2025,
-    daysElapsed: 890,
-    productsCount: 1,
-    employeesCount: 18,
-    achievements: [
-      "first-ship",
-      "unicorn-club",
-      "frontier-builder",
-      "autonomous-frontier",
-      "megawatt-mind",
-      "flawless-record",
-    ],
-    quote: "Straight line to safe superintelligence.",
-    verified: true,
-    createdAt: 1705000000000,
-  },
-  {
-    id: "legend_jensen",
-    handle: "JENSEN",
-    companyName: "SiliconForge",
-    founderName: "Jensen Huang",
-    score: 1_120_000,
-    tier: "SS",
-    endingId: "monopoly",
-    endingTitle: "Infrastructure",
-    valuation: 3_200_000_000_000,
-    cash: 34_000_000_000,
-    arr: 60_000_000_000,
-    year: 2026,
-    daysElapsed: 1200,
-    productsCount: 8,
-    employeesCount: 60,
-    achievements: [
-      "first-ship",
-      "ten-k-arr",
-      "one-m-arr",
-      "ten-m-arr",
-      "unicorn-club",
-      "decacorn",
-      "sovereign-silicon",
-      "infrastructure-monopoly",
-      "frontline-squad",
-    ],
-    quote: "The more intelligence you buy, the more you save.",
-    verified: true,
-    createdAt: 1708000000000,
-  },
-  {
-    id: "legend_dario",
-    handle: "DARIO",
-    companyName: "ConstitutionalAI",
-    founderName: "Dario Amodei",
-    score: 980_000,
-    tier: "SS",
-    endingId: "ipo",
-    endingTitle: "Public",
-    valuation: 40_000_000_000,
-    cash: 4_000_000_000,
-    arr: 3_800_000_000,
-    year: 2025,
-    daysElapsed: 950,
-    productsCount: 4,
-    employeesCount: 35,
-    achievements: [
-      "first-ship",
-      "ten-k-arr",
-      "one-m-arr",
-      "ten-m-arr",
-      "unicorn-club",
-      "decacorn",
-      "ring-the-bell",
-      "flawless-record",
-    ],
-    quote: "Responsible scaling with mathematical rigor.",
-    verified: true,
-    createdAt: 1710000000000,
-  },
-  {
-    id: "legend_andrej",
-    handle: "ANDREJ",
-    companyName: "EurekaLabs",
-    founderName: "Andrej Karpathy",
-    score: 780_000,
-    tier: "S",
-    endingId: "research-lab",
-    endingTitle: "Lab, Not a Company",
-    valuation: 850_000_000,
-    cash: 120_000_000,
-    arr: 15_000_000,
-    year: 2025,
-    daysElapsed: 720,
-    productsCount: 2,
-    employeesCount: 14,
-    achievements: [
-      "first-ship",
-      "ten-k-arr",
-      "one-m-arr",
-      "ten-m-arr",
-      "open-weights",
-      "flawless-record",
-    ],
-    quote: "Software 2.0 is eating software 1.0.",
-    verified: true,
-    createdAt: 1712000000000,
-  },
-  {
-    id: "legend_viktor",
-    handle: "VIKTOR",
-    companyName: "NexaAI",
-    founderName: "Viktor Brandt",
-    score: 560_000,
-    tier: "A",
-    endingId: "unicorn",
-    endingTitle: "Unicorn",
-    valuation: 1_400_000_000,
-    cash: 45_000_000,
-    arr: 22_000_000,
-    year: 2024,
-    daysElapsed: 640,
-    productsCount: 3,
-    employeesCount: 28,
-    achievements: [
-      "first-ship",
-      "ten-k-arr",
-      "one-m-arr",
-      "ten-m-arr",
-      "unicorn-club",
-      "hype-beast",
-    ],
-    quote: "Enterprise lock-in beats idealism every time.",
-    verified: true,
-    createdAt: 1714000000000,
-  },
-  {
-    id: "legend_sam_c",
-    handle: "SAM_C",
-    companyName: "ShipOrSink",
-    founderName: "Sam Rivera",
-    score: 380_000,
-    tier: "B",
-    endingId: "quiet-profit",
-    endingTitle: "Quiet Profitability",
-    valuation: 14_000_000,
-    cash: 8_500_000,
-    arr: 4_200_000,
-    year: 2024,
-    daysElapsed: 510,
-    productsCount: 3,
-    employeesCount: 4,
-    achievements: [
-      "first-ship",
-      "ten-k-arr",
-      "one-m-arr",
-      "bootstrapped",
-      "quiet-operator",
-    ],
-    quote: "Ship features, bank profit, ignore the timeline.",
-    verified: true,
-    createdAt: 1716000000000,
-  },
-];
+const MAX_ROWS = 5000;
 
-// In-memory store initialized with legends
-let memoryEntries: LeaderboardEntry[] = [...SEEDED_LEGENDS];
+interface ProcessLike {
+  env?: Record<string, string | undefined>;
+}
 
-// Attempt to read from / write to local file cache in Node runtime (Vite dev or Vercel serverless)
-async function loadPersistedFile(): Promise<void> {
-  const g = globalThis as any;
-  if (typeof g.process !== "undefined" && g.process.versions?.node) {
-    try {
-      const fsMod = "node:" + "fs/promises";
-      const pathMod = "node:" + "path";
-      const fs = await import(/* @vite-ignore */ fsMod);
-      const path = await import(/* @vite-ignore */ pathMod);
-      const filePath = path.resolve(g.process.cwd(), ".leaderboard-store.json");
-      const content = await fs.readFile(filePath, "utf-8");
-      const parsed = JSON.parse(content) as LeaderboardEntry[];
-      if (Array.isArray(parsed) && parsed.length) {
-        // Merge with legends
-        const map = new Map<string, LeaderboardEntry>();
-        for (const item of SEEDED_LEGENDS) map.set(item.id, item);
-        for (const item of parsed) map.set(item.id, item);
-        memoryEntries = Array.from(map.values());
-      }
-    } catch {
-      // File does not exist yet, memoryEntries remains default
-    }
+interface SupabaseRow {
+  id: string;
+  handle: string;
+  company_name: string;
+  founder_name: string;
+  score: number | string;
+  tier: LeaderboardEntry["tier"];
+  ending_id: string;
+  ending_title: string;
+  valuation: number | string;
+  cash: number | string;
+  arr: number | string;
+  year: number | string;
+  days_elapsed: number | string;
+  products_count: number | string;
+  employees_count: number | string;
+  achievements: unknown;
+  quote: string;
+  verified: boolean;
+  created_at: string;
+}
+
+interface SupabaseConfig {
+  functionUrl: string;
+  token: string;
+}
+
+let memoryEntries: LeaderboardEntry[] = [];
+
+function getSupabaseConfig(): SupabaseConfig | null {
+  const processLike = (globalThis as { process?: ProcessLike }).process;
+  const functionUrl = processLike?.env?.STARTUPSIM_LEADERBOARD_URL?.trim().replace(/\/$/, "");
+  const token = processLike?.env?.STARTUPSIM_LEADERBOARD_TOKEN?.trim();
+
+  if (!functionUrl || !token) return null;
+  return { functionUrl, token };
+}
+
+export function isDurableLeaderboardConfigured(): boolean {
+  return getSupabaseConfig() !== null;
+}
+
+function finiteNumber(value: unknown, fallback = 0): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function rowToEntry(row: SupabaseRow): LeaderboardEntry {
+  const parsedCreatedAt = Date.parse(row.created_at);
+
+  return {
+    id: row.id,
+    handle: row.handle,
+    companyName: row.company_name,
+    founderName: row.founder_name,
+    score: finiteNumber(row.score),
+    tier: row.tier,
+    endingId: row.ending_id,
+    endingTitle: row.ending_title,
+    valuation: finiteNumber(row.valuation),
+    cash: finiteNumber(row.cash),
+    arr: finiteNumber(row.arr),
+    year: finiteNumber(row.year),
+    daysElapsed: finiteNumber(row.days_elapsed),
+    productsCount: finiteNumber(row.products_count),
+    employeesCount: finiteNumber(row.employees_count),
+    achievements: Array.isArray(row.achievements)
+      ? row.achievements.filter((id): id is string => typeof id === "string")
+      : [],
+    quote: row.quote,
+    verified: row.verified === true,
+    createdAt: Number.isFinite(parsedCreatedAt) ? parsedCreatedAt : Date.now(),
+  };
+}
+
+function entryToRow(entry: LeaderboardEntry): Record<string, unknown> {
+  return {
+    id: entry.id,
+    handle: entry.handle,
+    company_name: entry.companyName,
+    founder_name: entry.founderName,
+    score: Math.round(entry.score),
+    tier: entry.tier,
+    ending_id: entry.endingId,
+    ending_title: entry.endingTitle,
+    valuation: Math.round(entry.valuation),
+    cash: Math.round(entry.cash),
+    arr: Math.round(entry.arr),
+    year: Math.round(entry.year),
+    days_elapsed: Math.round(entry.daysElapsed),
+    products_count: Math.round(entry.productsCount),
+    employees_count: Math.round(entry.employeesCount),
+    achievements: entry.achievements,
+    quote: entry.quote,
+    verified: true,
+    created_at: new Date(entry.createdAt).toISOString(),
+  };
+}
+
+async function supabaseRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const config = getSupabaseConfig();
+  if (!config) throw new Error("Supabase leaderboard storage is not configured");
+
+  const response = await fetch(`${config.functionUrl}${path}`, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      "x-startupsim-token": config.token,
+      ...(init?.body ? { "Content-Type": "application/json" } : {}),
+      ...init?.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 240);
+    throw new Error(`Supabase leaderboard request failed (${response.status})${detail ? `: ${detail}` : ""}`);
+  }
+
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
+}
+
+function filterEntries(entries: LeaderboardEntry[], filter: LeaderboardFilter): LeaderboardEntry[] {
+  if (filter === "all") return entries;
+
+  switch (filter) {
+    case "unicorn":
+      return entries.filter((entry) => entry.valuation >= 1_000_000_000 || entry.endingId === "unicorn");
+    case "ipo":
+      return entries.filter((entry) => entry.endingId === "ipo");
+    case "monopoly":
+      return entries.filter((entry) => entry.endingId === "monopoly");
+    case "quiet-profit":
+      return entries.filter((entry) => entry.endingId === "quiet-profit");
+    case "bootstrapped":
+      return entries.filter((entry) => entry.achievements.includes("bootstrapped"));
   }
 }
 
-async function writePersistedFile(): Promise<void> {
-  const g = globalThis as any;
-  if (typeof g.process !== "undefined" && g.process.versions?.node) {
-    try {
-      const fsMod = "node:" + "fs/promises";
-      const pathMod = "node:" + "path";
-      const fs = await import(/* @vite-ignore */ fsMod);
-      const path = await import(/* @vite-ignore */ pathMod);
-      const filePath = path.resolve(g.process.cwd(), ".leaderboard-store.json");
-      await fs.writeFile(filePath, JSON.stringify(memoryEntries, null, 2), "utf-8");
-    } catch {
-      // File write is best-effort
-    }
-  }
+function rankEntries(entries: LeaderboardEntry[], limit: number): LeaderboardEntry[] {
+  return [...entries]
+    .sort((a, b) => b.score - a.score || a.createdAt - b.createdAt)
+    .slice(0, limit)
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
 }
 
-// Initial best-effort file load
-void loadPersistedFile();
+function normalizedLimit(limit: number | undefined): number {
+  if (limit === undefined || !Number.isFinite(limit)) return 50;
+  return Math.min(MAX_ROWS, Math.max(1, Math.floor(limit)));
+}
+
+async function getRemoteEntries(): Promise<LeaderboardEntry[]> {
+  const select = [
+    "id",
+    "handle",
+    "company_name",
+    "founder_name",
+    "score",
+    "tier",
+    "ending_id",
+    "ending_title",
+    "valuation",
+    "cash",
+    "arr",
+    "year",
+    "days_elapsed",
+    "products_count",
+    "employees_count",
+    "achievements",
+    "quote",
+    "verified",
+    "created_at",
+  ].join(",");
+  const rows = await supabaseRequest<SupabaseRow[]>(
+    `?select=${select}&order=score.desc,created_at.asc&limit=${MAX_ROWS}`,
+  );
+  return rows.map(rowToEntry);
+}
 
 export async function getLeaderboardEntries(options?: {
   filter?: LeaderboardFilter;
   limit?: number;
 }): Promise<LeaderboardEntry[]> {
-  await loadPersistedFile();
-
-  let filtered = [...memoryEntries];
-
-  if (options?.filter && options.filter !== "all") {
-    switch (options.filter) {
-      case "unicorn":
-        filtered = filtered.filter(
-          (e) => e.valuation >= 1_000_000_000 || e.endingId === "unicorn"
-        );
-        break;
-      case "ipo":
-        filtered = filtered.filter((e) => e.endingId === "ipo");
-        break;
-      case "monopoly":
-        filtered = filtered.filter((e) => e.endingId === "monopoly");
-        break;
-      case "quiet-profit":
-        filtered = filtered.filter((e) => e.endingId === "quiet-profit");
-        break;
-      case "bootstrapped":
-        filtered = filtered.filter((e) => e.achievements.includes("bootstrapped"));
-        break;
-    }
-  }
-
-  filtered.sort((a, b) => b.score - a.score);
-
-  const limit = options?.limit ?? 50;
-  const sliced = filtered.slice(0, limit);
-
-  return sliced.map((entry, index) => ({
-    ...entry,
-    rank: index + 1,
-  }));
+  const filter = options?.filter ?? "all";
+  const limit = normalizedLimit(options?.limit);
+  const entries = isDurableLeaderboardConfigured() ? await getRemoteEntries() : memoryEntries;
+  return rankEntries(filterEntries(entries, filter), limit);
 }
 
-export async function saveLeaderboardEntry(
-  entry: LeaderboardEntry
-): Promise<{ rank: number }> {
-  await loadPersistedFile();
+async function getRemoteEntryById(id: string): Promise<LeaderboardEntry | null> {
+  const rows = await supabaseRequest<SupabaseRow[]>(`?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
+  return rows[0] ? rowToEntry(rows[0]) : null;
+}
 
-  // Deduplicate by entry.id (runId)
-  const existingIdx = memoryEntries.findIndex((e) => e.id === entry.id);
-  if (existingIdx >= 0) {
-    // Update if score is higher
-    if (entry.score > memoryEntries[existingIdx]!.score) {
-      memoryEntries[existingIdx] = entry;
+export async function saveLeaderboardEntry(entry: LeaderboardEntry): Promise<{ rank: number }> {
+  if (!isDurableLeaderboardConfigured()) {
+    const existing = memoryEntries.find((candidate) => candidate.id === entry.id);
+    if (!existing || entry.score > existing.score) {
+      memoryEntries = [...memoryEntries.filter((candidate) => candidate.id !== entry.id), entry];
     }
   } else {
-    memoryEntries.push(entry);
+    const existing = await getRemoteEntryById(entry.id);
+    if (!existing || entry.score > existing.score) {
+      await supabaseRequest<SupabaseRow[]>("?on_conflict=id", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify(entryToRow(entry)),
+      });
+    }
   }
 
-  memoryEntries.sort((a, b) => b.score - a.score);
-  await writePersistedFile();
-
-  const rank = memoryEntries.findIndex((e) => e.id === entry.id) + 1;
-  return { rank: rank > 0 ? rank : memoryEntries.length };
+  const ranked = await getLeaderboardEntries({ limit: MAX_ROWS });
+  const saved = ranked.find((candidate) => candidate.id === entry.id);
+  return { rank: saved?.rank ?? ranked.length + 1 };
 }

@@ -25,7 +25,7 @@ function createMockRes() {
 }
 
 describe("Leaderboard API Handler", () => {
-  it("handles GET request and returns leaderboard rankings", async () => {
+  it("handles an empty GET request without inventing placements", async () => {
     const req: any = {
       method: "GET",
       query: { filter: "all", limit: "10" },
@@ -37,8 +37,8 @@ describe("Leaderboard API Handler", () => {
     expect(res.statusCode).toBe(200);
     expect(res.data).toBeDefined();
     expect(Array.isArray(res.data.entries)).toBe(true);
-    expect(res.data.entries.length).toBeGreaterThan(0);
-    expect(res.data.entries[0].score).toBeGreaterThanOrEqual(res.data.entries[1].score);
+    expect(res.data.entries).toHaveLength(0);
+    expect(res.data.source).toBe("local");
   });
 
   it("handles POST request with a valid run and publishes entry with rank", async () => {

@@ -4,7 +4,6 @@ import { monthlyArr } from "../simulation/conditions";
 import type { GameState } from "../simulation/types";
 import { computeRunSeal, sanitizeHandle, sanitizeQuote } from "./security";
 import { getDaysElapsed } from "./scoring";
-import { SEEDED_LEGENDS } from "./storage";
 import type {
   LeaderboardEntry,
   LeaderboardFilter,
@@ -59,21 +58,16 @@ export async function fetchLeaderboard(
     if (res.ok) {
       const data = (await res.json()) as LeaderboardQueryResponse;
       if (Array.isArray(data.entries)) {
-        return data;
+        return { ...data, source: data.source ?? "global" };
       }
     }
   } catch {
-    // Network or API failure fallback to local + seeded legends
+    // Network or API failure fallback to the player's local archive.
   }
 
   // Offline or network fallback
   const local = await getLocalRuns();
-  let merged = [...SEEDED_LEGENDS];
-  for (const item of local) {
-    if (!merged.some((m) => m.id === item.id)) {
-      merged.push(item);
-    }
-  }
+  let merged = [...local];
 
   if (filter !== "all") {
     switch (filter) {
@@ -101,6 +95,7 @@ export async function fetchLeaderboard(
   return {
     entries: sliced,
     total: merged.length,
+    source: "local",
   };
 }
 
@@ -191,7 +186,8 @@ export async function submitRunToLeaderboard(
     // Network error: best effort local save
   }
 
-  // If network unreachable, construct local verified entry and save locally
+  // If the network is unreachable, keep a local archive but do not pretend the run
+  // was published to the global ledger.
   const localEntry: LeaderboardEntry = {
     id: runId,
     handle: submission.handle,
@@ -216,8 +212,8 @@ export async function submitRunToLeaderboard(
 
   await saveRunLocally(localEntry);
   return {
-    success: true,
+    success: false,
     entry: localEntry,
-    rank: 1,
+    error: "Leaderboard unavailable. Your run was saved locally, but it was not published.",
   };
 }

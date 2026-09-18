@@ -7,4 +7,4 @@ dist
 !.env.example
 coverage
 .vercel
-.leaderboard*.json
+supabase/.temp

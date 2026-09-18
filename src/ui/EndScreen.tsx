@@ -244,15 +244,15 @@ export function EndScreen({ game }: { game: GameState }) {
 
           {publishedRank !== null ? (
             <div className="mt-6 rounded-xl border border-amber-400/40 bg-amber-500/15 p-5 text-center">
-              <div className="font-mono text-3xl font-extrabold text-amber-300">
-                🎉 PUBLISHED! RANK #{publishedRank}
+                <div className="font-mono text-3xl font-extrabold text-amber-300">
+                RECORDED · RANK #{publishedRank}
               </div>
               <p className="mt-2 text-sm text-[#d8d1c4]">
-                Your score of <strong className="text-paper">{breakdown.totalScore.toLocaleString()} PTS</strong> is now officially enshrined in the global records.
+                Your verified score of <strong className="text-paper">{breakdown.totalScore.toLocaleString()} PTS</strong> is now in the global ledger.
               </p>
               <div className="mt-4 flex justify-center gap-3">
                 <GameButton tone="primary" onClick={() => setLeaderboardOpen(true)}>
-                  View Hall of Fame →
+                  View the ledger →
                 </GameButton>
               </div>
             </div>
@@ -318,7 +318,7 @@ export function EndScreen({ game }: { game: GameState }) {
             className="font-mono text-xs font-semibold uppercase tracking-wider text-[#c4622d] hover:underline"
             onClick={() => setLeaderboardOpen(true)}
           >
-            🏆 View Hall of Fame / Leaderboard
+            View verified run ledger
           </button>
 
           <button
