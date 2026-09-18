@@ -1,5 +1,5 @@
-import { monthlyArr } from "./conditions";
-import type { GameState } from "./types";
+import { monthlyArr } from "./conditions.js";
+import type { GameState } from "./types.js";
 
 /** Stable identity check used by both the dilution mechanic and achievements. */
 export function isEduardoSaverin(employee: { id?: string; name?: string; traits?: string[] }): boolean {

@@ -1,7 +1,7 @@
-import { ACHIEVEMENT_MAP } from "../simulation/achievements";
-import { ENDINGS } from "../simulation/endings";
-import { calculateScoreFromComponents } from "./scoring";
-import type { LeaderboardEntry, LeaderboardSubmission, ScoreBreakdown } from "./types";
+import { ACHIEVEMENT_MAP } from "../simulation/achievements.js";
+import { ENDINGS } from "../simulation/endings.js";
+import { calculateScoreFromComponents } from "./scoring.js";
+import type { LeaderboardEntry, LeaderboardSubmission, ScoreBreakdown } from "./types.js";
 
 const RUN_SALT = "compounding_ai_seed_salt_982348_prod";
 

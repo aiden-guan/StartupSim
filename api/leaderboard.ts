@@ -1,6 +1,6 @@
-import { validateRunIntegrity } from "../src/leaderboard/security";
-import { getLeaderboardEntries, saveLeaderboardEntry } from "../src/leaderboard/storage";
-import type { LeaderboardFilter, LeaderboardSubmission } from "../src/leaderboard/types";
+import { validateRunIntegrity } from "../src/leaderboard/security.js";
+import { getLeaderboardEntries, saveLeaderboardEntry } from "../src/leaderboard/storage.js";
+import type { LeaderboardFilter, LeaderboardSubmission } from "../src/leaderboard/types.js";
 
 interface VercelRequest {
   url?: string;

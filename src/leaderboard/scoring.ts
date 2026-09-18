@@ -1,7 +1,7 @@
-import { ACHIEVEMENT_MAP } from "../simulation/achievements";
-import { monthlyArr } from "../simulation/conditions";
-import type { GameState } from "../simulation/types";
-import type { ScoreBreakdown, ScoreTier } from "./types";
+import { ACHIEVEMENT_MAP } from "../simulation/achievements.js";
+import { monthlyArr } from "../simulation/conditions.js";
+import type { GameState } from "../simulation/types.js";
+import type { ScoreBreakdown, ScoreTier } from "./types.js";
 
 const ENDING_BONUSES: Record<string, number> = {
   monopoly: 250_000,

@@ -1,4 +1,4 @@
-import type { LeaderboardEntry, LeaderboardFilter } from "./types";
+import type { LeaderboardEntry, LeaderboardFilter } from "./types.js";
 
 export const SEEDED_LEGENDS: LeaderboardEntry[] = [
   {

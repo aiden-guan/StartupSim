@@ -27,7 +27,7 @@ function leaderboardDevPlugin(): Plugin {
             };
             (res as any).json = sendJson;
 
-            const { default: handler } = await import("./api/leaderboard");
+            const { default: handler } = await import("./api/leaderboard.ts");
 
             if (req.method === "POST") {
               let body = "";
@@ -70,4 +70,3 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
   },
 });
-

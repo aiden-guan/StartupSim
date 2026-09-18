@@ -1,6 +1,6 @@
-import { monthlyArr } from "./conditions";
-import { grossMargin, monthlyBurn } from "./derived";
-import type { GameState } from "./types";
+import { monthlyArr } from "./conditions.js";
+import { grossMargin, monthlyBurn } from "./derived.js";
+import type { GameState } from "./types.js";
 
 export const ENDINGS: Record<string, { title: string; line: string }> = {
   bankruptcy: { title: "Runway Zero", line: "The apartment lights stayed on a few extra days out of habit." },
