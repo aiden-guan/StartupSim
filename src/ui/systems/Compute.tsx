@@ -12,6 +12,8 @@ import { GameButton } from "../shared/controls";
 import { CompanyMark } from "../visuals/CompanyMark";
 import { MiniaturePreview } from "../visuals/MiniaturePreview";
 import { ModelGlyph } from "../visuals/ModelGlyph";
+import { deriveEnvironmentVisualState } from "../../game3d/environment/environmentVisualState";
+import { computeRackLayout, requestedComputeRacks } from "../../game3d/environment/computeLayout";
 
 const DEPTS: DepartmentId[] = ["engineering", "support", "sales", "marketing", "finance", "recruiting", "legal", "research", "management"];
 const SERVICE_PRODUCT_STATUSES = new Set(["active", "mature", "declining"]);
@@ -30,6 +32,8 @@ export function ComputePanel({ game }: { game: GameState }) {
   const visibleModels = models.filter((model) => model.provider !== "You" || game.ownedModels.includes(model.id));
   const selected = visibleModels.find((model) => model.id === selectedId) ?? visibleModels.find((model) => model.id === game.currentModelId) ?? visibleModels[0]!;
   const selectedAvailable = isModelAvailable(game, selected.id);
+  const visualState = deriveEnvironmentVisualState(game);
+  const rackPlan = computeRackLayout(game.company.officeLevel, requestedComputeRacks(visualState));
 
   return <div className="compute-console">
     <div className="workspace-intro">
@@ -37,7 +41,7 @@ export function ComputePanel({ game }: { game: GameState }) {
       <span className={`system-online ${outage ? "disrupted" : ""}`}>{outage ? `● ${outage.provider} disruption` : "● Systems online"}</span>
     </div>
     {outage && <section className="provider-outage-banner" role="status"><CompanyMark name={outage.provider} /><div><span className="eyebrow">Active gameplay event</span><strong>{outage.provider} is unavailable</strong><p>{affectedProducts.length ? `${affectedProducts.length} active product${affectedProducts.length > 1 ? "s are" : " is"} exposed. Revenue is reduced until you migrate or service returns.` : "No active product is currently exposed. The provider remains unavailable for new selections."}</p><small>{outageDays} days remaining · choose a fallback in the Inbox event</small></div></section>}
-    <section className="capacity-display" data-tutorial="compute-capacity"><div className="rack-graphic">{Array.from({ length: 5 }, (_, index) => <div key={index}><i /><i /><span /></div>)}</div><div><span className="eyebrow">Self-hosted inference</span><strong>{money(coverage)}<small>equivalent API cost covered / week</small></strong><div className="progress-track"><i style={{ width: `${load}%` }} /></div><p>{coverage ? `${Math.round(load)}% capacity in use` : "Using hosted APIs · no dedicated GPUs"} · {money(Math.max(0, demand - coverage))}/week served by APIs</p></div></section>
+    <section className="capacity-display" data-tutorial="compute-capacity"><div className="rack-graphic">{Array.from({ length: 5 }, (_, index) => <div key={index}><i /><i /><span /></div>)}</div><div><span className="eyebrow">Self-hosted inference</span><strong>{money(coverage)}<small>equivalent API cost covered / week</small></strong><div className="progress-track"><i style={{ width: `${load}%` }} /></div><p>{coverage ? `${Math.round(load)}% capacity in use` : "Using hosted APIs · no dedicated GPUs"} · {money(Math.max(0, demand - coverage))}/week served by APIs</p><small className="compute-footprint-note">Office footprint · {rackPlan.shown} of {rackPlan.requested} rack{rackPlan.requested === 1 ? "" : "s"} shown{rackPlan.overflow ? ` · ${rackPlan.overflow} stays off-floor` : ""}</small></div></section>
     <div className="compute-metrics">{[["API credits", money(game.compute.apiCredits)], ["Training budget / day", money(game.compute.apiCredits + leftover)], ["Training demand / day", money(training.demand)], ["Fixed cloud / month", money(fixedComputeCost(game))], ["Total compute / month", money(monthlyCompute(game))]].map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
     {training.blocked && <p className="inline-warning">Blocked by compute. Product and research work cannot advance until you rent GPUs, buy a cluster, or restore API credits.</p>}
     {training.demand > 0 && !training.blocked && training.ratio < 1 && <p className="inline-warning">Training compute is oversubscribed. Development is running at {Math.round(training.ratio * 100)}% speed. Add capacity or pause a project.</p>}

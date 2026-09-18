@@ -54,7 +54,7 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
     <Bevel position={[.3,.005,4.65]} size={[1.48,.018,.72]} color="#829386" radius={.008}/>
     {interactive ? <>
       <Hotspot id="founderDesk" position={[-2.35,1,-2.1]} label="Founder desk" onClick={onObject} size={[1.5,1.2,1]}/>
-      <Hotspot id="coffee" position={[4.2,1,1.7]} label="Kitchen" onClick={onObject}/>
+      <Hotspot id="coffee" position={[4.8,.86,2.1]} size={[2.15,1.72,1.98]} label="Kitchen" onClick={onObject}/>
       <Hotspot id="board" position={[-.15,1.4,3.6]} label="Whiteboard" onClick={onObject} size={[2.2,1.4,.4]}/>
       <Hotspot id="plant" position={[4.7,.8,-3.6]} label="Company" onClick={onObject}/>
     </> : null}

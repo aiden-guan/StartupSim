@@ -1,7 +1,8 @@
 import { Bevel } from '../geometry/Bevel';
 import { officeScale } from './officeScale';
+import { computeRackLayout, requestedComputeRacks } from './computeLayout';
 import type { EnvironmentVisualState } from './environmentVisualState';
-import { ChipBench, CloudConsole, ComputeStatusWall, CoolingUnit, GpuShippingBox, ServerField, ServerRackBank } from '../props/ComputeProps';
+import { ChipBench, CloudConsole, ComputeStatusWall, CoolingUnit, GpuShippingBox, ServerRackBank } from '../props/ComputeProps';
 import { AutonomousLabCell, CheckpointStack, ModelTrainingStation, ResearchBench, ResearchBoard } from '../props/ResearchProps';
 import { GeneralRobot, MachineField, RobotAssemblyField, RobotPrototype, RobotTestBay } from '../props/RoboticsProps';
 import { AgentTerminal, AutonomousCeoStation, AutonomousWorkstations, AutonomyStatusWall, WorkstationField } from '../props/AutonomyProps';
@@ -17,9 +18,7 @@ export function DynamicEnvironment({state,quality}:{state:EnvironmentVisualState
   const labX=-w/2+(level>=4?8:level>=2?4.6:2.2);
   const labZ=-d/2+(level>=4?7:level>=2?3.5:2.4);
   const verticalZ=d/2-(level>=4?9:level>=2?4.5:2.5);
-  const baseRacks=Math.max(0,Math.min(18,Math.ceil(state.ownedCluster/4)+(state.hasGpuCluster?4:0)+(state.hasDataCenter?4:0)));
-  const rackCount=Math.max(level>=5&&state.computeTier>=2?7:0,baseRacks);
-  const rackOffset=level>=4?-Math.min(10,rackCount*.7):level>=3?-2:0;
+  const rackPlan=computeRackLayout(level,requestedComputeRacks(state));
   const robotX=w/2-(level>=4?15:level>=3?9:3.5);
   const robotZ=level>=4?2:level>=3?3:0;
   const hasResearch=state.hasResearchLab||state.hasFoundationModel||state.hasAutonomousLab;
@@ -33,23 +32,16 @@ export function DynamicEnvironment({state,quality}:{state:EnvironmentVisualState
     {level>=1&&<group position={[computeX,0,computeZ]}>
       {state.computeTier===0?<CloudConsole position={[0,0,0]}/>:<>
         {state.rentedGpus>0&&<GpuShippingBox position={[-1,.02,level>=3?2:1]}/>}
-        {rackCount>0&&<ServerRackBank position={[rackOffset,0,0]} count={rackCount} load={state.computeLoad} quality={quality}/>}
-        {state.computeTier===1&&<ServerRackBank position={[0,0,0]} count={1} load={state.computeLoad} quality={quality}/>}
-        {state.hasGpuCluster&&<CoolingUnit position={[level>=4?2:Math.min(4,rackCount*.47)+1,0,0]} active={state.computeLoad>.45}/>}
+        {rackPlan.shown>0&&<ServerRackBank position={[0,0,0]} count={rackPlan.shown} columns={rackPlan.columns} load={state.computeLoad} quality={quality}/>} 
+        {state.hasGpuCluster&&<CoolingUnit position={[level>=4?2:1.5,0,0]} active={state.computeLoad>.45}/>} 
         {state.hasDataCenter&&<><CoolingUnit position={[-1.5,0,3]} active={state.computeLoad>.45}/><ComputeStatusWall position={[level>=3?1.5:0,0,level>=3?3:2] } load={state.computeLoad}/></>}
         {state.hasCustomChip&&<ChipBench position={[level>=3?-2:0,0,level>=3?5:2]}/>}
       </>}
-      {level>=3&&state.computeTier>=3&&quality!=='low'&&<ServerRackBank position={[rackOffset,0,-2.5]} count={Math.round((level>=4?10:6)*detail)} load={state.computeLoad} quality={quality}/>}
-      {level>=5&&state.hasDataCenter&&quality!=='low'&&<>
-        <ServerRackBank position={[-27,0,-2]} count={quality==='high'?12:6} load={state.computeLoad} quality={quality}/>
-        {quality==='high'&&<ServerRackBank position={[-27,0,1]} count={12} load={state.computeLoad} quality={quality}/>}
-      </>}
-      {level>=4&&state.computeTier>=3&&<ServerField position={[level>=5?-27:-9,0,-2]} columns={level>=5?(quality==='high'?26:quality==='medium'?20:8):(quality==='high'?12:quality==='medium'?9:5)} rows={level>=5?(quality==='high'?8:quality==='medium'?6:3):(quality==='high'?5:quality==='medium'?4:2)} load={state.computeLoad}/>}
     </group>}
 
-    {level===0&&state.computeTier>0&&<group position={[4.5,0,-2.1]}>
+    {level===0&&state.computeTier>0&&<group position={[4.2,0,-2.1]}>
       <GpuShippingBox position={[0,.02,0]}/>
-      {state.computeTier>=2&&<ServerRackBank position={[-1,0,0]} count={1} load={state.computeLoad} quality={quality}/>}
+      {rackPlan.shown>0&&<ServerRackBank position={[0,0,0]} count={rackPlan.shown} columns={rackPlan.columns} load={state.computeLoad} quality={quality}/>} 
     </group>}
 
     {hasResearch&&<group position={[labX,0,labZ]}>

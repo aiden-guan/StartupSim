@@ -55,6 +55,7 @@ export function NewsFeed({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const setDrawer = useGame((s) => s.setDrawer);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const feed = itemsFrom(game);
   const unread = feed.filter((item) => item.unread).length;
@@ -82,44 +83,59 @@ export function NewsFeed({ game }: { game: GameState }) {
   }
 
   return (
-    <aside className="news-feed" ref={root} aria-label="World feed">
+    <aside className={`news-feed ${collapsed ? "collapsed" : ""}`} ref={root} aria-label="World feed">
       <header className="news-feed-head">
-        <span className="eyebrow">The Wire</span>
-        {unread > 0 ? <b>{unread}</b> : <small>Live</small>}
+        <span className="news-feed-title"><span className="eyebrow">The Wire</span><small>{collapsed ? "Collapsed" : "Live"}</small></span>
+        <button
+          type="button"
+          className="news-feed-toggle"
+          aria-expanded={!collapsed}
+          aria-controls="world-feed-list"
+          aria-label={collapsed ? "Expand The Wire" : "Collapse The Wire"}
+          onClick={() => {
+            setCollapsed((value) => !value);
+            setOpenId(null);
+          }}
+        >
+          {unread > 0 ? <b>{unread}</b> : null}
+          <span aria-hidden="true">{collapsed ? "＋" : "−"}</span>
+        </button>
       </header>
-      <div className="news-feed-list">
-        {feed.length === 0 ? <p className="news-feed-empty">The wire is quiet.</p> : null}
-        {feed.map((item) => (
-          <button
-            key={item.id}
-            className={`news-feed-item ${item.unread ? "unread" : ""} ${item.major ? "major" : ""} ${openId === item.id ? "open" : ""}`}
-            aria-expanded={openId === item.id}
-            onClick={() => open(item)}
-          >
-            <span className="news-feed-avatar" aria-hidden="true">{item.source.slice(0, 1).toUpperCase()}</span>
-            <span className="news-feed-copy">
-              <span className="news-feed-meta">{item.source} · {formatDate(item.at)}</span>
-              <strong>{item.headline}</strong>
-              <em>{item.preview}</em>
-            </span>
-            {item.unread ? <i className="news-unread" /> : null}
-          </button>
-        ))}
-      </div>
-      {opened ? (
-        <article className="news-feed-story" role="dialog" aria-label={opened.headline}>
-          <header>
-            <span className="eyebrow">{opened.source} · {formatDate(opened.at)}</span>
-            <button type="button" aria-label="Close story" onClick={() => setOpenId(null)}>✕</button>
-          </header>
-          <h3>{opened.headline}</h3>
-          <p>{opened.body}</p>
-          {opened.impact ? <aside><strong>What it means</strong>{opened.impact}</aside> : null}
-          {opened.mail?.requiresResponse ? (
-            <button className="news-feed-cta" onClick={() => { setDrawer("inbox"); setOpenId(null); }}>Open event brief →</button>
-          ) : null}
-        </article>
-      ) : null}
+      {!collapsed ? <>
+        <div className="news-feed-list" id="world-feed-list">
+          {feed.length === 0 ? <p className="news-feed-empty">The wire is quiet.</p> : null}
+          {feed.map((item) => (
+            <button
+              key={item.id}
+              className={`news-feed-item ${item.unread ? "unread" : ""} ${item.major ? "major" : ""} ${openId === item.id ? "open" : ""}`}
+              aria-expanded={openId === item.id}
+              onClick={() => open(item)}
+            >
+              <span className="news-feed-avatar" aria-hidden="true">{item.source.slice(0, 1).toUpperCase()}</span>
+              <span className="news-feed-copy">
+                <span className="news-feed-meta">{item.source} · {formatDate(item.at)}</span>
+                <strong>{item.headline}</strong>
+                <em>{item.preview}</em>
+              </span>
+              {item.unread ? <i className="news-unread" /> : null}
+            </button>
+          ))}
+        </div>
+        {opened ? (
+          <article className="news-feed-story" role="dialog" aria-label={opened.headline}>
+            <header>
+              <span className="eyebrow">{opened.source} · {formatDate(opened.at)}</span>
+              <button type="button" aria-label="Close story" onClick={() => setOpenId(null)}>✕</button>
+            </header>
+            <h3>{opened.headline}</h3>
+            <p>{opened.body}</p>
+            {opened.impact ? <aside><strong>What it means</strong>{opened.impact}</aside> : null}
+            {opened.mail?.requiresResponse ? (
+              <button className="news-feed-cta" onClick={() => { setDrawer("inbox"); setOpenId(null); }}>Open event brief →</button>
+            ) : null}
+          </article>
+        ) : null}
+      </> : null}
     </aside>
   );
 }

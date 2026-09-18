@@ -153,7 +153,6 @@ export function Spotlight() {
     };
     const placeTarget = () => {
       unlockContainers();
-      setRect(null);
       target = document.querySelector(`[data-tutorial="${slide.highlightUI}"]`);
       if (!(target instanceof HTMLElement || target instanceof SVGElement)) {
         if (!cancelled) frame = window.requestAnimationFrame(placeTarget);
@@ -210,6 +209,9 @@ export function Spotlight() {
     document.addEventListener("touchmove", blockScroll, { capture: true, passive: false });
     document.addEventListener("keydown", blockKeyScroll, true);
     window.addEventListener("resize", onResize);
+    // Clear once when the tutorial target changes. Re-settling the same target
+    // keeps the previous outline mounted, so layout observers cannot make it blink.
+    setRect(null);
     placeTarget();
     return () => {
       cancelled = true;
