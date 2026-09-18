@@ -93,7 +93,7 @@ function previewState(level:number) {
 function EnvironmentPreview({level}:{level:number}) {
   const view=previewState(level);
   const props={onObject:()=>undefined,perks:view.perks,brand:view.brand,visual:view.environment,quality:'medium' as const};
-  const shell=level===0?<Apartment onObject={()=>undefined} brand={view.brand} employeeCount={view.environment.employeeCount}/>:level===1?<GarageOffice {...props}/>:level===2?<HQOffice {...props}/>:level===3?<ResearchLab {...props}/>:level===4?<CampusOffice {...props}/>:<MegaCampus {...props}/>;
+  const shell=level===0?<Apartment onObject={()=>undefined} perks={view.perks} brand={view.brand} employeeCount={view.environment.employeeCount}/>:level===1?<GarageOffice {...props}/>:level===2?<HQOffice {...props}/>:level===3?<ResearchLab {...props}/>:level===4?<CampusOffice {...props}/>:<MegaCampus {...props}/>;
   return <>{shell}<DynamicEnvironment state={view.environment} quality="medium"/></>;
 }
 

@@ -11,6 +11,8 @@ import { EndScreen } from "./EndScreen";
 import { FeelLayer } from "./feel/FeelLayer";
 import { HUD } from "./HUD";
 import { SettingsOverlay, CreditsOverlay } from "./SettingsOverlays";
+import { LeaderboardOverlay } from "./leaderboard/LeaderboardOverlay";
+import { AchievementsOverlay, AchievementToast } from "./AchievementsOverlay";
 import { VisualGallery } from "./VisualGallery";
 import { MarketResults } from "./market/MarketResults";
 import { EmployeeInspector } from "./team/panels";
@@ -79,6 +81,7 @@ export function App() {
   const screen = useGame((s) => s.screen);
   const revealPlaying = useGame((s) => s.revealPlaying);
   const galleryOpen = useGame((s) => s.galleryOpen);
+  const leaderboardOpen = useGame((s) => s.leaderboardOpen);
   const toggleDebug = useGame((s) => s.toggleDebug);
   const setGalleryOpen = useGame((s) => s.setGalleryOpen);
   useSimClock();
@@ -128,9 +131,23 @@ export function App() {
   }, [toggleDebug, setGalleryOpen]);
 
   if (import.meta.env.DEV && galleryOpen) return <VisualGallery />;
-  if (screen === "ended" && game) return <EndScreen game={game} />;
+  if (screen === "ended" && game) {
+    return (
+      <>
+        <EndScreen game={game} />
+        {leaderboardOpen && <LeaderboardOverlay />}
+      </>
+    );
+  }
 
-  if (screen === "market" && game?.marketResult) return <MarketResults game={game} />;
+  if (screen === "market" && game?.marketResult) {
+    return (
+      <>
+        <MarketResults game={game} />
+        {leaderboardOpen && <LeaderboardOverlay />}
+      </>
+    );
+  }
 
   if (screen === "market" && game?.marketBattle) {
     return (
@@ -140,6 +157,7 @@ export function App() {
         <Spotlight />
         <DebugPanel />
         <SettingsOverlay />
+        {leaderboardOpen && <LeaderboardOverlay />}
       </div>
     );
   }
@@ -169,6 +187,9 @@ export function App() {
       ) : null}
       <SettingsOverlay />
       <CreditsOverlay />
+      {leaderboardOpen && <LeaderboardOverlay />}
+      <AchievementsOverlay />
+      <AchievementToast />
       <DebugPanel />
     </div>
   );

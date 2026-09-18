@@ -67,12 +67,16 @@ export function TasksPanel({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch);
   const [showLab,setShowLab]=useState(game.tasks.length===0);
   const [slot,setSlot]=useState<'a'|'b'>('a');
+  const [customName,setCustomName]=useState('');
+  const [renamingTaskId,setRenamingTaskId]=useState<string | null>(null);
+  const [renameTaskInput,setRenameTaskInput]=useState('');
   const a=game.onboarding.primitiveA,b=game.onboarding.primitiveB;
   const recipe=a&&b?findRecipe(a,b):null;
   const intro=game.pendingMentor==='intro';
   const slide=currentTutorialSlide(game)?.id;
   const choosingSlot=slide==='choose-writing'?'b':slide==='choose-chat'?'a':slot;
   const difficulty=a&&b?(primitiveById[a]?.difficulty??0)+(primitiveById[b]?.difficulty??0)+(recipe?.difficultyMod??0):0;
+  const defaultProductName=recipe?.name??(a&&b?`${primitiveById[a]?.name??a} ${primitiveById[b]?.name??b}`:'');
   const autoAssignNote=game.lastStaffing?.taskId===null?game.lastStaffing.lines:[];
   return <div className="product-workspace">
     <div className="workspace-intro"><div><span className="eyebrow">Product lab</span><h3>{game.tasks.length?'Work in progress':'Start a product'}</h3></div>{!intro&&<div className="workspace-actions">{game.tasks.length>0&&<><GameButton onClick={()=>dispatch({type:'autoAssign'})}>Auto Assign All</GameButton><small>Covers every project first, then adds the best available teammates.</small></>}<GameButton onClick={()=>setShowLab(!showLab)}>{showLab?'View projects':'+ New product'}</GameButton></div>}</div>
@@ -93,12 +97,103 @@ export function TasksPanel({game}:{game:GameState}) {
           }}><GameIcon name={p.id}/><span>{p.name}</span></button>;
         })}</div>
       </div>
-      <div className="recipe-preview"><span className="eyebrow">02 · The combination</span><ProductPreview a={a} b={b}/><h3>{recipe?.name??(a&&b?'Untested combination':'Choose two technologies')}</h3><p>{recipe?.description??'Combine two technologies to define a product.'}</p>{a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}<GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{dispatch({type:'startProduct',a:a!,b:b!});setShowLab(false);}}>Start development →</GameButton></div>
+      <div className="recipe-preview">
+        <span className="eyebrow">02 · The combination</span>
+        <ProductPreview a={a} b={b}/>
+        <h3>{recipe?.name??(a&&b?'Untested combination':'Choose two technologies')}</h3>
+        <p>{recipe?.description??'Combine two technologies to define a product.'}</p>
+        {a&&b&&<div className="lab-product-name-block">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span className="eyebrow" style={{ fontSize: 10 }}>Product Name</span>
+            <span className="char-counter-label" style={{ fontSize: 10, color: '#6e7f72' }}>
+              {(customName || defaultProductName).length}/{BALANCE.MAX_PRODUCT_NAME_LENGTH}
+            </span>
+          </div>
+          <div className="product-rename-input-wrap">
+            <input
+              type="text"
+              className="product-name-field-input"
+              maxLength={BALANCE.MAX_PRODUCT_NAME_LENGTH}
+              value={customName}
+              placeholder={defaultProductName}
+              onChange={(e) => setCustomName(e.target.value)}
+              aria-label="Custom product name"
+            />
+            <span className="char-counter">{(customName || defaultProductName).length}/{BALANCE.MAX_PRODUCT_NAME_LENGTH}</span>
+          </div>
+        </div>}
+        {a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}
+        <GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{
+          const finalName = customName.trim() || defaultProductName;
+          dispatch({type:'startProduct',a:a!,b:b!,name:finalName});
+          setCustomName('');
+          setShowLab(false);
+        }}>Start development →</GameButton>
+      </div>
     </section>}
     <div className="project-list">{game.tasks.map(task=>{
       const estimate=taskEstimate(game,task);
       const p=game.products.find(p=>p.id===task.productId);
-      return <section key={task.id} className="project-sheet"><div className="project-heading"><div><span className="eyebrow">{task.type} · {p?`Difficulty ${p.difficulty.toFixed(1)}`:'Team project'}</span><h3>{task.name}</h3></div><div className="project-time"><strong>{estimate.days===null?'No team assigned':`~${estimate.days} days`}</strong><small>{estimate.days===null?'Assign people below to begin':'At the current team’s pace'}</small></div></div>
+      const isRenaming = renamingTaskId === task.id && p;
+      return <section key={task.id} className="project-sheet"><div className="project-heading"><div><span className="eyebrow">{task.type} · {p?`Difficulty ${p.difficulty.toFixed(1)}`:'Team project'}</span>
+        {isRenaming ? (
+          <div className="product-rename-inline-box">
+            <div className="product-rename-input-wrap">
+              <input
+                type="text"
+                className="product-name-field-input"
+                maxLength={BALANCE.MAX_PRODUCT_NAME_LENGTH}
+                value={renameTaskInput}
+                onChange={(e) => setRenameTaskInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && renameTaskInput.trim()) {
+                    dispatch({ type: 'renameProduct', productId: p.id, name: renameTaskInput });
+                    setRenamingTaskId(null);
+                  } else if (e.key === 'Escape') {
+                    setRenamingTaskId(null);
+                  }
+                }}
+                autoFocus
+                aria-label="Rename product"
+              />
+              <span className="char-counter">{renameTaskInput.length}/{BALANCE.MAX_PRODUCT_NAME_LENGTH}</span>
+            </div>
+            <div className="rename-btn-group">
+              <GameButton
+                tone="primary"
+                disabled={!renameTaskInput.trim()}
+                onClick={() => {
+                  if (renameTaskInput.trim()) {
+                    dispatch({ type: 'renameProduct', productId: p.id, name: renameTaskInput });
+                    setRenamingTaskId(null);
+                  }
+                }}
+              >
+                Save
+              </GameButton>
+              <GameButton onClick={() => setRenamingTaskId(null)}>Cancel</GameButton>
+            </div>
+          </div>
+        ) : (
+          <div className="product-name-header-row">
+            <h3>{task.name}</h3>
+            {p && (
+              <button
+                type="button"
+                className="product-rename-btn"
+                onClick={() => {
+                  setRenamingTaskId(task.id);
+                  setRenameTaskInput(p.name);
+                }}
+                title="Rename product"
+                aria-label={`Rename ${p.name}`}
+              >
+                ✏️ Rename
+              </button>
+            )}
+          </div>
+        )}
+      </div><div className="project-time"><strong>{estimate.days===null?'No team assigned':`~${estimate.days} days`}</strong><small>{estimate.days===null?'Assign people below to begin':'At the current team’s pace'}</small></div></div>
         <div data-tutorial="task-progress"><div className="progress-label"><span>{Math.min(100,task.progress/task.requiredProgress*100).toFixed(0)}% complete</span><span>{estimate.daily.toFixed(1)} progress / day</span></div><div className="progress-track"><i style={{width:`${Math.min(100,task.progress/task.requiredProgress*100)}%`}}/></div></div>
         <div className="team-efficiency"><span>Team efficiency <strong>{pct(estimate.efficiency*100)}</strong></span><span>Coordination overhead −{Math.round((1-estimate.efficiency)*100)}%</span></div>
         {estimate.computeBlocked&&<div className="no-team-alert" role="status"><strong>Blocked by compute</strong><span>{computeBlockReason(game,task)??`${task.name} cannot advance until you buy GPU capacity or restore API credits.`}</span><GameButton onClick={()=>useGame.getState().setDrawer('compute')}>Open compute →</GameButton></div>}
@@ -266,11 +361,70 @@ function ProductEconomics({product:p}:{product:Product}) {
 }
 export function ProductsPanel({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch);
+  const [editingId,setEditingId]=useState<string | null>(null);
+  const [editName,setEditName]=useState('');
   const ordered=[...game.products].sort((a,b)=>Number(b.status==='ready')-Number(a.status==='ready'));
   return <div className="catalog-workspace">{!ordered.length&&<div className="empty-state"><GameIcon name="products"/><h3>No products yet.</h3><GameButton tone="primary" onClick={()=>useGame.getState().setDrawer('tasks')}>Open product lab →</GameButton></div>}{ordered.map(p=>{
     const costs=launchCosts(p), ready=p.status==='ready';
     const state=ready?(Object.values(p.levels).some(n=>n>0)?'Ready to launch':'Ready to configure'):p.status==='deprecated'?'Sunset':p.status;
-    return <article key={p.id} className="product-sheet"><header data-tutorial={ready?'product-ready':undefined}><div className="product-emblem product-combo-emblem"><GameIcon name={p.combo[0]}/><GameIcon name={p.combo[1]}/></div><div><span className="eyebrow">{state}</span><h3>{p.name}</h3><p>{p.combo.map(id=>primitiveById[id]?.name??id).join(' + ')} · {p.vertical}</p></div>{ready&&<span className="ready-stamp">PRODUCT READY</span>}</header>
+    const isEditing=editingId===p.id;
+    return <article key={p.id} className="product-sheet"><header data-tutorial={ready?'product-ready':undefined}><div className="product-emblem product-combo-emblem"><GameIcon name={p.combo[0]}/><GameIcon name={p.combo[1]}/></div><div style={{flex:1,minWidth:0}}><span className="eyebrow">{state}</span>
+      {isEditing ? (
+        <div className="product-rename-inline-box">
+          <div className="product-rename-input-wrap">
+            <input
+              type="text"
+              className="product-name-field-input"
+              maxLength={BALANCE.MAX_PRODUCT_NAME_LENGTH}
+              value={editName}
+              onChange={(e)=>setEditName(e.target.value)}
+              onKeyDown={(e)=>{
+                if (e.key === 'Enter' && editName.trim()) {
+                  dispatch({ type: 'renameProduct', productId: p.id, name: editName });
+                  setEditingId(null);
+                } else if (e.key === 'Escape') {
+                  setEditingId(null);
+                }
+              }}
+              autoFocus
+              aria-label="Rename product"
+            />
+            <span className="char-counter">{editName.length}/{BALANCE.MAX_PRODUCT_NAME_LENGTH}</span>
+          </div>
+          <div className="rename-btn-group">
+            <GameButton
+              tone="primary"
+              disabled={!editName.trim()}
+              onClick={()=>{
+                if (editName.trim()) {
+                  dispatch({ type: 'renameProduct', productId: p.id, name: editName });
+                  setEditingId(null);
+                }
+              }}
+            >
+              Save
+            </GameButton>
+            <GameButton onClick={()=>setEditingId(null)}>Cancel</GameButton>
+          </div>
+        </div>
+      ) : (
+        <div className="product-name-header-row">
+          <h3>{p.name}</h3>
+          <button
+            type="button"
+            className="product-rename-btn"
+            onClick={()=>{
+              setEditingId(p.id);
+              setEditName(p.name);
+            }}
+            title="Rename product"
+            aria-label={`Rename ${p.name}`}
+          >
+            ✏️ Rename
+          </button>
+        </div>
+      )}
+      <p>{p.combo.map(id=>primitiveById[id]?.name??id).join(' + ')} · {p.vertical}</p></div>{ready&&<span className="ready-stamp">PRODUCT READY</span>}</header>
       {p.status==='development'?<div className="development-notice"><p>Development is in progress. Configure the launch when it finishes.</p><GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>View development →</GameButton></div>:ready?<>
         <div className="launch-points"><span>Launch points</span>{(['engineering','product','growth'] as const).map(k=><div key={k}><small>{k}</small><strong>{Math.floor(p.points[k])}</strong></div>)}</div>
         <div className="designer-grid" data-tutorial="designer">{STATS.map(stat=>{

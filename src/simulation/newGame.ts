@@ -159,7 +159,13 @@ export function createNewGame(input: NewGameInput): GameState {
   };
 
   const state: GameState = {
-    meta: { schemaVersion: BALANCE.SCHEMA_VERSION, seed, rngState: rng.seed, difficulty: "baseline" },
+    meta: {
+      schemaVersion: BALANCE.SCHEMA_VERSION,
+      seed,
+      rngState: rng.seed,
+      difficulty: "baseline",
+      runId: uid(rng, "run"),
+    },
     clock: {
       date: { year: BALANCE.START_YEAR, month: BALANCE.START_MONTH, day: BALANCE.START_DAY },
       speed: 1,
@@ -275,7 +281,9 @@ export function createNewGame(input: NewGameInput): GameState {
       computeConsumed: 0,
       peakValuation: 1_000_000,
       peakEmployees: 2,
+      dilutionsCount: 0,
     },
+    achievements: [],
     history: [],
     hiring: { channelId: null, candidates: [], cooldownDays: 0, lastResult: null },
     lastStaffing: null,

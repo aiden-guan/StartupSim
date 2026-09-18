@@ -9,6 +9,8 @@ import { money } from './format';
 import { GameIcon } from './shared/Icons';
 import { ProgressStack } from './ProgressStack';
 import { NewsFeed } from './NewsFeed';
+import { ACHIEVEMENTS } from '../data/achievements';
+import { getLifetimeAchievements } from '../simulation/achievements';
 
 function useAnimatedCash(value:number,reducedMotion:boolean,baseline:number) {
   const previous=useRef(value),frame=useRef(0),[display,setDisplay]=useState(value);
@@ -56,6 +58,8 @@ export function HUD({game}:{game:GameState}) {
   const creditDepleted=game.compute.apiCredits<=0 && game.products.some(p=>p.status==='active') && game.compute.rentedGpus===0;
   const burn=monthlyBurn(game);
   const cash=useAnimatedCash(game.company.cash,game.settings.reducedMotion,burn);
+  const unlockedAchievements = new Set([...(game.achievements ?? []), ...getLifetimeAchievements()]);
+  const unlockedAchievementCount = ACHIEVEMENTS.filter((achievement) => unlockedAchievements.has(achievement.id)).length;
   return <div className="game-hud">
     <header className="hud-bar">
       <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className="brand-square" style={{background:game.company.brand.color}}/><span>{game.company.name}<small>{game.company.officeLevel===0?'Apartment':'Headquarters'}</small></span></button>
@@ -67,6 +71,14 @@ export function HUD({game}:{game:GameState}) {
       <div className="hud-clock"><span>{formatDate(game.clock.date)}</span><div className="speed-controls" data-tutorial="speed-controls">
         {SPEED_OPTIONS.map(speed=><button key={speed} data-tutorial={speed===1?'speed-one':undefined} aria-label={speed===0?'Pause':`${speed}× speed`} aria-pressed={speed===0?game.clock.paused:!game.clock.paused&&game.clock.speed===speed} onClick={()=>dispatch(speed===0?{type:'setPaused',paused:true}:{type:'setSpeed',speed})}>{speed===0?'Ⅱ':`${speed}×`}</button>)}
       </div></div>
+      <button className="settings-button relative flex items-center justify-center text-sm" aria-label="Achievements" title={`Achievements (${unlockedAchievementCount} / ${ACHIEVEMENTS.length} unlocked)`} onClick={()=>useGame.getState().setAchievementsOpen(true)}>
+        🏆
+        {unlockedAchievementCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-[#c9a227] text-black font-bold text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-mono">
+            {unlockedAchievementCount}
+          </span>
+        )}
+      </button>
       <button className="settings-button" aria-label="Settings" onClick={()=>useGame.getState().setSettingsOpen(true)}>⚙</button>
     </header>
     {game.clock.paused&&<div className="pause-caption">Ⅱ {game.clock.reasonPaused??'Paused'}</div>}

@@ -1,6 +1,6 @@
 import { useFrame } from '@react-three/fiber';
-import { useRef } from 'react';
-import type { Group } from 'three';
+import { useRef, useMemo } from 'react';
+import { Color, type Group } from 'three';
 import type { CharacterLook, ExpressionId } from '../../simulation/types';
 import { Bevel } from '../geometry/Bevel';
 import { FaceMesh } from './Face';
@@ -44,6 +44,29 @@ export function Character({
   const hoodie = look.topId === 'hoodie';
   const cloth = look.topId === 'labcoat' ? '#e9e9e3' : look.top;
   const inner = look.topId === 'blazer' ? (look.top === '#2d4972' ? '#b0c8e8' : '#1e2126') : '#141517';
+
+  // Pants styling and accents
+  const pantsStyle = look.pantsId ?? 'jeans';
+  const { cuffColor, darkAccent, lightAccent, creaseColor, pocketShadow } = useMemo(() => {
+    try {
+      const c = new Color(look.pants || '#3a3a44');
+      return {
+        cuffColor: '#' + c.clone().lerp(new Color('#d6e0ea'), 0.38).getHexString(),
+        darkAccent: '#' + c.clone().multiplyScalar(0.72).getHexString(),
+        lightAccent: '#' + c.clone().lerp(new Color('#ffffff'), 0.28).getHexString(),
+        creaseColor: '#' + c.clone().lerp(new Color('#ffffff'), 0.22).getHexString(),
+        pocketShadow: '#' + c.clone().multiplyScalar(0.78).getHexString(),
+      };
+    } catch {
+      return {
+        cuffColor: '#8ca4b8',
+        darkAccent: '#232529',
+        lightAccent: '#606a75',
+        creaseColor: '#5a6470',
+        pocketShadow: '#282b30',
+      };
+    }
+  }, [look.pants]);
 
   useFrame(({ clock }, rawDt) => {
     const dt = Math.min(rawDt, 0.08);
@@ -104,24 +127,380 @@ export function Character({
   return (
     <group ref={ref} scale={[bodyScale, heightScale, bodyScale]}>
       {/* Legs and Shoes */}
-      {[-1, 1].map((side) => (
-        <group key={side} ref={side === -1 ? leftLeg : rightLeg} position={[side * 0.115, 0.72, 0]}>
-          <Bevel position={[0, sitting ? -0.16 : -0.285, 0]} size={[0.183, sitting ? 0.35 : 0.61, 0.225]} radius={0.032} color={robot ? '#d9dede' : look.pants} taper={0.14} />
-          <group ref={side === -1 ? leftKnee : rightKnee} position={[0, -0.31, 0]}>
-            {sitting && <Bevel position={[0, -0.14, 0]} size={[0.17, 0.32, 0.21]} radius={0.025} color={robot ? '#d9dede' : look.pants} taper={0.1} />}
-            <Bevel position={[0, -0.32, 0.045]} size={[0.205, look.shoesId === 'boots' ? 0.155 : 0.115, 0.32]} radius={0.037} color={robot ? '#525a61' : look.shoes} />
-            {(look.shoesId === 'sneakers' || look.shoesId === 'runners') && (
+      {[-1, 1].map((side) => {
+        const isShorts = pantsStyle === 'shorts';
+        const isJoggers = pantsStyle === 'joggers';
+        const isJeans = pantsStyle === 'jeans';
+        const isChinos = pantsStyle === 'chinos';
+        const isTrousers = pantsStyle === 'trousers';
+        const isCargo = pantsStyle === 'cargo';
+
+        // Tailored leg dimensions and taper per pants style
+        const legWidth = isChinos ? 0.178 : isJoggers ? 0.194 : isCargo ? 0.19 : 0.184;
+        const legDepth = isChinos ? 0.22 : isJoggers ? 0.238 : isCargo ? 0.232 : 0.228;
+        const legTaper = isJoggers ? 0.25 : isChinos ? 0.16 : isCargo ? 0.1 : isTrousers ? 0.05 : 0.08;
+
+        return (
+          <group key={side} ref={side === -1 ? leftLeg : rightLeg} position={[side * 0.115, 0.72, 0]}>
+            {/* Upper Leg / Thigh */}
+            {robot ? (
+              <Bevel
+                position={[0, sitting ? -0.16 : -0.285, 0]}
+                size={[0.183, sitting ? 0.35 : 0.61, 0.225]}
+                radius={0.032}
+                color="#d9dede"
+                taper={0.14}
+              />
+            ) : isShorts ? (
+              /* Shorts: Fabric stops above knee, exposing bare thigh/knee */
               <>
-                <Bevel position={[0, -0.365, 0.05]} size={[0.208, 0.035, 0.326]} radius={0.014} color="#d7d9d9" />
-                <Bevel position={[0, -0.277, 0.11]} size={[0.125, 0.018, 0.055]} radius={0.005} color="#cbd0d2" />
+                <Bevel
+                  position={[0, sitting ? -0.11 : -0.14, 0]}
+                  size={[0.188, sitting ? 0.22 : 0.28, 0.23]}
+                  radius={0.028}
+                  color={look.pants}
+                  taper={-0.05}
+                />
+                {/* Shorts hem band */}
+                <Bevel
+                  position={[0, sitting ? -0.215 : -0.275, 0]}
+                  size={[0.192, 0.024, 0.234]}
+                  radius={0.006}
+                  color={darkAccent}
+                />
+                {/* Bare knee in upper leg group */}
+                <Bevel
+                  position={[0, sitting ? -0.255 : -0.32, 0]}
+                  size={[0.155, sitting ? 0.07 : 0.09, 0.19]}
+                  radius={0.025}
+                  color={look.skin}
+                />
+              </>
+            ) : (
+              /* Full length pants: Upper leg mesh */
+              <>
+                <Bevel
+                  position={[0, sitting ? -0.16 : -0.285, 0]}
+                  size={[legWidth, sitting ? 0.35 : 0.61, legDepth]}
+                  radius={0.032}
+                  color={look.pants}
+                  taper={sitting ? legTaper * 0.8 : legTaper}
+                />
+
+                {/* Jeans outer side-seam */}
+                {isJeans && (
+                  <Bevel
+                    position={[side * (legWidth / 2 + 0.001), sitting ? -0.16 : -0.285, 0]}
+                    size={[0.008, sitting ? 0.34 : 0.6, 0.012]}
+                    radius={0.002}
+                    color={pocketShadow}
+                  />
+                )}
+
+                {/* Trousers pressed center front crease */}
+                {isTrousers && (
+                  <Bevel
+                    position={[0, sitting ? -0.16 : -0.285, legDepth / 2 + 0.001]}
+                    size={[0.008, sitting ? 0.34 : 0.6, 0.008]}
+                    radius={0.002}
+                    color={creaseColor}
+                  />
+                )}
+
+                {/* Joggers horizontal knee articulation seam (when standing) */}
+                {isJoggers && !sitting && (
+                  <Bevel
+                    position={[0, -0.31, legDepth / 2 + 0.002]}
+                    size={[legWidth * 0.88, 0.012, 0.01]}
+                    radius={0.003}
+                    color={darkAccent}
+                  />
+                )}
+
+                {/* Cargo: 3D outer thigh boxy flap pocket */}
+                {isCargo && (
+                  <group position={[side * (legWidth / 2 + 0.004), sitting ? -0.14 : -0.19, 0]}>
+                    <Bevel size={[0.024, 0.13, 0.13]} radius={0.006} color={look.pants} />
+                    <Bevel position={[0, 0.065, 0]} size={[0.028, 0.026, 0.136]} radius={0.005} color={darkAccent} />
+                    <Bevel position={[side * 0.014, 0.06, 0]} size={[0.006, 0.012, 0.012]} radius={0.003} color="#202224" />
+                  </group>
+                )}
+
+                {/* Cargo reinforced knee patch (when standing) */}
+                {isCargo && !sitting && (
+                  <Bevel
+                    position={[0, -0.31, legDepth / 2 + 0.001]}
+                    size={[legWidth * 0.85, 0.11, 0.008]}
+                    radius={0.004}
+                    color={pocketShadow}
+                  />
+                )}
               </>
             )}
+
+            {/* Knee & Ankle Group (pivots when sitting) */}
+            <group ref={side === -1 ? leftKnee : rightKnee} position={[0, -0.31, 0]}>
+              {/* Lower leg when sitting (or bare calf for shorts) */}
+              {robot ? (
+                sitting && (
+                  <Bevel
+                    position={[0, -0.14, 0]}
+                    size={[0.17, 0.32, 0.21]}
+                    radius={0.025}
+                    color="#d9dede"
+                    taper={0.1}
+                  />
+                )
+              ) : isShorts ? (
+                /* Shorts: Bare skin calf + socks, both when standing and sitting */
+                <>
+                  <Bevel
+                    position={[0, -0.14, 0]}
+                    size={[0.152, 0.28, 0.185]}
+                    radius={0.025}
+                    color={look.skin}
+                  />
+                  {/* Clean white ankle socks */}
+                  <Bevel
+                    position={[0, -0.255, 0.01]}
+                    size={[0.165, 0.038, 0.2]}
+                    radius={0.008}
+                    color="#f4f4f0"
+                  />
+                </>
+              ) : (
+                /* Full length pants: Calf when sitting */
+                sitting && (
+                  <>
+                    <Bevel
+                      position={[0, -0.14, 0]}
+                      size={[legWidth * 0.94, 0.32, legDepth * 0.94]}
+                      radius={0.025}
+                      color={look.pants}
+                      taper={legTaper * 0.8}
+                    />
+                    {isTrousers && (
+                      <Bevel
+                        position={[0, -0.14, (legDepth * 0.94) / 2 + 0.001]}
+                        size={[0.008, 0.3, 0.008]}
+                        radius={0.002}
+                        color={creaseColor}
+                      />
+                    )}
+                    {isJoggers && (
+                      <Bevel
+                        position={[0, 0.01, (legDepth * 0.94) / 2 + 0.002]}
+                        size={[legWidth * 0.85, 0.012, 0.01]}
+                        radius={0.003}
+                        color={darkAccent}
+                      />
+                    )}
+                    {isCargo && (
+                      <Bevel
+                        position={[0, 0, (legDepth * 0.94) / 2 + 0.001]}
+                        size={[legWidth * 0.82, 0.1, 0.008]}
+                        radius={0.004}
+                        color={pocketShadow}
+                      />
+                    )}
+                  </>
+                )
+              )}
+
+              {/* Ankle Hem / Cuffs Treatments (Right above the shoe) */}
+              {!robot && !isShorts && (
+                <>
+                  {/* Jeans: Rolled-up selvedge denim cuffs */}
+                  {isJeans && (
+                    <group position={[0, -0.25, 0.005]}>
+                      <Bevel
+                        size={[legWidth + 0.01, 0.046, legDepth + 0.006]}
+                        radius={0.012}
+                        color={cuffColor}
+                      />
+                      <Bevel
+                        position={[0, 0.024, 0]}
+                        size={[legWidth + 0.006, 0.006, legDepth + 0.004]}
+                        radius={0.002}
+                        color={darkAccent}
+                      />
+                    </group>
+                  )}
+
+                  {/* Chinos: Sleek tailored hem break */}
+                  {isChinos && (
+                    <Bevel
+                      position={[0, -0.255, 0.005]}
+                      size={[legWidth + 0.004, 0.026, legDepth + 0.004]}
+                      radius={0.008}
+                      color={look.pants}
+                    />
+                  )}
+
+                  {/* Joggers: Cinched ribbed elastic ankle cuffs */}
+                  {isJoggers && (
+                    <group position={[0, -0.245, 0.005]}>
+                      <Bevel
+                        size={[0.16, 0.065, 0.185]}
+                        radius={0.015}
+                        color={darkAccent}
+                      />
+                      {[-0.018, 0.018].map((yOff) => (
+                        <Bevel
+                          key={yOff}
+                          position={[0, yOff, 0]}
+                          size={[0.164, 0.012, 0.189]}
+                          radius={0.004}
+                          color={lightAccent}
+                        />
+                      ))}
+                    </group>
+                  )}
+
+                  {/* Trousers: Formal clean hem drape over shoes */}
+                  {isTrousers && (
+                    <Bevel
+                      position={[0, -0.26, 0.008]}
+                      size={[legWidth + 0.004, 0.024, legDepth + 0.008]}
+                      radius={0.006}
+                      color={look.pants}
+                    />
+                  )}
+                </>
+              )}
+
+              {/* Shoes */}
+              <Bevel
+                position={[0, -0.32, 0.045]}
+                size={[0.205, look.shoesId === 'boots' ? 0.155 : 0.115, 0.32]}
+                radius={0.037}
+                color={robot ? '#525a61' : look.shoes}
+              />
+              {(look.shoesId === 'sneakers' || look.shoesId === 'runners') && (
+                <>
+                  <Bevel position={[0, -0.365, 0.05]} size={[0.208, 0.035, 0.326]} radius={0.014} color="#d7d9d9" />
+                  <Bevel position={[0, -0.277, 0.11]} size={[0.125, 0.018, 0.055]} radius={0.005} color="#cbd0d2" />
+                </>
+              )}
+            </group>
           </group>
-        </group>
-      ))}
+        );
+      })}
 
       {/* Hip / Waist */}
       <Bevel position={[0, 0.725, 0]} size={[0.405, 0.1, 0.245]} radius={0.035} color={robot ? '#e6e9e8' : look.pants} />
+
+      {/* Pants Waistband & Front Accents */}
+      {!robot && (
+        <>
+          {/* Jeans: Denim fly, brass rivet button, belt loops, curved scoop pocket trims */}
+          {pantsStyle === 'jeans' && (
+            <>
+              <Bevel position={[0, 0.74, 0.126]} size={[0.024, 0.024, 0.008]} radius={0.008} color="#d4b06a" metalness={0.4} />
+              <Bevel position={[0, 0.695, 0.125]} size={[0.008, 0.055, 0.006]} radius={0.002} color={pocketShadow} />
+              {[-0.14, -0.055, 0.055, 0.14].map((x) => (
+                <Bevel key={x} position={[x, 0.725, 0.125]} size={[0.015, 0.065, 0.008]} radius={0.002} color={lightAccent} />
+              ))}
+              {[-1, 1].map((side) => (
+                <Bevel
+                  key={side}
+                  position={[side * 0.125, 0.72, 0.125]}
+                  rotation={[0, 0, side * -0.55]}
+                  size={[0.06, 0.01, 0.008]}
+                  radius={0.002}
+                  color={pocketShadow}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Chinos: Smart leather belt with metallic gold buckle and slant pockets */}
+          {pantsStyle === 'chinos' && (
+            <>
+              <Bevel position={[0, 0.73, 0]} size={[0.412, 0.034, 0.252]} radius={0.008} color="#4a3322" />
+              <Bevel position={[0, 0.73, 0.128]} size={[0.056, 0.038, 0.012]} radius={0.006} color="#d4af37" metalness={0.5} roughness={0.4} />
+              <Bevel position={[0, 0.73, 0.133]} size={[0.03, 0.022, 0.006]} radius={0.002} color="#352418" />
+              {[-0.13, -0.055, 0.055, 0.13].map((x) => (
+                <Bevel key={x} position={[x, 0.73, 0.128]} size={[0.012, 0.042, 0.006]} radius={0.002} color={look.pants} />
+              ))}
+              {[-1, 1].map((side) => (
+                <Bevel
+                  key={side}
+                  position={[side * 0.145, 0.71, 0.124]}
+                  rotation={[0, 0, side * -0.6]}
+                  size={[0.075, 0.01, 0.006]}
+                  radius={0.002}
+                  color={pocketShadow}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Joggers: Gathered elastic waistband and dangling drawstrings with metal aglets */}
+          {pantsStyle === 'joggers' && (
+            <>
+              <Bevel position={[0, 0.735, 0]} size={[0.414, 0.042, 0.252]} radius={0.012} color={darkAccent} />
+              {[-0.022, 0.022].map((x, i) => (
+                <group key={i} position={[x, 0.672, 0.129]} rotation={[0, 0, i === 0 ? -0.09 : 0.09]}>
+                  <Bevel position={[0, 0, 0]} size={[0.008, 0.075, 0.008]} radius={0.003} color="#e5e5e0" />
+                  <Bevel position={[0, -0.042, 0]} size={[0.01, 0.018, 0.01]} radius={0.002} color="#9aa0a6" metalness={0.6} />
+                </group>
+              ))}
+              {[-0.022, 0.022].map((x) => (
+                <Bevel key={x} position={[x, 0.725, 0.128]} size={[0.016, 0.016, 0.006]} radius={0.004} color="#70757a" />
+              ))}
+            </>
+          )}
+
+          {/* Trousers: Formal tailored waistband with dress tab closure & dress fly */}
+          {pantsStyle === 'trousers' && (
+            <>
+              <Bevel position={[0, 0.735, 0]} size={[0.41, 0.034, 0.25]} radius={0.008} color={look.pants} />
+              <Bevel position={[0.018, 0.735, 0.127]} size={[0.038, 0.022, 0.008]} radius={0.003} color="#60666d" metalness={0.5} />
+              <Bevel position={[0, 0.69, 0.124]} size={[0.007, 0.065, 0.006]} radius={0.002} color={pocketShadow} />
+              {[-1, 1].map((side) => (
+                <Bevel
+                  key={side}
+                  position={[side * 0.14, 0.705, 0.124]}
+                  rotation={[0, 0, side * -0.3]}
+                  size={[0.06, 0.008, 0.006]}
+                  radius={0.002}
+                  color={pocketShadow}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Cargo: Webbing utility belt with quick-release gunmetal buckle */}
+          {pantsStyle === 'cargo' && (
+            <>
+              <Bevel position={[0, 0.732, 0]} size={[0.412, 0.036, 0.252]} radius={0.008} color="#272a2b" />
+              <Bevel position={[0, 0.732, 0.128]} size={[0.065, 0.038, 0.012]} radius={0.004} color="#3c4043" metalness={0.4} />
+              {[-0.14, -0.065, 0.065, 0.14].map((x) => (
+                <Bevel key={x} position={[x, 0.73, 0.129]} size={[0.02, 0.046, 0.006]} radius={0.002} color={look.pants} />
+              ))}
+            </>
+          )}
+
+          {/* Shorts: Casual button, fly and side pockets */}
+          {pantsStyle === 'shorts' && (
+            <>
+              <Bevel position={[0, 0.735, 0.126]} size={[0.022, 0.022, 0.007]} radius={0.006} color="#e5e5e0" />
+              <Bevel position={[0, 0.695, 0.125]} size={[0.007, 0.055, 0.006]} radius={0.002} color={pocketShadow} />
+              {[-1, 1].map((side) => (
+                <Bevel
+                  key={side}
+                  position={[side * 0.13, 0.715, 0.125]}
+                  rotation={[0, 0, side * -0.5]}
+                  size={[0.06, 0.009, 0.007]}
+                  radius={0.002}
+                  color={pocketShadow}
+                />
+              ))}
+            </>
+          )}
+        </>
+      )}
 
       {/* Torso */}
       <Bevel position={[0, 0.984, 0]} size={[robot ? 0.51 : 0.455, robot ? 0.49 : 0.55, robot ? 0.32 : 0.28]} radius={0.075} color={robot ? '#ecefeb' : cloth} taper={0.27} />

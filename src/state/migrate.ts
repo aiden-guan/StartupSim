@@ -14,11 +14,14 @@ export function migrateGameState(raw: GameState): GameState {
   const state = structuredClone(raw);
   const legacyTutorial = state.onboarding?.version !== 2;
   state.meta.schemaVersion = BALANCE.SCHEMA_VERSION;
+  state.meta.runId ??= `run_${Math.random().toString(36).slice(2, 10)}`;
   state.founder.look = normalizeLook(state.founder.look);
   state.employees = state.employees.map((employee) => ({
     ...employee,
     look: normalizeLook(employee.look),
   }));
+  state.achievements ??= [];
+  if (state.stats) state.stats.dilutionsCount ??= 0;
   if (!state.company.brand) state.company.brand = { ...DEFAULT_BRAND };
   if (!state.company.brand.color) state.company.brand.color = DEFAULT_BRAND.color;
   if (!state.company.brand.mark) state.company.brand.mark = DEFAULT_BRAND.mark;
@@ -129,7 +132,16 @@ export function migrateGameState(raw: GameState): GameState {
     state.marketBattle.busy = false;
     state.marketBattle.turnNonce ??= 0;
     state.marketBattle.lastResolution ??= null;
-    for (const node of state.marketBattle.nodes) node.contestPenalty ??= 0;
+    state.marketBattle.playerOps ??= 3;
+    state.marketBattle.playerMaxOps ??= 3;
+    state.marketBattle.bankedOps ??= 0;
+    state.marketBattle.rivalOps ??= 2;
+    state.marketBattle.playerDefensivePosture ??= false;
+    state.marketBattle.actionLog ??= [];
+    for (const node of state.marketBattle.nodes) {
+      node.contestPenalty ??= 0;
+      node.fortified ??= false;
+    }
   }
   setPause(state,"market",Boolean(state.marketBattle));
   setPause(state,"results",Boolean(state.marketResult));

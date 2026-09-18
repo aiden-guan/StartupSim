@@ -1,18 +1,71 @@
+import type { Vector3Tuple } from 'three';
 import { Box, Cylinder, Composition, ink, navy, paper, wood, steel, orange } from './products/Parts';
 import { Chair, CoffeeMachine, Couch, Desk, Fridge, Mug, Plant } from './Furniture';
+
+export function CoffeeStation({ tier, position = [0, 0, 0] }: { tier: number; position?: Vector3Tuple }) {
+  return (
+    <group position={position}>
+      <CoffeeMachine position={[tier === 0 ? 0 : -0.35, 0, 0]} />
+      {tier >= 1 && (
+        <>
+          <Box p={[0.41, 0.17, -0.1]} s={[0.25, 0.34, 0.27]} c={steel} />
+          <Cylinder p={[0.41, 0.41, -0.1]} r={0.12} h={0.15} c={ink} />
+          <Mug position={[0.4, 0.06, 0.2]} />
+        </>
+      )}
+      {tier >= 2 && (
+        <>
+          <Box p={[0, 0.26, -0.35]} s={[2.05, 0.55, 0.06]} c={wood} />
+          <Box p={[0, 0.57, -0.28]} s={[2.1, 0.07, 0.26]} c={navy} />
+          {[-0.72, 0.1, 0.72].map((x) => (
+            <Cylinder key={x} p={[x, 0.72, -0.27]} r={0.1} h={0.23} c={paper} />
+          ))}
+          <Cylinder p={[0.8, 0.09, 0.12]} r={0.13} h={0.16} c={paper} />
+        </>
+      )}
+    </group>
+  );
+}
+
+export function FoodStation({ tier, position = [0, 0, 0] }: { tier: number; position?: Vector3Tuple }) {
+  return (
+    <group position={position}>
+      <Fridge position={[tier === 0 ? 0 : -0.8, 0, 0]} />
+      {tier >= 1 && (
+        <>
+          <Box p={[0.45, -0.235, 0]} s={[1.25, 0.88, 0.73]} c={paper} />
+          <Box p={[0.45, 0.235, 0]} s={[1.34, 0.07, 0.8]} c={wood} />
+          {[0.13, 0.65].map((x) => (
+            <group key={x}>
+              <Box p={[x, 0.295, 0.03]} s={[0.4, 0.07, 0.44]} c={steel} />
+              <Cylinder p={[x, 0.355, 0.03]} r={0.14} h={0.09} c={tier === 2 ? ink : orange} />
+            </group>
+          ))}
+        </>
+      )}
+      {tier >= 2 && (
+        <>
+          <Box p={[0.45, -0.215, 0.38]} s={[0.9, 0.48, 0.04]} c={ink} />
+          <Box p={[0.45, -0.215, 0.41]} s={[0.7, 0.28, 0.025]} c={steel} />
+          <Box p={[0.45, 0.885, -0.32]} s={[1.34, 0.18, 0.43]} c={steel} />
+          {[-0.12, 1.02].map((x) => (
+            <Box key={x} p={[x, 0.555, -0.35]} s={[0.045, 0.55, 0.05]} c={steel} />
+          ))}
+          <Box p={[0.45, 1.115, -0.35]} s={[0.3, 0.3, 0.22]} c={steel} />
+        </>
+      )}
+    </group>
+  );
+}
 
 /** Grounded tier compositions. Shared office furniture keeps its established proportions. */
 export function CultureDetails({id,tier}:{id:string;tier:number}) {
   if(id==='coffee') return <>
     <Box p={[0,.43,0]} s={[tier===2?2.1:1.35,.86,.7]} c={paper}/><Box p={[0,.89,0]} s={[tier===2?2.2:1.45,.08,.77]} c={wood}/>
-    <CoffeeMachine position={[tier===0?0:-.35,.93,0]}/>
-    {tier>=1&&<><Box p={[.41,1.1,-.1]} s={[.25,.34,.27]} c={steel}/><Cylinder p={[.41,1.34,-.1]} r={.12} h={.15} c={ink}/><Mug position={[.4,.99,.2]}/></>}
-    {tier===2&&<><Box p={[0,1.19,-.35]} s={[2.05,.55,.06]} c={wood}/><Box p={[0,1.5,-.28]} s={[2.1,.07,.26]} c={navy}/>{[-.72,.1,.72].map(x=><Cylinder key={x} p={[x,1.65,-.27]} r={.1} h={.23} c={paper}/>)}<Cylinder p={[.8,1.02,.12]} r={.13} h={.16} c={paper}/></>}
+    <CoffeeStation tier={tier} position={[0, .93, 0]}/>
   </>;
   if(id==='food') return <>
-    <Fridge position={[tier===0?0:-.8,.675,0]}/>
-    {tier>=1&&<><Box p={[.45,.44,0]} s={[1.25,.88,.73]} c={paper}/><Box p={[.45,.91,0]} s={[1.34,.07,.8]} c={wood}/>{[.13,.65].map(x=><><Box key={`tray${x}`} p={[x,.97,.03]} s={[.4,.07,.44]} c={steel}/><Cylinder key={x} p={[x,1.03,.03]} r={.14} h={.09} c={tier===2?ink:orange}/></>)}</>}
-    {tier===2&&<><Box p={[.45,.46,.38]} s={[.9,.48,.04]} c={ink}/><Box p={[.45,.46,.41]} s={[.7,.28,.025]} c={steel}/><Box p={[.45,1.56,-.32]} s={[1.34,.18,.43]} c={steel}/>{[-.12,1.02].map(x=><Box key={x} p={[x,1.23,-.35]} s={[.045,.55,.05]} c={steel}/>)}<Box p={[.45,1.79,-.35]} s={[.3,.3,.22]} c={steel}/></>}
+    <FoodStation tier={tier} position={[0, .675, 0]}/>
   </>;
   if(id==='rest') return tier===0?<>
     <Box p={[0,.24,0]} s={[1.75,.48,.9]} c={paper}/><Box p={[0,.54,0]} s={[1.6,.15,.81]} c={navy}/><Box p={[-.51,.65,0]} s={[.4,.13,.65]} c={paper}/>

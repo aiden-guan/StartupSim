@@ -16,6 +16,7 @@ import type {
   MarketEntryResult,
   MarketNodeState,
   MarketSession,
+  MarketTactic,
 } from "./types";
 
 export function getNeighbors(edges: MarketEdge[], nodeId: string): string[] {
@@ -323,6 +324,7 @@ export function calculateInfluence(
   capabilityLevel: number,
   combo: [string, string],
   power?: MarketPowerContext,
+  tactic?: MarketTactic,
 ): InfluenceBreakdown {
   const node = session.nodes.find((n) => n.id === nodeId);
   if (!node) {
@@ -336,10 +338,17 @@ export function calculateInfluence(
     };
   }
 
+  // Tactical modifiers
+  let tacticBonus = 0;
+  if (tactic === "fortify") tacticBonus += 4;
+  else if (tactic === "blitz") tacticBonus += 7;
+  else if (tactic === "viral" && (node.trait === "viral" || node.trait === "community_driven")) tacticBonus += 4;
+  else if (tactic === "poach") tacticBonus += 4;
+
   // Capability gives base conversion power
-  const base = action === "reinforce"
+  const base = (action === "reinforce"
     ? 3 + Math.round(capabilityLevel * 1.5)
-    : 3 + Math.round(capabilityLevel * 1.2);
+    : 3 + Math.round(capabilityLevel * 1.2)) + tacticBonus;
 
   const fit = getProductFit(node, combo);
   const support = getConnectedSupport(session, nodeId, side);
@@ -356,8 +365,9 @@ export function calculateInfluence(
   const isoPen = isIso ? 0.25 : 0;
   const contestPen = Math.min(0.28, (node.contestPenalty ?? 0) * 0.08);
 
-  // Resistance factor: high resistance slows down expansion
-  const resFactor = Math.max(1, node.resistance * 0.35);
+  // Resistance factor: PR blitz ignores 50% resistance!
+  const effectiveResistance = tactic === "blitz" ? node.resistance * 0.5 : node.resistance;
+  const resFactor = Math.max(1, effectiveResistance * 0.35);
 
   let raw = (base + fit + support + quality + launch + brand) * (1 - overloadPen) * (1 - isoPen) * (1 - contestPen);
   raw = Math.max(1, Math.round(raw / resFactor));
@@ -383,6 +393,7 @@ export function previewAction(
   capabilityLevel: number,
   combo: [string, string],
   power?: MarketPowerContext,
+  tactic?: MarketTactic,
 ): {
   projectedPlayerShare: number;
   projectedRivalShare: number;
@@ -416,6 +427,7 @@ export function previewAction(
     capabilityLevel,
     combo,
     power,
+    tactic,
   );
 
   const pInf = side === "player"
@@ -679,8 +691,11 @@ export function startMarketSession(
       rivalIsolated: false,
       isPlayerBeachhead: isPlayerBeach,
       isRivalBeachhead: isRivalBeach,
+      fortified: false,
     };
   });
+
+  const baseOps = product.levels.distribution >= 3 ? 4 : 3;
 
   const session: MarketSession = {
     id: uid(rng, "ms"),
@@ -702,6 +717,12 @@ export function startMarketSession(
     playerScaleUsed: 0,
     rivalScaleUsed: 0,
     firstMarket: first,
+    playerOps: baseOps,
+    playerMaxOps: baseOps,
+    bankedOps: 0,
+    rivalOps: first ? 2 : Math.min(4, 2 + (def?.difficulty ?? 1)),
+    playerDefensivePosture: false,
+    actionLog: [],
     lastRivalMove: null,
     lastResolution: null,
     playerMomentum: Math.max(-2, Math.min(4, Math.round(launchStrength(product, state) - 4))),
@@ -858,7 +879,13 @@ export function aiSelectMove(
     const support = getConnectedSupport(session, move.nodeId, "rival");
     score += support * 6;
     if (node.trait === "platform_hub") {
-      score += 12;
+      score += 18;
+    }
+
+    // Fortified / Defensive Posture penalty for AI contest attempts
+    if (move.action === "contest") {
+      if (node.fortified) score -= 22;
+      if (session.playerDefensivePosture) score -= 12;
     }
 
     // 7. Scale overload management
