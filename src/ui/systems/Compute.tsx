@@ -5,7 +5,7 @@ import type { DepartmentId, GameState } from "../../simulation/types";
 import { isModelAvailable, providerForModel } from "../../simulation/effects";
 import { useGame } from "../../state/store";
 import { fixedComputeCost, inferenceCoverage, monthlyCompute } from "../../simulation/derived";
-import { allocateTrainingCompute, leftoverCapacityDaily } from "../../simulation/compute";
+import { allocateTrainingCompute, leftoverCapacityDaily, weeklyInferenceDemand } from "../../simulation/compute";
 import { modelTags } from "../../visuals/registry";
 import { modelPricePerMTok, money } from "../format";
 import { GameButton } from "../shared/controls";
@@ -21,7 +21,7 @@ const SERVICE_PRODUCT_STATUSES = new Set(["active", "mature", "declining"]);
 export function ComputePanel({ game }: { game: GameState }) {
   const dispatch = useGame((state) => state.dispatch);
   const [selectedId, setSelectedId] = useState(game.currentModelId);
-  const demand = game.products.filter((product) => SERVICE_PRODUCT_STATUSES.has(product.status)).reduce((sum, product) => sum + product.weeklyInference, 0);
+  const demand = weeklyInferenceDemand(game);
   const coverage = inferenceCoverage(game);
   const load = coverage > 0 ? Math.min(100, demand / coverage * 100) : 0;
   const training = allocateTrainingCompute(game);

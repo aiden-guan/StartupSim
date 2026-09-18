@@ -3,6 +3,7 @@ import { SPEED_OPTIONS } from '../config/balance';
 import { useCameraDirector } from '../game3d/camera/cameraStore';
 import { formatDate } from '../simulation/date';
 import { monthlyBurn, runwayMonths } from '../simulation/derived';
+import { inferenceCreditDepleted, uncoveredInferenceDemand } from '../simulation/compute';
 import type { DrawerId, GameState } from '../simulation/types';
 import { useGame } from '../state/store';
 import { money } from './format';
@@ -55,7 +56,8 @@ export function HUD({game}:{game:GameState}) {
   const ready=game.products.find(p=>p.status==='ready');
   const burnedCount=game.employees.filter(e=>e.burnoutDays>0).length;
   const lowRunway=run<2 && run>0 && game.company.cash<25000;
-  const creditDepleted=game.compute.apiCredits<=0 && game.products.some(p=>p.status==='active') && game.compute.rentedGpus===0;
+  const creditDepleted=inferenceCreditDepleted(game);
+  const uncoveredInference=uncoveredInferenceDemand(game);
   const burn=monthlyBurn(game);
   const cash=useAnimatedCash(game.company.cash,game.settings.reducedMotion,burn);
   const unlockedAchievements = new Set([...(game.achievements ?? []), ...getLifetimeAchievements()]);
@@ -66,7 +68,7 @@ export function HUD({game}:{game:GameState}) {
       <button className={`hud-stat cash-stat ${cash.delta?`cash-${cash.delta.level} ${cash.delta.value>0?'cash-up':'cash-down'}`:''}`} onClick={()=>setDrawer('finance')} title="Open the ledger for a cash-flow breakdown"><small>Cash</small><strong aria-label={money(game.company.cash)}>{money(cash.display)}</strong>{cash.delta&&<span className="cash-delta">{cash.delta.value>0?'+':''}{money(cash.delta.value)}</span>}</button>
       <button className="hud-stat" onClick={()=>setDrawer('finance')} title={`Expected net burn ${money(burn)} per month`}><small>Runway</small><strong className={run<3?'warning':''}>{run>=99?'Profitable':`${run.toFixed(1)} months`}</strong></button>
       {burnedCount>0&&<button className="hud-alert-badge" onClick={()=>setDrawer('people')} title={`${burnedCount} team member${burnedCount>1?'s are':' is'} resting due to burnout`}>⚠ {burnedCount} Resting</button>}
-      {creditDepleted&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('compute')} title="API credits depleted · paying for all inference from cash">⚠ Credits depleted</button>}
+      {creditDepleted&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('compute')} title={`API credits depleted · ${money(uncoveredInference)}/week of inference billed to cash`}>⚠ Credits depleted</button>}
       {lowRunway&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('finance')} title="Runway critically low · under 2 months">⚠ Low runway</button>}
       <div className="hud-clock"><span>{formatDate(game.clock.date)}</span><div className="speed-controls" data-tutorial="speed-controls">
         {SPEED_OPTIONS.map(speed=><button key={speed} data-tutorial={speed===1?'speed-one':undefined} aria-label={speed===0?'Pause':`${speed}× speed`} aria-pressed={speed===0?game.clock.paused:!game.clock.paused&&game.clock.speed===speed} onClick={()=>dispatch(speed===0?{type:'setPaused',paused:true}:{type:'setSpeed',speed})}>{speed===0?'Ⅱ':`${speed}×`}</button>)}

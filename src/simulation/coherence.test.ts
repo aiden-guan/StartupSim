@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { recruitingChannels } from "../data/recruiting";
 import { officeAnnualBurden, offices } from "../data/offices";
 import { applyCommand } from "./commands";
-import { allocateTrainingCompute, consumeTrainingCompute, leftoverCapacityDaily, taskComputeDemand } from "./compute";
+import { allocateTrainingCompute, consumeTrainingCompute, inferenceCreditDepleted, leftoverCapacityDaily, taskComputeDemand } from "./compute";
 import { candidateQualityScore, generateEmployee, generateSkills } from "./candidates";
 import { monthlyRent } from "./derived";
 import { companyStage, scaleEventCash } from "./eventEconomy";
@@ -57,6 +57,50 @@ describe("product completion pause", () => {
 });
 
 describe("compute constraints", () => {
+  it("does not report depleted credits when self-hosted capacity covers inference", () => {
+    const g = boot(13);
+    g.products.push({
+      id: "hosted-product",
+      name: "Hosted product",
+      combo: ["chat", "writing"],
+      recipeId: "chat.writing",
+      description: "",
+      status: "active",
+      difficulty: 1,
+      revenueScore: 1,
+      points: { engineering: 0, product: 0, growth: 0, research: 0 },
+      levels: { deployment: 0, capability: 0, distribution: 0 },
+      version: 1,
+      newDiscovery: false,
+      vertical: "consumer",
+      riskTags: [],
+      businessModel: "freemium",
+      gtmStrategy: "product-led",
+      modelId: "claudius-instant",
+      marketShare: 0,
+      weeklyRevenue: 0,
+      weeklyInference: 1_000,
+      weeklyOperatingCost: 0,
+      retentionRate: 0.97,
+      gtmFit: 50,
+      weeklyGrowthRate: 0,
+      rampWeeks: 0,
+      users: 1,
+      reliability: 0.5,
+      ageWeeks: 0,
+      earnedRevenue: 0,
+      technicalDebt: 0,
+      competitorId: null,
+    });
+    g.compute.apiCredits = 0;
+    g.compute.ownedCluster = 10;
+
+    expect(inferenceCreditDepleted(g)).toBe(false);
+
+    g.compute.ownedCluster = 1;
+    expect(inferenceCreditDepleted(g)).toBe(true);
+  });
+
   it("consumes training compute across concurrent projects and blocks progress at zero", () => {
     let g = boot(13);
     g = startNamedProduct(g, "chat", "writing");

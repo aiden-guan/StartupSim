@@ -14,6 +14,14 @@ export function weeklyInferenceDemand(state: GameState): number {
     .reduce((sum, p) => sum + p.weeklyInference, 0);
 }
 
+export function uncoveredInferenceDemand(state: GameState): number {
+  return Math.max(0, weeklyInferenceDemand(state) - inferenceCoverage(state));
+}
+
+export function inferenceCreditDepleted(state: GameState): boolean {
+  return state.compute.apiCredits <= 0 && uncoveredInferenceDemand(state) > 0;
+}
+
 /** GPU capacity leftover after live inference, expressed as a daily training budget. */
 export function leftoverCapacityDaily(state: GameState): number {
   return Math.max(0, inferenceCoverage(state) - weeklyInferenceDemand(state)) / 7;
