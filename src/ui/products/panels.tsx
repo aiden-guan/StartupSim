@@ -7,7 +7,7 @@ import { findRecipe } from '../../data/recipes';
 import { PRICING_MODELS } from '../../data/pricing';
 import { availableGtmStrategies, GTM_STRATEGIES } from '../../data/gtm';
 import { currentTutorialSlide } from '../../simulation/tutorial';
-import { canAffordStat, launchCosts, requiredFor } from '../../simulation/products';
+import { canAffordStat, findProductByCombo, launchCosts, requiredFor } from '../../simulation/products';
 import { taskEstimate } from '../../simulation/tasks';
 import { reassignmentImpact, relevantSkillsFor } from '../../simulation/staffing';
 import { computeBlockReason } from '../../simulation/compute';
@@ -72,6 +72,7 @@ export function TasksPanel({game}:{game:GameState}) {
   const [renameTaskInput,setRenameTaskInput]=useState('');
   const a=game.onboarding.primitiveA,b=game.onboarding.primitiveB;
   const recipe=a&&b?findRecipe(a,b):null;
+  const existingProduct=a&&b?findProductByCombo(game.products,a,b):undefined;
   const intro=game.pendingMentor==='intro';
   const slide=currentTutorialSlide(game)?.id;
   const choosingSlot=slide==='choose-writing'?'b':slide==='choose-chat'?'a':slot;
@@ -99,9 +100,9 @@ export function TasksPanel({game}:{game:GameState}) {
       </div>
       <div className="recipe-preview">
         <span className="eyebrow">02 · The combination</span>
-        <ProductPreview a={a} b={b}/>
-        <h3>{recipe?.name??(a&&b?'Untested combination':'Choose two technologies')}</h3>
-        <p>{recipe?.description??'Combine two technologies to define a product.'}</p>
+        <ProductPreview a={a} b={b} created={Boolean(existingProduct)}/>
+        <h3>{existingProduct?.name??recipe?.name??(a&&b?'Untested combination':'Choose two technologies')}</h3>
+        <p>{existingProduct ? `Already created from this combination. Start another version or choose a different pair.` : recipe?.description??'Combine two technologies to define a product.'}</p>
         {a&&b&&<div className="lab-product-name-block">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <span className="eyebrow" style={{ fontSize: 10 }}>Product Name</span>
@@ -122,7 +123,7 @@ export function TasksPanel({game}:{game:GameState}) {
             <span className="char-counter">{(customName || defaultProductName).length}/{BALANCE.MAX_PRODUCT_NAME_LENGTH}</span>
           </div>
         </div>}
-        {a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}
+        {a&&b&&<div className="recipe-meta"><span>{existingProduct?'Already created':recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}
         <GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{
           const finalName = customName.trim() || defaultProductName;
           dispatch({type:'startProduct',a:a!,b:b!,name:finalName});

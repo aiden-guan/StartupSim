@@ -20,7 +20,7 @@ import {
   shouldEndSession,
   startMarketSession,
 } from "../market/marketMap";
-import { OPS_COST, processRivalTurn, resolveEndTurn, resolveTacticalAction } from "../market/turns";
+import { OPS_COST, marketPowerFor, processRivalTurn, resolveEndTurn, resolveTacticalAction } from "../market/turns";
 import type { MarketTactic } from "../market/types";
 import { applyEffects, isModelAvailable } from "./effects";
 import { monthlyArr } from "./conditions";
@@ -112,6 +112,54 @@ function commit(state: GameState, r: Rng): void {
   state.meta.rngState = r.seed;
 }
 
+type DelegationStrategy = "balanced" | "aggressive" | "niche" | "expansion";
+type DelegatedAction = "expand" | "reinforce" | "contest";
+
+interface DelegationProfile {
+  valueWeight: number;
+  resistanceWeight: number;
+  actionBias: Record<DelegatedAction, number>;
+  anchorBonus: number;
+  contestRivalMultiplier: number;
+}
+
+const DELEGATION_PROFILES: Record<DelegationStrategy, DelegationProfile> = {
+  balanced: {
+    valueWeight: 2,
+    resistanceWeight: 1,
+    actionBias: { expand: 3, reinforce: 0.5, contest: 2 },
+    anchorBonus: 6,
+    contestRivalMultiplier: 0.84,
+  },
+  aggressive: {
+    valueWeight: 1.8,
+    resistanceWeight: 0.8,
+    actionBias: { expand: 1.5, reinforce: 0, contest: 7 },
+    anchorBonus: 8,
+    contestRivalMultiplier: 0.72,
+  },
+  niche: {
+    valueWeight: 4,
+    resistanceWeight: 1.2,
+    actionBias: { expand: 1.5, reinforce: -0.5, contest: 4 },
+    anchorBonus: 5,
+    contestRivalMultiplier: 0.8,
+  },
+  expansion: {
+    valueWeight: 1.8,
+    resistanceWeight: 1.4,
+    actionBias: { expand: 6.5, reinforce: -1.5, contest: 1 },
+    anchorBonus: 4,
+    contestRivalMultiplier: 0.86,
+  },
+};
+
+function delegationTactic(strategy: DelegationStrategy, action: DelegatedAction): MarketTactic {
+  if (action === "contest" && strategy === "aggressive") return "poach";
+  if (strategy === "niche" && action === "reinforce") return "fortify";
+  return "pitch";
+}
+
 export function applyCommand(state: GameState | null, command: GameCommand): GameState | null {
   if (command.type === "newGame") return createNewGame(command.input);
   if (!state) return state;
@@ -174,7 +222,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         if (!draft.marketResult) break;
         draft.marketResult = null;
         setPause(draft, "results", false);
-        setPause(draft, "manual", true);
+        setPause(draft, "productReady", false);
         recordTutorialEvent(draft, "continuedMarketResults");
         break;
       case "dismissMentor":
@@ -315,8 +363,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         if (!p || p.status !== "ready" || draft.marketBattle || draft.marketResult) break;
         if (draft.onboarding.tutorialEnabled && !draft.company.seenMarket && currentTutorialSlide(draft)?.id !== "enter-market") break;
         draft.marketBattle = startMarketSession(draft, p, r);
-        const hasOtherReady = draft.products.some((other) => other.id !== p.id && other.status === "ready");
-        setPause(draft, "productReady", hasOtherReady);
+        setPause(draft, "productReady", false);
         setPause(draft, "market", true);
         recordTutorialEvent(draft, "enteredFirstMarket");
         break;
@@ -417,45 +464,62 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
             ...pMoves.reinforce.map((id) => ({ action: "reinforce" as const, nodeId: id })),
             ...pMoves.contest.map((id) => ({ action: "contest" as const, nodeId: id })),
           ];
-          const strategy = command.strategy ?? "balanced";
+          const strategy: DelegationStrategy = command.strategy ?? "balanced";
+          const profile = DELEGATION_PROFILES[strategy];
           if (allPMoves.length) {
             allPMoves.sort((a, b) => {
               const na = session.nodes.find((n) => n.id === a.nodeId)!;
               const nb = session.nodes.find((n) => n.id === b.nodeId)!;
-              let scoreA = na.value * 2 - na.resistance;
-              let scoreB = nb.value * 2 - nb.resistance;
-              if (strategy === "aggressive") {
-                if (na.rivalShare > 0) scoreA += 4;
-                if (nb.rivalShare > 0) scoreB += 4;
-                if (a.action === "reinforce") scoreA += 2;
-                if (b.action === "reinforce") scoreB += 2;
-              } else if (strategy === "niche") {
-                scoreA = na.value * 3;
-                scoreB = nb.value * 3;
-                if (a.action === "reinforce") scoreA += 3;
-                if (b.action === "reinforce") scoreB += 3;
-              } else if (strategy === "expansion") {
-                if (a.action === "expand") scoreA += 5;
-                if (b.action === "expand") scoreB += 5;
-                scoreA -= na.resistance * 2;
-                scoreB -= nb.resistance * 2;
-              } else {
-                if (na.playerShare >= 40) scoreA += 1;
-                if (nb.playerShare >= 40) scoreB += 1;
-              }
+              const scoreMove = (node: typeof na, action: DelegatedAction): number => {
+                let score = node.value * profile.valueWeight - node.resistance * profile.resistanceWeight;
+                score += profile.actionBias[action];
+
+                // Do not spend the whole window polishing a segment that is already secure.
+                if (action === "reinforce") {
+                  score -= Math.max(0, node.playerShare - 55) / 7;
+                }
+
+                // Contests are more valuable when the rival actually controls the segment.
+                if (action === "contest") {
+                  score += Math.min(6, node.rivalShare * 0.08);
+                }
+
+                // Keep the original beachhead alive when the rival starts closing in.
+                if (action === "reinforce" && node.isPlayerBeachhead && node.playerShare < 75) {
+                  score += profile.anchorBonus;
+                }
+
+                return score;
+              };
+              const scoreA = scoreMove(na, a.action);
+              const scoreB = scoreMove(nb, b.action);
               return scoreB - scoreA;
             });
             const chosen = allPMoves[0]!;
+            const node = session.nodes.find((n) => n.id === chosen.nodeId);
+            const tactic = delegationTactic(strategy, chosen.action);
             if (chosen.action === "contest") {
-              const node = session.nodes.find((n) => n.id === chosen.nodeId);
               if (node?.rivalDominated) {
                 node.rivalDominated = false;
-                node.rivalInfluence = Math.max(2, Math.round(node.rivalInfluence * 0.72));
               }
-              applyAction(session, chosen.nodeId, "player", "expand", p.levels.capability, p.combo);
-            } else {
-              applyAction(session, chosen.nodeId, "player", chosen.action, p.levels.capability, p.combo);
+              if (node) {
+                node.rivalInfluence = Math.max(1, Math.round(node.rivalInfluence * profile.contestRivalMultiplier));
+              }
             }
+            applyAction(
+              session,
+              chosen.nodeId,
+              "player",
+              chosen.action === "contest" ? "expand" : chosen.action,
+              p.levels.capability,
+              p.combo,
+              marketPowerFor(draft, p, session, "player"),
+              tactic,
+            );
+            session.playerMomentum = Math.min(
+              6,
+              (session.playerMomentum ?? 0) + (chosen.action === "contest" ? 2 : 1),
+            );
           }
           if (shouldEndSession(session)) break;
           processRivalTurn(draft, session, r);
@@ -463,8 +527,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           session.turn += 1;
         }
         applyMarketEntryResults(draft, session, r);
-        const hasOtherReady = draft.products.some((other) => other.id !== p.id && other.status === "ready");
-        setPause(draft, "productReady", hasOtherReady);
+        setPause(draft, "productReady", false);
         setPause(draft, "market", false);
         setPause(draft, "results", true);
         break;

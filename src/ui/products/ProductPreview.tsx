@@ -12,10 +12,12 @@ function Aim() {
   return null;
 }
 
-export function ProductPreview({ a, b }: { a: string | null; b: string | null }) {
+export function ProductPreview({ a, b, created = false }: { a: string | null; b: string | null; created?: boolean }) {
   const discovered = Boolean(a && b && findRecipe(a, b));
   const label = a && b
-    ? discovered
+    ? created
+      ? `${primitiveById[a]?.name ?? a} and ${primitiveById[b]?.name ?? b} existing product model`
+      : discovered
       ? `${primitiveById[a]?.name ?? a} and ${primitiveById[b]?.name ?? b} product model`
       : `${primitiveById[a]?.name ?? a} and ${primitiveById[b]?.name ?? b} undiscovered combination`
     : a ? `${primitiveById[a]?.name ?? a} technology miniature` : 'Select two technologies to preview a product model';
@@ -34,6 +36,6 @@ export function ProductPreview({ a, b }: { a: string | null; b: string | null })
       <i>+</i>
       <span><GameIcon name={b ?? 'products'} /></span>
     </div>}
-    <span className="product-model-label" style={{fontSize:8, bottom:3, padding:3}}>{a && b ? discovered ? 'Catalog product' : 'Undiscovered combination · discovery pending' : a ? 'Technology miniature' : 'Select a pair to see its model'}</span>
+    <span className="product-model-label" style={{fontSize:8, bottom:3, padding:3}}>{a && b ? created ? 'Existing product' : discovered ? 'Catalog product' : 'Undiscovered combination · discovery pending' : a ? 'Technology miniature' : 'Select a pair to see its model'}</span>
   </div>;
 }

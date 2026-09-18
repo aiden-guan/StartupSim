@@ -16,6 +16,11 @@ export function recipeNameKey(a: string, b: string): string {
   return [a, b].sort().join(".");
 }
 
+export function findProductByCombo(products: Product[], a: string, b: string): Product | undefined {
+  const key = recipeNameKey(a, b);
+  return products.find((product) => recipeNameKey(product.combo[0], product.combo[1]) === key);
+}
+
 export function requiredProgress(difficulty: number, first: boolean): number {
   const base = Math.exp(difficulty / 5) * BALANCE.PROGRESS_PER_DIFFICULTY;
   return first ? base / BALANCE.FIRST_PRODUCT_SPEED : base;

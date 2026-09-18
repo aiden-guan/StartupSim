@@ -40,6 +40,20 @@ describe("product completion pause", () => {
     expect(g.clock.pauseReasons).not.toContain("productReady");
     expect(g.clock.pauseReasons).toContain("market");
   });
+
+  it("does not keep the ready-product pause after launching when another product is ready", () => {
+    let g = boot(14);
+    g = startNamedProduct(g, "chat", "writing");
+    g = startNamedProduct(g, "search", "image");
+    for (const product of g.products) product.status = "ready";
+    g.clock.pauseReasons = ["productReady"];
+    g.clock.paused = true;
+
+    g = applyCommand(g, { type: "enterMarket", productId: g.products[0]!.id })!;
+
+    expect(g.clock.pauseReasons).not.toContain("productReady");
+    expect(g.clock.pauseReasons).toContain("market");
+  });
 });
 
 describe("compute constraints", () => {

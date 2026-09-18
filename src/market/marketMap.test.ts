@@ -341,6 +341,27 @@ describe("Rout & Session End Tests", () => {
 });
 
 describe("Economics & Launch Outcome Tests", () => {
+  it("keeps every delegated strategy viable across ordinary launches", () => {
+    const styles = ["balanced", "aggressive", "niche", "expansion"] as const;
+    const shares = Object.fromEntries(styles.map((style) => [style, [] as number[]])) as Record<typeof styles[number], number[]>;
+    for (let seed = 1; seed <= 24; seed++) {
+      for (const style of styles) {
+        const { state, product } = setupGame(seed);
+        state.company.productsLaunched = 8;
+        const nextState = applyCommand(state, { type: "delegateMarket", productId: product.id, strategy: style })!;
+        const result = nextState.marketResult!;
+        shares[style]!.push(result.share);
+        expect(result.outcomeType).not.toBe("routed");
+      }
+    }
+    for (const style of styles) {
+      const styleShares = shares[style]!;
+      const averageShare = styleShares.reduce((sum, share) => sum + share, 0) / styleShares.length;
+      expect(styleShares.filter((share) => share >= 20).length).toBeGreaterThanOrEqual(22);
+      expect(averageShare).toBeGreaterThan(45);
+    }
+  });
+
   it("calculates realistic launch economics, revenue, users, and margins", () => {
     const { state, product, rng } = setupGame(88);
     const session = startMarketSession(state, product, rng);
@@ -448,4 +469,3 @@ describe("Economics & Launch Outcome Tests", () => {
     expect(migrated.inbox[0]?.body).toContain("Your product is ready to relaunch");
   });
 });
-
