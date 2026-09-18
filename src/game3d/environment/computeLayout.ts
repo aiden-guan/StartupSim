@@ -1,8 +1,10 @@
 /**
  * Physical presentation limits for compute. Capacity can keep growing in the
- * simulation, but an office has a finite, legible equipment footprint.
+ * simulation, but an office has a finite, legible equipment footprint. Each
+ * displayed unit is intentionally more granular than a literal server rack so
+ * a private cluster reads as a meaningful physical investment.
  */
-export const MAX_VISIBLE_RACKS = [1, 2, 4, 7, 10, 14] as const;
+export const MAX_VISIBLE_RACKS = [1, 8, 16, 24, 32, 48] as const;
 
 export interface ComputeRackInput {
   computeTier: number;
@@ -27,11 +29,9 @@ export function maxVisibleRacksForOffice(level: number): number {
 
 export function requestedComputeRacks(input: ComputeRackInput): number {
   if (input.computeTier <= 0) return 0;
-  const rentalRacks = input.rentedGpus > 0 ? Math.min(2, Math.ceil(input.rentedGpus / 8)) : 0;
-  const clusterRacks = input.ownedCluster > 0 ? Math.ceil(input.ownedCluster / 4) : 0;
-  const privateClusterRacks = input.hasGpuCluster ? 2 : 0;
-  const dataCenterRacks = input.dataCenters * 4;
-  return Math.max(1, rentalRacks + clusterRacks + privateClusterRacks + dataCenterRacks);
+  const computeUnits = input.rentedGpus + input.ownedCluster + input.dataCenters * 4;
+  const privateClusterFootprint = input.hasGpuCluster ? 16 : 0;
+  return Math.max(1, computeUnits, privateClusterFootprint);
 }
 
 export function computeRackLayout(level: number, requested: number): ComputeRackLayout {
@@ -39,7 +39,7 @@ export function computeRackLayout(level: number, requested: number): ComputeRack
   const shown = Math.min(safeRequested, maxVisibleRacksForOffice(level));
   if (!shown) return { requested: safeRequested, shown: 0, overflow: 0, columns: 0, rows: 0, positions: [] };
 
-  const officeColumns = level <= 1 ? 2 : level === 2 ? 2 : level === 3 ? 3 : level === 4 ? 4 : 5;
+  const officeColumns = level <= 1 ? 2 : level === 2 ? 4 : level === 3 ? 3 : level === 4 ? 4 : 5;
   const columns = Math.min(officeColumns, shown);
   const rows = Math.ceil(shown / columns);
   const positions: [number, number, number][] = Array.from({ length: shown }, (_, index) => {

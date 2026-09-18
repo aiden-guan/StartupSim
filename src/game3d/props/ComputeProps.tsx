@@ -29,11 +29,11 @@ function CompactRack({position,load}:{position:Vector3Tuple;load:number}) {
   </group>;
 }
 
-export function ServerRackBank({position,count=4,columns,load=0,quality='high'}:{position:Vector3Tuple;count?:number;columns?:number;load?:number;quality?:'low'|'medium'|'high'}) {
-  const shown=Math.min(count,quality==='low'?3:quality==='medium'?8:18);
+export function ServerRackBank({position,count=16,columns,load=0,quality='high'}:{position:Vector3Tuple;count?:number;columns?:number;load?:number;quality?:'low'|'medium'|'high'}) {
+  const shown=Math.min(count,quality==='low'?16:quality==='medium'?20:24);
   return <group position={position}>{kit('set_compute_privateCluster_L2',<group>
     {(() => {
-      const gridColumns = Math.max(1, Math.min(columns ?? (shown > 1 ? 2 : 1), shown));
+      const gridColumns = Math.max(1, Math.min(columns ?? (shown >= 16 ? 4 : shown > 1 ? 2 : 1), shown));
       const rows = Math.ceil(shown / gridColumns);
       const positions = Array.from({length:shown},(_,i)=>[
         (i % gridColumns - (gridColumns - 1) / 2) * 1.02,

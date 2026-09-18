@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { communicationBand, communicationMultiplier, communicationPairs } from "./overhead";
 import { findRecipe } from "../data/recipes";
-import { buyLaunchStat, canAffordStat, launchCosts, setProductEconomics, uncreativityDecay } from "./products";
+import { buyLaunchStat, canAffordStat, findProductByCombo, launchCosts, setProductEconomics, uncreativityDecay } from "./products";
 import { createNewGame } from "./newGame";
 import { applyCommand } from "./commands";
 import { Rng } from "./rng";
@@ -68,6 +68,11 @@ describe("recipes", () => {
   });
   it("falls back to generic for unknown combos", () => {
     expect(findRecipe("chat", "robotics")).toBeUndefined();
+  });
+  it("recognizes a combo that has already been created, regardless of order", () => {
+    const product = blankProduct({ combo: ["search", "image"] });
+    expect(findProductByCombo([product], "image", "search")).toBe(product);
+    expect(findProductByCombo([product], "chat", "image")).toBeUndefined();
   });
 });
 

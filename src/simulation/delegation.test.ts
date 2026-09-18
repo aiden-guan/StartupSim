@@ -59,10 +59,9 @@ describe("Delegated Market Launch and Subsequent Product Lifecycle", () => {
     state = applyCommand(state, { type: "continueMarketResults" })!;
     expect(state.marketResult).toBeNull();
     expect(state.clock.pauseReasons).not.toContain("results");
-
-    // 7. Resume normal time
-    state = applyCommand(state, { type: "setPaused", paused: false })!;
     expect(state.clock.paused).toBe(false);
+
+    // 7. Continue directly into normal time
     expect(state.clock.pauseReasons).not.toContain("productReady");
     expect(state.clock.pauseReasons).not.toContain("market");
     expect(state.clock.pauseReasons).not.toContain("results");
