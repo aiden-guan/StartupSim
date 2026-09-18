@@ -42,7 +42,7 @@ export const onboarding: OnboardDef[] = [
     {id:'deployment',text:'Scale determines how much of the market you can support at once.',workspace:'products',highlightUI:'stat-deployment',advance:next},
     {id:'capability',text:'Capability determines how strongly customers prefer the product once they try it.',workspace:'products',highlightUI:'stat-capability',advance:next},
     {id:'distribution',text:'Distribution determines how easily the product spreads between customer groups.',workspace:'products',highlightUI:'stat-distribution',advance:next},
-    {id:'spend-points',text:'Spend at least one launch point.',workspace:'products',highlightUI:'designer',advance:action('spentLaunchPoint')},
+    {id:'spend-points',text:'Assign your launch points across categories until all points are used.',workspace:'products',highlightUI:'designer',advance:action('spentLaunchPoint')},
     {id:'enter-market',text:'Enter the market map to establish customer footholds.',workspace:'products',highlightUI:'enter-market',advance:action('enteredFirstMarket')},
   ]},
   {id:'market',after:'designer',slides:[

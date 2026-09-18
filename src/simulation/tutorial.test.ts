@@ -7,6 +7,7 @@ import { taskEstimate } from './tasks';
 import { BALANCE } from '../config/balance';
 import { onboarding } from '../data/onboarding';
 import { useGame } from '../state/store';
+import { canAffordAnyStat, canAffordStat } from './products';
 
 function run(seed=11) {
   let game=createNewGame({founderName:'Ada',companyName:'Northstar',cofounderId:'reya',seed});
@@ -43,6 +44,16 @@ function run(seed=11) {
   return {get game(){return game;},send,next,id,start,assign,ready,reload:()=>{game=importSave(exportSave(game));}};
 }
 
+function spendAllLaunchPoints(r: ReturnType<typeof run>, productId: string) {
+  const stats = ['capability', 'deployment', 'distribution'] as const;
+  while (canAffordAnyStat(r.game.products.find(x => x.id === productId)!)) {
+    const prod = r.game.products.find(x => x.id === productId)!;
+    const stat = stats.find(s => canAffordStat(prod, s));
+    if (!stat) break;
+    r.send({ type: 'buyStat', productId, stat });
+  }
+}
+
 describe('guided first company',()=>{
   it('runs product, configuration, market, report, revenue, hire, and research without debug',()=>{
     const r=run();r.ready();
@@ -52,6 +63,8 @@ describe('guided first company',()=>{
     for(let i=0;i<4;i++)r.next();
     expect(r.id()).toBe('spend-points');
     r.send({type:'buyStat',productId,stat:'capability'});
+    expect(r.id()).toBe('spend-points');
+    spendAllLaunchPoints(r, productId);
     expect(r.id()).toBe('enter-market');
     r.send({type:'enterMarket',productId});
     expect(r.id()).toBe('market-yours');
@@ -162,8 +175,7 @@ describe('guided first company',()=>{
     r.ready();
     const productId = r.game.products[0]!.id;
     for (let i = 0; i < 4; i++) r.next();
-    r.send({ type: 'buyStat', productId, stat: 'capability' });
-    r.send({ type: 'buyStat', productId, stat: 'distribution' });
+    spendAllLaunchPoints(r, productId);
     r.send({ type: 'enterMarket', productId });
     expect(r.game.marketBattle).not.toBeNull();
     for (let i = 0; i < 8; i++) r.next(); // clear mentor explanation slides
@@ -217,7 +229,7 @@ describe('guided first company',()=>{
     r.ready();
     const productId = r.game.products[0]!.id;
     for (let i = 0; i < 4; i++) r.next();
-    r.send({ type: 'buyStat', productId, stat: 'capability' });
+    spendAllLaunchPoints(r, productId);
     r.send({ type: 'enterMarket', productId });
     for (let i = 0; i < 8; i++) r.next();
     for (let i = 0; i < 10 && r.game.marketBattle; i++) r.send({ type: 'marketEndTurn' });
@@ -335,4 +347,32 @@ describe('guided first company',()=>{
     expect(r.game.clock.speed).toBe(1);
     expect(r.game.clock.paused).toBe(false);
   });
+
+  it('waits until all launch points are used up before advancing from spend-points to enter-market', () => {
+    const r = run();
+    r.ready();
+    const productId = r.game.products[0]!.id;
+    for (let i = 0; i < 4; i++) r.next();
+    expect(r.id()).toBe('spend-points');
+
+    // Buying one stat uses some points, but remaining points can still afford stats
+    expect(canAffordAnyStat(r.game.products[0]!)).toBe(true);
+    r.send({ type: 'buyStat', productId, stat: 'capability' });
+    expect(canAffordAnyStat(r.game.products[0]!)).toBe(true);
+    // Must still be on spend-points, NOT advanced to enter-market
+    expect(r.id()).toBe('spend-points');
+
+    // Spend until no stats can be afforded
+    while (canAffordAnyStat(r.game.products[0]!)) {
+      const p = r.game.products[0]!;
+      const stat = (['deployment', 'capability', 'distribution'] as const).find((s) => canAffordStat(p, s))!;
+      expect(r.id()).toBe('spend-points');
+      r.send({ type: 'buyStat', productId, stat });
+    }
+
+    // Now all usable points are exhausted, it should advance to enter-market
+    expect(canAffordAnyStat(r.game.products[0]!)).toBe(false);
+    expect(r.id()).toBe('enter-market');
+  });
 });
+

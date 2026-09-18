@@ -92,6 +92,7 @@ textarea {
 .panel-scroll {
   scrollbar-width: thin;
   scrollbar-color: #6d7788 transparent;
+  scrollbar-gutter: stable;
 }
 
 .game-panel {

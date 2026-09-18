@@ -1,6 +1,7 @@
 import { offices } from '../data/offices';
 import { onboarding, type TutorialAction, type TutorialSlide } from '../data/onboarding';
 import { setPause } from './pause';
+import { canAffordAnyStat } from './products';
 import type { GameState } from './types';
 
 export function currentTutorialStep(state:GameState) {
@@ -22,7 +23,7 @@ function satisfied(state:GameState, action:TutorialAction):boolean {
     case 'startedFirstProduct': return Boolean(product);
     case 'assignedFounder': return Boolean(task && state.employees.some(w => w.role === 'founder' && w.taskId === task.id));
     case 'assignedCofounder': return Boolean(task && state.employees.some(w => w.role === 'cofounder' && w.taskId === task.id));
-    case 'spentLaunchPoint': return Boolean(product && Object.values(product.levels).some(n=>n>0));
+    case 'spentLaunchPoint': return Boolean(product && Object.values(product.levels).some(n=>n>0) && !canAffordAnyStat(product));
     case 'enteredFirstMarket': return Boolean(state.marketBattle || state.company.seenMarket);
     case 'hiredEmployee': return state.stats.employeesHired > 0;
     case 'recruitedCandidates': return state.hiring.candidates.length > 0 || state.stats.employeesHired > 0;

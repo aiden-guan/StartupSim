@@ -91,6 +91,12 @@ export function canAffordStat(product: Product, stat: LaunchStat): boolean {
   return requiredFor(stat).every((s) => product.points[s] >= cost);
 }
 
+export function canAffordAnyStat(product: Product): boolean {
+  return (["deployment", "capability", "distribution"] as const).some(
+    (stat) => product.levels[stat] < BALANCE.MAX_LAUNCH_LEVEL && canAffordStat(product, stat),
+  );
+}
+
 export function buyLaunchStat(product: Product, stat: LaunchStat): boolean {
   if (product.levels[stat] >= BALANCE.MAX_LAUNCH_LEVEL) return false;
   if (!canAffordStat(product, stat)) return false;

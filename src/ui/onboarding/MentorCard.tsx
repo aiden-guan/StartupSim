@@ -104,8 +104,6 @@ export function Spotlight() {
     let target: HTMLElement | SVGElement | null = null;
     let observer: ResizeObserver | null = null;
     let frame = 0;
-    let resizeTimer = 0;
-    const restored = new Map<HTMLElement, { overflowY: string; scrollBehavior: string; overscrollBehavior: string }>();
     const scrollingKeys = new Set(["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown", " "]);
     const blockScroll = (event: Event) => event.preventDefault();
     const blockKeyScroll = (event: KeyboardEvent) => {
@@ -123,36 +121,31 @@ export function Spotlight() {
       }
       return parents;
     };
-    const unlockContainers = () => {
-      for (const [node, styles] of restored) {
-        node.style.overflowY = styles.overflowY;
-        node.style.scrollBehavior = styles.scrollBehavior;
-        node.style.overscrollBehavior = styles.overscrollBehavior;
-      }
-      restored.clear();
-    };
-    const lockContainers = (parents: HTMLElement[]) => {
-      for (const node of parents) {
-        if (!restored.has(node)) restored.set(node, { overflowY: node.style.overflowY, scrollBehavior: node.style.scrollBehavior, overscrollBehavior: node.style.overscrollBehavior });
-        node.style.overflowY = "hidden";
-        node.style.overscrollBehavior = "contain";
+    const updateRect = () => {
+      if (!target || cancelled) return;
+      const next = target.getBoundingClientRect();
+      if (next.width > 0 && next.height > 0) {
+        setRect(next);
       }
     };
-    const availableBounds = (elementRect: DOMRect, container?: HTMLElement) => {
-      const base = container?.getBoundingClientRect();
-      let top = Math.max(12, base?.top ?? 0) + 14;
-      let bottom = Math.min(window.innerHeight - 12, base?.bottom ?? window.innerHeight) - 14;
-      const hud = document.querySelector(".hud-bar")?.getBoundingClientRect();
-      const dock = document.querySelector(".game-dock")?.getBoundingClientRect();
-      const mentor = document.querySelector("[data-tutorial-card]")?.getBoundingClientRect();
-      const overlapsX = (rect?: DOMRect) => Boolean(rect && rect.left < elementRect.right + 20 && rect.right > elementRect.left - 20);
-      if (hud && overlapsX(hud)) top = Math.max(top, hud.bottom + 12);
-      if (dock && overlapsX(dock)) bottom = Math.min(bottom, dock.top - 12);
-      if (mentor && overlapsX(mentor)) bottom = Math.min(bottom, mentor.top - 12);
-      return { top, bottom };
+    const scrollIntoViewIfNeeded = (el: HTMLElement | SVGElement) => {
+      const parents = scrollParents(el);
+      for (const parent of parents) {
+        const current = el.getBoundingClientRect();
+        const base = parent.getBoundingClientRect();
+        const pad = 16;
+        let delta = 0;
+        if (current.top < base.top + pad) {
+          delta = current.top - (base.top + pad);
+        } else if (current.bottom > base.bottom - pad) {
+          delta = current.bottom - (base.bottom - pad);
+        }
+        if (Math.abs(delta) > 3) {
+          parent.scrollBy({ top: delta, behavior: "smooth" });
+        }
+      }
     };
     const placeTarget = () => {
-      unlockContainers();
       target = document.querySelector(`[data-tutorial="${slide.highlightUI}"]`);
       if (!(target instanceof HTMLElement || target instanceof SVGElement)) {
         if (!cancelled) frame = window.requestAnimationFrame(placeTarget);
@@ -164,20 +157,9 @@ export function Spotlight() {
         return;
       }
       if (slide.advance.type === "playerAction") target.classList.add("tutorial-actionable");
-      const parents = scrollParents(target);
-      for (const parent of parents) {
-        const current = target.getBoundingClientRect();
-        const bounds = availableBounds(current, parent);
-        const available = Math.max(80, bounds.bottom - bounds.top);
-        const desiredTop = bounds.top + Math.max(0, (available - Math.min(current.height, available)) / 2);
-        const delta = current.top - desiredTop;
-        if (Math.abs(delta) > 3) {
-          if (!restored.has(parent)) restored.set(parent, { overflowY: parent.style.overflowY, scrollBehavior: parent.style.scrollBehavior, overscrollBehavior: parent.style.overscrollBehavior });
-          parent.style.overflowY = "auto";
-          parent.style.scrollBehavior = "smooth";
-          parent.scrollTo({ top: parent.scrollTop + delta, behavior: "smooth" });
-        }
-      }
+
+      scrollIntoViewIfNeeded(target);
+
       let lastTop = target.getBoundingClientRect().top;
       let stableFrames = 0;
       const settle = () => {
@@ -186,12 +168,10 @@ export function Spotlight() {
         stableFrames = Math.abs(next.top - lastTop) < 0.35 ? stableFrames + 1 : 0;
         lastTop = next.top;
         if (stableFrames >= 4) {
-          lockContainers(parents);
           setRect(next);
           observer?.disconnect();
           observer = new ResizeObserver(() => {
-            window.clearTimeout(resizeTimer);
-            resizeTimer = window.setTimeout(placeTarget, 80);
+            updateRect();
           });
           observer.observe(target);
           return;
@@ -200,31 +180,28 @@ export function Spotlight() {
       };
       frame = window.requestAnimationFrame(settle);
     };
-    const onResize = () => {
-      window.clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(placeTarget, 120);
-    };
+
     document.documentElement.classList.add("tutorial-scroll-locked");
     document.addEventListener("wheel", blockScroll, { capture: true, passive: false });
     document.addEventListener("touchmove", blockScroll, { capture: true, passive: false });
     document.addEventListener("keydown", blockKeyScroll, true);
-    window.addEventListener("resize", onResize);
-    // Clear once when the tutorial target changes. Re-settling the same target
-    // keeps the previous outline mounted, so layout observers cannot make it blink.
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+
     setRect(null);
     placeTarget();
+
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(frame);
-      window.clearTimeout(resizeTimer);
       observer?.disconnect();
       target?.classList.remove("tutorial-actionable");
-      unlockContainers();
       document.documentElement.classList.remove("tutorial-scroll-locked");
       document.removeEventListener("wheel", blockScroll, true);
       document.removeEventListener("touchmove", blockScroll, true);
       document.removeEventListener("keydown", blockKeyScroll, true);
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
     };
   }, [slide?.highlightUI, slide?.id, slide?.advance.type]);
 
