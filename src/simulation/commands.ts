@@ -132,7 +132,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       case "setSpeed":
         draft.clock.speed = command.speed;
         setPause(draft, "manual", command.speed === 0);
-        if (command.speed > 0 && currentTutorialSlide(draft)?.id === "start-clock") recordTutorialEvent(draft, "startedClock");
+        if (command.speed > 0 && (currentTutorialSlide(draft)?.id === "start-clock" || currentTutorialSlide(draft)?.id === "team-ready")) recordTutorialEvent(draft, "startedClock");
         break;
       case "setPaused":
         setPause(draft, command.reason === "Inbox" ? "event" : "manual", command.paused);

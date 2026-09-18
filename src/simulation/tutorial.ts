@@ -61,7 +61,13 @@ export function applyBackMentor(state:GameState) {
 export function recordTutorialEvent(state:GameState, action:TutorialAction) {
   if(!state.onboarding.events.includes(action)) state.onboarding.events.push(action);
   const slide=currentTutorialSlide(state);
-  if(slide?.advance.type==='playerAction' && slide.advance.action===action && satisfied(state,action)) stepForward(state);
+  if (
+    (slide?.advance.type==='playerAction' && slide.advance.action===action && satisfied(state,action)) ||
+    (slide?.id === 'primitives' && action === 'selectedPrimitiveA') ||
+    (slide?.id === 'team-ready' && action === 'startedClock')
+  ) {
+    stepForward(state);
+  }
   reconcileTutorial(state);
 }
 export function slideWantsAction(state:GameState,action:string) {

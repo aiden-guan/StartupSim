@@ -126,6 +126,7 @@ export function SetupOverlay() {
               <input
                 className="mt-1 w-full border border-line bg-white px-3 py-2 text-sm font-medium"
                 value={setup.founderName}
+                placeholder="Founder"
                 onChange={(e) => patch({ founderName: e.target.value })}
               />
             </label>

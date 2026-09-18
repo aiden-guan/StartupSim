@@ -3,6 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useCameraDirector } from "./cameraStore";
+import { useGame } from "../../state/store";
 
 function ease(t: number) {
   return 1 - Math.pow(1 - t, 3);
@@ -63,10 +64,14 @@ export function CameraDirector({
     }
   });
 
+  const drawer = useGame((s) => s.drawer);
+  const pendingMentor = useGame((s) => s.game?.pendingMentor);
+
   return orbitEnabled ? (
     <OrbitControls
       makeDefault
       enablePan={false}
+      enableZoom={!drawer && !pendingMentor}
       minPolarAngle={Math.PI / 6}
       maxPolarAngle={Math.PI / 2.8}
       minDistance={minDistance}

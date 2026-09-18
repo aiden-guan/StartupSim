@@ -6,6 +6,7 @@ import { importSave, exportSave } from '../state/save';
 import { taskEstimate } from './tasks';
 import { BALANCE } from '../config/balance';
 import { onboarding } from '../data/onboarding';
+import { useGame } from '../state/store';
 
 function run(seed=11) {
   let game=createNewGame({founderName:'Ada',companyName:'Northstar',cofounderId:'reya',seed});
@@ -295,7 +296,9 @@ describe('guided first company',()=>{
   });
 
   it('skipping tutorial initializes cleanly with full player control', () => {
-    let game = createNewGame({ founderName: 'Aiden', companyName: 'Synthetix', cofounderId: 'reya', skipTutorial: true });
+    expect(useGame.getState().setup.founderName).toBe('');
+    let game = createNewGame({ founderName: '', companyName: 'Synthetix', cofounderId: 'reya', skipTutorial: true });
+    expect(game.founder.name).toBe('Founder');
     expect(game.onboarding.tutorialEnabled).toBe(false);
     expect(game.pendingMentor).toBeNull();
     expect(game.clock.pauseReasons).not.toContain('tutorial');
@@ -303,5 +306,33 @@ describe('guided first company',()=>{
     game = applyCommand(game, { type: 'setSpeed', speed: 1 })!;
     expect(game.clock.paused).toBe(false);
     expect(game.clock.speed).toBe(1);
+  });
+
+  it('primitives slide auto-advances when selecting chat directly without next button', () => {
+    const r = run();
+    for (let i = 0; i < 4; i++) r.next();
+    expect(r.id()).toBe('open-lab');
+    r.send({ type: 'tutorialEvent', action: 'openedProductLab' });
+    expect(r.id()).toBe('primitives');
+    // Selecting chat directly while on primitives slide should advance to choose-writing
+    r.send({ type: 'selectPrimitive', slot: 'a', primitive: 'chat' });
+    expect(r.id()).toBe('choose-writing');
+  });
+
+  it('team-ready slide auto-advances when setting clock speed without next button', () => {
+    const r = run();
+    r.start();
+    expect(r.id()).toBe('assign-founder');
+    const task = r.game.tasks[0]!;
+    const founder = r.game.employees.find((e) => e.role === 'founder')!;
+    const cofounder = r.game.employees.find((e) => e.role === 'cofounder')!;
+    r.send({ type: 'assign', workerId: founder.id, taskId: task.id });
+    expect(r.id()).toBe('assign-cofounder');
+    r.send({ type: 'assign', workerId: cofounder.id, taskId: task.id });
+    expect(r.id()).toBe('team-ready');
+    // Setting speed directly on team-ready slide should start the clock and advance tutorial
+    r.send({ type: 'setSpeed', speed: 1 });
+    expect(r.game.clock.speed).toBe(1);
+    expect(r.game.clock.paused).toBe(false);
   });
 });

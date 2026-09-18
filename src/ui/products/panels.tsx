@@ -82,7 +82,15 @@ export function TasksPanel({game}:{game:GameState}) {
         <div className="combo-slots">{(['a','b'] as const).map((s,i)=><div key={s} className="combo-slot-wrap">{i===1&&<span className="combine-plus">+</span>}<button className={`combo-slot ${choosingSlot===s?'selected':''}`} onClick={()=>setSlot(s)} aria-label={`Select technology slot ${i+1}`}><span>{i+1}</span><GameIcon name={(s==='a'?a:b)??'products'}/><strong>{primitiveById[(s==='a'?a:b)??'']?.name??'Choose technology'}</strong></button></div>)}</div>
         <div className="primitive-grid" data-tutorial="primitives">{primitives.filter(p=>game.company.primitives.includes(p.id)).map(p=>{
           const blocked=intro&&(choosingSlot==='a'?p.id!=='chat':p.id!=='writing');
-          return <button key={p.id} data-tutorial={`primitive-${p.id}`} className={`primitive-tile ${a===p.id||b===p.id?'selected':''}`} disabled={blocked} title={blocked?'Try Chat + Writing for your first product':`Add ${p.name} to slot ${choosingSlot.toUpperCase()}`} onClick={()=>{dispatch({type:'selectPrimitive',slot:choosingSlot,primitive:p.id});setSlot(choosingSlot==='a'?'b':'a');}}><GameIcon name={p.id}/><span>{p.name}</span></button>;
+          return <button key={p.id} data-tutorial={`primitive-${p.id}`} className={`primitive-tile ${a===p.id||b===p.id?'selected':''}`} disabled={blocked} title={blocked?'Try Chat + Writing for your first product':`Add ${p.name} to slot ${choosingSlot.toUpperCase()}`} onClick={()=>{
+            dispatch({type:'selectPrimitive',slot:choosingSlot,primitive:p.id});
+            if (intro && (choosingSlot === 'b' || a === 'chat') && p.id === 'writing') {
+              dispatch({type:'startProduct',a:'chat',b:'writing'});
+              setShowLab(false);
+            } else {
+              setSlot(choosingSlot==='a'?'b':'a');
+            }
+          }}><GameIcon name={p.id}/><span>{p.name}</span></button>;
         })}</div>
       </div>
       <div className="recipe-preview"><span className="eyebrow">02 · The combination</span><ProductPreview a={a} b={b}/><h3>{recipe?.name??(a&&b?'Untested combination':'Choose two technologies')}</h3><p>{recipe?.description??'Combine two technologies to define a product.'}</p>{a&&b&&<div className="recipe-meta"><span>{recipe?'Known recipe':'Experimental'}</span><span>Difficulty {difficulty.toFixed(1)}</span></div>}<GameButton tone="primary" data-tutorial="start-product" disabled={!a||!b} onClick={()=>{dispatch({type:'startProduct',a:a!,b:b!});setShowLab(false);}}>Start development →</GameButton></div>

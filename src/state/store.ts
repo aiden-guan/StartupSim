@@ -83,7 +83,7 @@ interface AppState extends UiState {
 function blankSetup(): SetupDraft {
   return {
     step: "founder",
-    founderName: "Aiden",
+    founderName: "",
     founderLook: { ...DEFAULT_FOUNDER_LOOK },
     cofounderId: cofounders[0]!.id,
     companyName: identity.companyFallback,
