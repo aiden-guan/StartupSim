@@ -25,7 +25,7 @@ export function installedFacilities(level:number, perks:PurchasedPerk[]):Install
     if(!def || def.requiredOffice>level) return [];
     if(perk.id==='life' && perk.level===3) {
       const {width}=officeScale(level);
-      return [{...zone('housing',width/2+5,0,7,9),exterior:true,id:perk.id,tier:perk.level}];
+      return [{...zone('housing',width/2+7.5,0,14,13),exterior:true,id:perk.id,tier:perk.level}];
     }
     const placement=facilityZones(level)[perk.id];
     return placement?[{...placement,id:perk.id,tier:perk.level}]:[];

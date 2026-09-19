@@ -62,14 +62,14 @@ export function DynamicEnvironment({state,quality}:{state:EnvironmentVisualState
       {level>=3&&state.roboticsTier>=2&&<MachineField position={[level>=5?-14:level===4?-6:-3,0,level>=5?0:level===4?2:4]} columns={level>=5?(quality==='high'?8:quality==='medium'?6:3):level===4?(quality==='high'?5:3):3} rows={level>=5?(quality==='high'?3:2):level===4?2:1}/>}
     </group>}
 
-    {(state.hasAgents||state.automationTier>0)&&<group position={[level>=5?10:level===4?8:level===3?6.5:level===2?5.2:0, 0, level>=5?12:level===4?11:level===3?-2.5:level===2?-0.5:2]}>
+    {(state.hasAgents||state.automationTier>0)&&<group position={[level>=5?8:level===4?-7:level===3?6.5:level===2?5.2:0, 0, level>=5?10:level===4?6:level===3?-2.5:level===2?-0.5:2]}>
       {state.hasAgents&&<AgentTerminal position={[0,0,0]}/>}
-      {state.hasComputerUse&&level>=2&&<AutonomousWorkstations position={[2.1,0,0]} count={quality==='low'?1:2}/>}
+      {state.hasComputerUse&&level>=2&&level<4&&<AutonomousWorkstations position={[2.1,0,0]} count={quality==='low'?1:2}/>}
       {state.automationTier>=1&&level>=2&&<AutonomyStatusWall position={[0,0,-1.8]}/>}
-      {state.automationTier>=2&&level>=3&&<AutonomousWorkstations position={[0,0,2.5]} count={quality==='high'?3:1}/>}
+      {state.automationTier>=2&&level>=3&&level<4&&<AutonomousWorkstations position={[0,0,2.5]} count={quality==='high'?3:1}/>}
       {state.automationTier>=3&&level>=2&&<AutonomousCeoStation position={[level>=4?0:level===2?-1:1,0,level>=4?4.5:level===2?1.8:2.5]}/>}
     </group>}
-    {level>=4&&state.automationTier>=2&&<WorkstationField position={[level>=5?12:10,0,level>=5?15:14]} count={quality==='high'?16:quality==='medium'?10:5} autonomous/>}
+    {level>=4&&state.automationTier>=2&&<WorkstationField position={[level>=5?17:3,0,level>=5?8:4.5]} count={quality==='high'?(level>=5?12:8):quality==='medium'?6:4} autonomous/>}
 
     {state.prominentVerticals.slice(0,level===0?1:level===1?1:2).map((id,i)=><VerticalKit key={id} id={id} position={verticalBays[i]!} secondary={level===0||(id==='robotics'&&state.roboticsTier>=2)}/>)}
     {quality==='high'&&level>=3&&state.secondaryVerticals.slice(0,Math.min(5,level)).map((id,i)=><VerticalKit key={id} id={id} position={[ribbon[0]![0]+i*1.3,0,ribbon[0]![2]]} secondary/>)}
@@ -77,7 +77,6 @@ export function DynamicEnvironment({state,quality}:{state:EnvironmentVisualState
     {state.runwayPressure&&<RunwayCorner position={[level>=3?-w/2+2:-w/2+1.2,0,-d/2+1.4]}/>}
     {state.hypeTier>0&&<HypeArea position={hypePlacement(level)} tier={state.hypeTier}/>}
     {state.burnedOutWorkers>0&&quality!=='low'&&Array.from({length:Math.min(3,state.burnedOutWorkers)},(_,i)=><BurnoutDeskClutter key={i} position={[-w/2+(level>=4?7:level>=2?4:2)+i*2.2,.79,-d/2+(level>=4?10:level>=2?6:3)]}/>)}
-    {level>=4&&<WorkstationField position={[0,3.4,-d/2+1]} count={Math.max(4,Math.min(quality==='low'?6:quality==='medium'?12:level>=5?24:16,Math.ceil(state.employeeCount*.24)))} autonomous={state.automationTier>=2}/>}
     {level>=3&&quality!=='low'&&state.teamDensity>.18&&Array.from({length:Math.min(8,Math.round(state.teamDensity*10*detail))},(_,i)=><Bevel key={i} position={[-w*.18+i*1.5,.82,d*.03]} size={[.25,.12,.3]} color={i%2?'#2b3e55':'#ded3c3'}/>)}
   </group>;
 }

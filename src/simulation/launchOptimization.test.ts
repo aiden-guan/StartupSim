@@ -174,4 +174,27 @@ describe("Optimize Launch Game Command & Auto-Delegate Interactions", () => {
     // But does not delegate because threshold is not yet met
     expect(nextState!.marketResult).toBeNull();
   });
+
+  it("launches every selected ready product when bulk delegation is enabled", () => {
+    const { state, product } = setupReadyProduct();
+    const secondProduct = createProduct(state, "code", "agent", new Rng(7));
+    secondProduct.status = "ready";
+    secondProduct.points = { engineering: 12, product: 10, growth: 8, research: 0 };
+    state.products.push(secondProduct);
+    state.settings.autoDelegate = true;
+    state.company.productsLaunched = BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE;
+
+    const nextState = applyCommand(state, {
+      type: "launchAll",
+      productIds: [product.id, secondProduct.id],
+    });
+
+    expect(nextState).not.toBeNull();
+    expect(nextState!.products.find((p) => p.id === product.id)?.status).toBe("active");
+    expect(nextState!.products.find((p) => p.id === secondProduct.id)?.status).toBe("active");
+    expect(nextState!.company.productsLaunched).toBe(BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE + 2);
+    expect(nextState!.stats.productsLaunched).toBe(2);
+    expect(nextState!.marketResult?.productId).toBe(secondProduct.id);
+    expect(nextState!.marketResult?.delegated).toBe(true);
+  });
 });

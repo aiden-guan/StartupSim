@@ -53,6 +53,7 @@ describe("Products and Tasks UI Panels", () => {
     expect(markup).toContain("1 ready to launch");
     expect(markup).toContain("2 active in market");
     expect(markup).toContain("Expand all");
+    expect(markup).toContain("Launch all (1)");
 
     // Product cards and compact summary metrics for both active and mature products
     expect(markup).toContain("product-compact-badge");

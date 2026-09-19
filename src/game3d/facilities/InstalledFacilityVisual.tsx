@@ -359,38 +359,51 @@ function LifeChildcare({ footprint }: { footprint: Footprint }) {
   );
 }
 
-function LifeHousing({ footprint }: { footprint: Footprint }) {
-  const buildingWidth = footprint.width * 0.74;
-  const buildingDepth = footprint.depth * 0.62;
-  const buildingZ = -footprint.depth * 0.05;
-  const facadeZ = buildingZ + buildingDepth * 0.5;
-  const buildingHeight = 4.2;
-  const doorWidth = Math.min(0.95, footprint.width * 0.18);
-  const windowWidth = Math.min(0.82, footprint.width * 0.16);
+function NeighborhoodHouse({ position, rotation, wallColor, roofColor, index }: {
+  position: [number, number, number];
+  rotation: number;
+  wallColor: string;
+  roofColor: string;
+  index: number;
+}) {
+  const frontZ=1.12;
   return (
-    <group>
-      <Floor footprint={footprint} color="#c8c5bb" />
-      <Box p={[0, buildingHeight * 0.5, buildingZ]} s={[buildingWidth, buildingHeight, buildingDepth]} c={warmPaper} r={0.025} />
-      <Box p={[0, 2.08, facadeZ + 0.02]} s={[buildingWidth * 0.94, 0.08, 0.05]} c={wood} r={0.01} />
-      <Box p={[0, buildingHeight + 0.12, buildingZ]} s={[buildingWidth * 1.06, 0.2, buildingDepth * 1.06]} c={navy} r={0.02} />
-      <Box p={[-footprint.width * 0.19, 1.05, facadeZ + 0.035]} s={[doorWidth, 2.1, 0.05]} c={wood} r={0.01} />
-      <Box p={[-footprint.width * 0.19, 1.1, facadeZ + 0.066]} s={[doorWidth * 0.62, 1.76, 0.018]} c={darkWood} r={0.008} />
-      <Cylinder p={[-footprint.width * 0.13, 1.12, facadeZ + 0.08]} r={0.025} h={0.04} c={yellow} rot={[Math.PI / 2, 0, 0]} />
-      {[-1, 1].map((side) => (
-        <group key={side}>
-          <Box p={[side * footprint.width * 0.23, 1.24, facadeZ + 0.035]} s={[windowWidth, 0.65, 0.05]} c={blue} r={0.008} />
-          <Box p={[side * footprint.width * 0.23, 3.05, facadeZ + 0.035]} s={[windowWidth, 0.65, 0.05]} c={blue} r={0.008} />
-          <Box p={[side * footprint.width * 0.23, 1.24, facadeZ + 0.066]} s={[0.02, 0.59, 0.018]} c={paper} />
-          <Box p={[side * footprint.width * 0.23, 1.24, facadeZ + 0.066]} s={[windowWidth * 0.9, 0.02, 0.018]} c={paper} />
-          <Box p={[side * footprint.width * 0.23, 3.05, facadeZ + 0.066]} s={[0.02, 0.59, 0.018]} c={paper} />
-          <Box p={[side * footprint.width * 0.23, 3.05, facadeZ + 0.066]} s={[windowWidth * 0.9, 0.02, 0.018]} c={paper} />
-        </group>
-      ))}
-      <Box p={[-footprint.width * 0.19, 0.08, facadeZ + 0.16]} s={[doorWidth * 1.32, 0.16, 0.28]} c={wood} r={0.015} />
-      <Box p={[footprint.width * 0.29, 0.19, facadeZ + 0.17]} s={[footprint.width * 0.13, 0.09, footprint.depth * 0.1]} c={paper} r={0.02} />
-      <Cylinder p={[footprint.width * 0.29, 0.3, facadeZ + 0.17]} r={footprint.width * 0.055} h={0.22} c={green} />
+    <group position={position} rotation={[0,rotation,0]}>
+      <Box p={[0,.08,0]} s={[3.25,.16,2.7]} c="#d7d1c3" r={.035}/>
+      <Box p={[0,1.02,0]} s={[2.85,1.9,2.25]} c={wallColor} r={.035}/>
+      <Box p={[-.72,1.18,frontZ+.025]} s={[.62,1.45,.06]} c={index%2?darkWood:wood} r={.018}/>
+      <Cylinder p={[-.51,1.18,frontZ+.07]} r={.025} h={.045} c={yellow} rot={[Math.PI/2,0,0]}/>
+      {[.16,.82].map(x=><group key={x}>
+        <Box p={[x,1.25,frontZ+.025]} s={[.48,.56,.055]} c={blue} r={.012}/>
+        <Box p={[x,1.25,frontZ+.06]} s={[.025,.5,.02]} c={paper}/>
+        <Box p={[x,1.25,frontZ+.06]} s={[.43,.025,.02]} c={paper}/>
+      </group>)}
+      <Box p={[-.72,.14,frontZ+.28]} s={[.92,.18,.5]} c={wood} r={.025}/>
+      <Box p={[-.72,2.02,0]} s={[1.9,.16,2.55]} c={roofColor} r={.025} rot={[0,0,.48]}/>
+      <Box p={[.72,2.02,0]} s={[1.9,.16,2.55]} c={roofColor} r={.025} rot={[0,0,-.48]}/>
     </group>
   );
+}
+
+function LifeHousing({ footprint }: { footprint: Footprint }) {
+  const walls=[warmPaper,'#d8c7aa','#d7d8d0'];
+  const roofs=[navy,'#704b42','#4e665a'];
+  return <group>
+    <Floor footprint={footprint} color="#bfc7b4" />
+    <Box p={[0,.04,0]} s={[footprint.width*.94,.08,2.15]} c="#666b6d" r={.03}/>
+    <Box p={[0,.095,-1.35]} s={[footprint.width*.94,.07,.52]} c="#ded9ce" r={.02}/>
+    <Box p={[0,.095,1.35]} s={[footprint.width*.94,.07,.52]} c="#ded9ce" r={.02}/>
+    {[-4,0,4].flatMap((x,column)=>[-1,1].map((side)=>{
+      const index=column*2+(side===1?1:0);
+      return <NeighborhoodHouse key={`${x}-${side}`} position={[x,0,side*3.45]} rotation={side===1?Math.PI:0} wallColor={walls[index%walls.length]!} roofColor={roofs[index%roofs.length]!} index={index}/>;
+    }))}
+    {[-5.2,5.2].flatMap(x=>[-1.5,1.5].map(z=><group key={`${x}-${z}`} position={[x,0,z]}>
+      <Cylinder p={[0,.42,0]} r={.08} h={.84} c={darkWood}/>
+      <mesh position={[0,1.05,0]} castShadow><icosahedronGeometry args={[.48,1]}/><meshStandardMaterial color={green} roughness={.95} flatShading/></mesh>
+    </group>))}
+    <Box p={[0,.16,0]} s={[1.15,.12,.58]} c={paper} r={.03}/>
+    <Box p={[0,.23,0]} s={[.72,.035,.08]} c={navy} r={.01}/>
+  </group>;
 }
 
 function GymStipend({ footprint }: { footprint: Footprint }) {

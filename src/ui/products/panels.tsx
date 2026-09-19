@@ -988,6 +988,24 @@ export function ProductsPanel({ game }: { game: GameState }) {
   const readyCount = readyProducts.length;
   const activeCount = activeProducts.length;
   const sunsetCount = sunsetProducts.length;
+  const launchableProducts = useMemo(
+    () => game.products.filter(p => p.status === 'ready'),
+    [game.products]
+  );
+  const delegationUnlocked = game.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE;
+  const autoDelegate = Boolean(game.settings?.autoDelegate);
+  const isTutorialRestricted =
+    game.onboarding.tutorialEnabled &&
+    !game.company.seenMarket &&
+    currentTutorialSlide(game)?.id !== 'enter-market';
+  const canLaunchAll = launchableProducts.length > 0 && delegationUnlocked && autoDelegate && !isTutorialRestricted;
+  const launchAllDisabledReason = !delegationUnlocked
+    ? `Auto-Delegate unlocks after launching ${BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE} products (${game.company.productsLaunched}/${BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE})`
+    : !autoDelegate
+    ? 'Turn on Auto-Delegate to launch every ready product at once'
+    : isTutorialRestricted
+    ? 'Finish the launch tutorial before batching launches'
+    : undefined;
 
   const totalActiveRevenue = useMemo(
     () => activeProducts.reduce((sum, p) => sum + p.weeklyRevenue, 0),
@@ -1017,6 +1035,11 @@ export function ProductsPanel({ game }: { game: GameState }) {
     if (!allExpanded && sunsetSectionCollapsed) {
       setSunsetSectionCollapsed(false);
     }
+  };
+
+  const handleLaunchAll = () => {
+    if (!canLaunchAll) return;
+    dispatch({ type: 'launchAll', productIds: launchableProducts.map(p => p.id) });
   };
 
   return (
@@ -1080,9 +1103,22 @@ export function ProductsPanel({ game }: { game: GameState }) {
               )}
             </div>
           </div>
-          <GameButton onClick={handleToggleAll} className="catalog-expand-all-btn">
-            {allExpanded ? 'Collapse all' : 'Expand all'}
-          </GameButton>
+          <div className="catalog-header-actions">
+            {launchableProducts.length > 0 && (
+              <GameButton
+                tone={canLaunchAll ? 'primary' : 'plain'}
+                onClick={handleLaunchAll}
+                disabled={!canLaunchAll}
+                className="catalog-launch-all-btn"
+                title={canLaunchAll ? `Optimize and launch all ${launchableProducts.length} ready products` : launchAllDisabledReason}
+              >
+                ⚡ Launch all ({launchableProducts.length})
+              </GameButton>
+            )}
+            <GameButton onClick={handleToggleAll} className="catalog-expand-all-btn">
+              {allExpanded ? 'Collapse all' : 'Expand all'}
+            </GameButton>
+          </div>
         </div>
       )}
 

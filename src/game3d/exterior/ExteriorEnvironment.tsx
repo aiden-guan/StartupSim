@@ -85,6 +85,15 @@ export interface TransitMotion {
   parked: boolean;
 }
 
+export type TransitExchangeDirection = "INBOUND" | "OUTBOUND";
+
+export interface TransitExchangeMotion {
+  visible: boolean;
+  progress: number;
+  /** 0 is beside the vehicle, 1 is at the office entrance. */
+  path: number;
+}
+
 export const TRANSIT_TIMING = {
   approach: 7,
   arrive: 2,
@@ -119,6 +128,46 @@ export function transitMotionAt(seconds: number, span: number, reducedMotion = f
     result.state='DEPART';result.progress=smoothStep((t-dwellEnd)/TRANSIT_TIMING.depart);
     result.x=safeSpan*result.progress;result.curb=1-smoothStep(Math.min(1,result.progress*4));
   }
+  return result;
+}
+
+/** Passenger timing within the vehicle dwell. Inbound workers clear the curb
+ * first, then outbound workers cross the same path back to the vehicle. */
+export function transitExchangeAt(
+  seconds: number,
+  direction: TransitExchangeDirection,
+  index: number,
+  count: number,
+  reducedMotion = false,
+  output?: TransitExchangeMotion,
+): TransitExchangeMotion {
+  const result=output??{visible:false,progress:0,path:0};
+  const safeIndex=Math.max(0,Math.floor(index));
+  const safeCount=Math.max(1,Math.floor(count));
+  if(reducedMotion) {
+    result.visible=safeIndex===0;
+    result.progress=.5;
+    result.path=direction==="INBOUND" ? .62 : .38;
+    return result;
+  }
+  const t=positiveModulo(Number.isFinite(seconds)?seconds:0,TRANSIT_CYCLE_SECONDS);
+  const dwellStart=TRANSIT_TIMING.approach+TRANSIT_TIMING.arrive;
+  const dwellEnd=dwellStart+TRANSIT_TIMING.dwell;
+  if(t<dwellStart||t>=dwellEnd) {
+    result.visible=false;result.progress=0;result.path=direction==="INBOUND"?0:1;
+    return result;
+  }
+  const dwell=(t-dwellStart)/TRANSIT_TIMING.dwell;
+  const stagger=Math.min(.075,.22/Math.max(1,safeCount-1))*safeIndex;
+  const start=(direction==="INBOUND" ? .02 : .48)+stagger;
+  const end=Math.min(.98,(direction==="INBOUND" ? .47 : .93)+stagger);
+  if(dwell<start||dwell>end) {
+    result.visible=false;result.progress=dwell<start?0:1;result.path=direction==="INBOUND"?result.progress:1-result.progress;
+    return result;
+  }
+  result.visible=true;
+  result.progress=smoothStep((dwell-start)/Math.max(.01,end-start));
+  result.path=direction==="INBOUND"?result.progress:1-result.progress;
   return result;
 }
 
@@ -312,11 +361,12 @@ function StreetLamp({ position, accent }: { position: Vector3Tuple; accent: stri
   );
 }
 
-function TransitStop({ position, theme }: { position: Vector3Tuple; theme: CityTheme }) {
+function TransitStop({ position, theme, premium }: { position: Vector3Tuple; theme: CityTheme; premium: boolean }) {
   return (
     <group position={position}>
       <Bevel position={[0, 0.65, 0]} size={[0.065, 1.3, 0.065]} color="#3e4b50" radius={0.01} />
-      <Bevel position={[0, 1.3, 0]} size={[0.48, 0.18, 0.12]} color={theme.vehicleAccent} radius={0.035} />
+      <Bevel position={[0, 1.3, 0]} size={[0.52, 0.22, 0.12]} color={premium?"#2b3e55":theme.vehicleAccent} radius={0.035} />
+      <Bevel position={[0, 1.3, 0.065]} size={[premium ? .24 : .32, 0.055, 0.015]} color={premium?"#d3a34f":"#f1eee4"} radius={0.01} />
       <Bevel position={[0, 0.06, 0]} size={[1.35, 0.08, 0.55]} color={theme.sidewalk} radius={0.025} />
       <Bevel position={[0, 0.1, -0.2]} size={[1.05, 0.08, 0.06]} color={theme.buildingAccent} radius={0.01} />
     </group>
@@ -421,19 +471,30 @@ function CityBackdrop({ theme, level, quality, bounds }: { theme: CityTheme; lev
   return <KitOrGltf id={`exterior_city_${theme.id}`} path={assetUrl("environments", `exterior_city_${theme.id}.glb`)} fallback={fallback} />;
 }
 
-function TransitVehicleModel({ premium, theme }: { premium: boolean; theme: CityTheme }) {
-  const body = premium ? "#2b3e55" : "#e7e2d6";
+function TransitVehicleModel({ premium, theme, index = 0 }: { premium: boolean; theme: CityTheme; index?: number }) {
+  const carColors=["#2b3e55","#58636a","#76543d"];
+  const body = premium ? carColors[index%carColors.length]! : "#e7e2d6";
   const lower = premium ? "#1f2932" : "#2d4972";
   const accent = premium ? "#d3a34f" : theme.vehicleAccent;
+  if(premium) return <group>
+    <Bevel position={[0,.34,0]} size={[2.05,.46,.92]} color={body} radius={.14}/>
+    <Bevel position={[-.18,.66,0]} size={[1.05,.42,.78]} color={body} radius={.12}/>
+    <Bevel position={[-.18,.68,.405]} size={[.73,.25,.025]} color="#8fb2bd" radius={.025}/>
+    <Bevel position={[.83,.36,0]} size={[.08,.18,.72]} color={accent} radius={.025}/>
+    {[-.68,.68].flatMap(x=>[-.47,.47].map(z=><group key={`${x}-${z}`} position={[x,.2,z]}>
+      <mesh rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[.19,.19,.08,12]}/><meshStandardMaterial color="#25292d" roughness={.96}/></mesh>
+      <mesh position={[0,0,z>0 ? .045 : -.045]} rotation={[Math.PI/2,0,0]}><cylinderGeometry args={[.075,.075,.085,10]}/><meshStandardMaterial color="#9aa2a4" roughness={.8}/></mesh>
+    </group>))}
+  </group>;
   return (
     <group>
-      <Bevel position={[0, 0.46, 0]} size={[2.85, 0.72, 1.18]} color={body} radius={0.13} />
-      <Bevel position={[0, 0.23, 0]} size={[2.7, 0.16, 1.2]} color={lower} radius={0.05} />
-      <Bevel position={[0.18, 0.83, 0]} size={[1.36, 0.42, 1.02]} color={body} radius={0.1} />
-      <Bevel position={[0.22, 0.82, 0.522]} size={[0.82, 0.23, 0.025]} color="#80a4af" radius={0.02} />
-      <Bevel position={[-0.55, 0.82, 0.522]} size={[0.26, 0.23, 0.025]} color="#80a4af" radius={0.02} />
-      <Bevel position={[0, 0.67, 0.61]} size={[2.2, 0.08, 0.035]} color={accent} radius={0.015} />
-      {[-0.9, 0.9].flatMap((x) => [-.61,.61].map(z => (
+      <Bevel position={[0, 0.54, 0]} size={[3.65, 0.88, 1.24]} color={body} radius={0.13} />
+      <Bevel position={[0, 0.25, 0]} size={[3.5, 0.16, 1.26]} color={lower} radius={0.05} />
+      <Bevel position={[-.42, 1.0, 0]} size={[2.25, 0.55, 1.08]} color={body} radius={0.1} />
+      {[-1.08,-.42,.24].map(x=><Bevel key={x} position={[x,1.0,.552]} size={[.5,.31,.025]} color="#80a4af" radius={.02}/>)}
+      <Bevel position={[.92,.72,.638]} size={[.58,.84,.035]} color="#d8dde0" radius={.025}/>
+      <Bevel position={[0, 0.72, 0.646]} size={[3.0, 0.08, 0.035]} color={accent} radius={0.015} />
+      {[-1.18, 1.18].flatMap((x) => [-.64,.64].map(z => (
         <group key={`${x}-${z}`} position={[x, 0.23, z]}>
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <cylinderGeometry args={[0.23, 0.23, 0.09, 12]} />
@@ -445,12 +506,44 @@ function TransitVehicleModel({ premium, theme }: { premium: boolean; theme: City
           </mesh>
         </group>
       )))}
-      {premium ? <Bevel position={[-1.44, 0.51, 0]} size={[0.035, 0.32, 0.8]} color={accent} radius={0.012} /> : null}
     </group>
   );
 }
 
-function TransitVehicle({ tier, theme, bounds, reducedMotion }: { tier: 0 | 1; theme: CityTheme; bounds: ExteriorBounds; reducedMotion: boolean }) {
+function TransitCommuter({bounds,premium,phaseOffset,direction,index,count,reducedMotion,stopOffset=0}:{
+  bounds:ExteriorBounds;premium:boolean;phaseOffset:number;direction:TransitExchangeDirection;index:number;count:number;reducedMotion:boolean;stopOffset?:number;
+}) {
+  const root=useRef<Group>(null),leftLeg=useRef<Group>(null),rightLeg=useRef<Group>(null),leftArm=useRef<Group>(null),rightArm=useRef<Group>(null);
+  const motion=useRef<TransitExchangeMotion>({visible:false,progress:0,path:0});
+  useFrame(({clock})=>{
+    const group=root.current;if(!group)return;
+    const m=transitExchangeAt(clock.elapsedTime+phaseOffset,direction,index,count,reducedMotion,motion.current);
+    group.visible=m.visible;
+    if(!m.visible)return;
+    const curbZ=bounds.frontEdge+3.72,doorZ=bounds.frontEdge+.16;
+    const spread=(index-(count-1)/2)*(premium ? .2 : .38);
+    const curbX=stopOffset+(premium ? .28 : .72)+spread,doorX=spread*.7;
+    group.position.set(curbX+(doorX-curbX)*m.path,.03+(reducedMotion?0:Math.sin((clock.elapsedTime+phaseOffset)*9+index)*.025),curbZ+(doorZ-curbZ)*m.path);
+    group.rotation.y=direction==="INBOUND"?Math.PI:0;
+    const swing=reducedMotion?0:Math.sin((clock.elapsedTime+phaseOffset)*9+index)*.48;
+    if(leftLeg.current)leftLeg.current.rotation.x=swing;
+    if(rightLeg.current)rightLeg.current.rotation.x=-swing;
+    if(leftArm.current)leftArm.current.rotation.x=-swing*.7;
+    if(rightArm.current)rightArm.current.rotation.x=swing*.7;
+  });
+  const shirts=["#2b3e55","#b9654b","#5c8646","#d6aa52"];
+  const shirt=shirts[(index+(direction==="OUTBOUND"?2:0))%shirts.length]!;
+  return <group ref={root} visible={false}>
+    <group ref={leftLeg} position={[-.09,.38,0]}><Bevel position={[0,-.19,0]} size={[.11,.42,.12]} color="#30343a" radius={.035}/></group>
+    <group ref={rightLeg} position={[(.09),.38,0]}><Bevel position={[0,-.19,0]} size={[.11,.42,.12]} color="#30343a" radius={.035}/></group>
+    <Bevel position={[0,.78,0]} size={[.36,.52,.24]} color={shirt} radius={.09}/>
+    <group ref={leftArm} position={[-.23,.84,0]}><Bevel position={[0,-.16,0]} size={[.09,.38,.1]} color={shirt} radius={.035}/></group>
+    <group ref={rightArm} position={[(.23),.84,0]}><Bevel position={[0,-.16,0]} size={[.09,.38,.1]} color={shirt} radius={.035}/></group>
+    <mesh position={[0,1.17,0]} castShadow><sphereGeometry args={[.18,10,8]}/><meshStandardMaterial color={index%2?"#9a684c":"#c78f68"} roughness={.95}/></mesh>
+  </group>;
+}
+
+function TransitVehicle({ tier, theme, bounds, reducedMotion, phaseOffset=0, index=0 }: { tier: 0 | 1; theme: CityTheme; bounds: ExteriorBounds; reducedMotion: boolean; phaseOffset?:number; index?:number }) {
   const ref = useRef<Group>(null);
   const premium = tier === 1;
   const vehicleId = premium ? "vehicle_privateTransit" : "vehicle_companyShuttle";
@@ -462,24 +555,37 @@ function TransitVehicle({ tier, theme, bounds, reducedMotion }: { tier: 0 | 1; t
   useFrame(({ clock }) => {
     const group=ref.current;
     if(!group)return;
-    const m=transitMotionAt(clock.elapsedTime,span,reducedMotion,motion.current);
-    group.position.set(m.x,.055,parkZ+(curbZ-parkZ)*m.curb);
+    const m=transitMotionAt(clock.elapsedTime+phaseOffset,span,reducedMotion,motion.current);
+    const parkedX=reducedMotion&&premium?(index-1)*2.6:m.x;
+    group.position.set(parkedX,.055,parkZ+(curbZ-parkZ)*m.curb);
     group.rotation.y=m.rotationY;
   });
 
   return (
     <group ref={ref} position={[0, 0.055, curbZ]}>
-      <KitOrGltf id={vehicleId} path={assetUrl("environments", `${vehicleId}.glb`)} fallback={<TransitVehicleModel premium={premium} theme={theme} />} />
+      <KitOrGltf id={vehicleId} path={assetUrl("environments", `${vehicleId}.glb`)} fallback={<TransitVehicleModel premium={premium} theme={theme} index={index} />} />
     </group>
   );
+}
+
+function TransitCycle({tier,theme,bounds,reducedMotion,phaseOffset=0,index=0}:{tier:0|1;theme:CityTheme;bounds:ExteriorBounds;reducedMotion:boolean;phaseOffset?:number;index?:number}) {
+  const premium=tier===1,inbound=premium?1:3,outbound=premium?1:2;
+  const stopOffset=reducedMotion&&premium?(index-1)*2.6:0;
+  return <>
+    <TransitVehicle tier={tier} theme={theme} bounds={bounds} reducedMotion={reducedMotion} phaseOffset={phaseOffset} index={index}/>
+    {Array.from({length:inbound},(_,passenger)=><TransitCommuter key={`in-${passenger}`} bounds={bounds} premium={premium} phaseOffset={phaseOffset} direction="INBOUND" index={passenger} count={inbound} reducedMotion={reducedMotion} stopOffset={stopOffset}/>)}
+    {Array.from({length:outbound},(_,passenger)=><TransitCommuter key={`out-${passenger}`} bounds={bounds} premium={premium} phaseOffset={phaseOffset} direction="OUTBOUND" index={passenger} count={outbound} reducedMotion={reducedMotion} stopOffset={stopOffset}/>)}
+  </>;
 }
 
 function TransitSystem({ tier, theme, bounds, reducedMotion }: { tier: number; theme: CityTheme; bounds: ExteriorBounds; reducedMotion: boolean }) {
   if (tier !== 0 && tier !== 1) return null;
   return (
     <group name="exterior-transit">
-      <TransitStop position={[0, 0, bounds.frontEdge + 3.1]} theme={theme} />
-      <TransitVehicle tier={tier} theme={theme} bounds={bounds} reducedMotion={reducedMotion} />
+      <TransitStop position={[0, 0, bounds.frontEdge + 3.1]} theme={theme} premium={tier===1} />
+      {tier===0
+        ? <TransitCycle tier={0} theme={theme} bounds={bounds} reducedMotion={reducedMotion}/>
+        : [0,1,2].map(index=><TransitCycle key={index} tier={1} theme={theme} bounds={bounds} reducedMotion={reducedMotion} phaseOffset={index*TRANSIT_CYCLE_SECONDS/3} index={index}/>)}
     </group>
   );
 }

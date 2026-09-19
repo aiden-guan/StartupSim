@@ -38,29 +38,15 @@ export function OfficeArchitecture({level,quality='high'}:{level:number;quality?
       <mesh position={[0,1.4,-2.3]}><boxGeometry args={[6.5,2.8,.035]}/><meshStandardMaterial color="#b9cfd5" transparent opacity={.22} roughness={.5} depthWrite={false}/></mesh>
       <Bevel position={[0,2.8,-2.3]} size={[6.5,.08,.08]} color="#8b9da4"/>
     </group>}
-    {level>=3&&<>
-      {[-1,1].map(side=><group key={side} position={[side*w*.31,0,0]}>
-        <Bevel position={[0,h*.78,0]} size={[.16,.16,d*.82]} color="#6d7788"/>
-        {[.25,.6].map(z=><Bevel key={z} position={[0,h*.78,d*(z-.5)]} size={[3.3,.12,.12]} color="#6d7788"/>)}
-      </group>)}
-      {[-1,1].map(side=><Bevel key={side} position={[side*w*.36,.025,-d*.2]} size={[.07,.015,d*.38]} color="#e6aa48"/>)}
-    </>}
+    {level>=3&&[-1,1].map(side=><Bevel key={side} position={[side*w*.36,.025,-d*.2]} size={[.07,.015,d*.38]} color="#e6aa48"/>)}
     {level>=4&&<>
       <Bevel position={[level===4?.1:-3.5,.013,level===4?-6.4:-9]} size={[level===4?13.6:21,.018,level===4?10.5:14.4]} color="#b8b9aa"/>
       <Bevel position={[level===4?-7.5:-15.5,.017,level===4?-6.4:-9]} size={[.055,.02,level===4?12:16]} color="#e8e1d2"/>
       <Bevel position={[0,.02,d*.2]} size={[w*.26,.035,d*.24]} color="#e3e8e0"/>
       <Bevel position={[0,.13,d*.14]} size={[w*.16,.22,d*.13]} color="#9daa8e"/>
       {quality!=='low'&&[-2,-1,0,1,2].map(i=><Plant key={i} position={[i*2,.25,d*.14]} scale={1.9}/>)}
-      <Bevel position={[0,3.25,-d/2+2.1]} size={[w*.55,.24,4.2]} color="#d4dcda"/>
-      <Bevel position={[0,3.5,-d/2+4.1]} size={[w*.55,.45,.14]} color="#8b9da4"/>
-      {Array.from({length:Math.round(w/8)},(_,i)=><Bevel key={i} position={[-w*.275+(i+.5)*w*.55/Math.round(w/8),1.75,-d/2+4.1]} size={[.14,3.5,.14]} color="#8b9da4"/>)}
-      <Bevel position={[-w*.27,1.5,-d*.21]} size={[.09,3,d*.25]} color="#8b9da4"/>
-      <Bevel position={[w*.28,1.5,-d*.21]} size={[.09,3,d*.25]} color="#8b9da4"/>
     </>}
     {level>=5&&<>
-      <Bevel position={[w*.19,4.4,-d/2+3.4]} size={[w*.34,.24,6.3]} color="#aebcbe"/>
-      <Bevel position={[w*.19,4.65,-d/2+6.5]} size={[w*.34,.38,.12]} color="#6d7788"/>
-      {Array.from({length:5},(_,i)=><Bevel key={i} position={[w*.04+i*3.1,2.2,-d/2+6.5]} size={[.15,4.4,.16]} color="#8b9da4"/>)}
       <Bevel position={[w*.31,.022,d*.31]} size={[w*.25,.035,d*.18]} color="#b5bbb5"/>
       {Array.from({length:3},(_,i)=><group key={i} position={[w*.23+i*3.4,0,d*.34]}>
         <Bevel position={[0,1.5,0]} size={[2.5,3,.18]} color="#8c999b"/>

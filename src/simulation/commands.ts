@@ -69,6 +69,7 @@ export type GameCommand =
   | { type: "setGtmStrategy"; productId: string; strategy: GameState["products"][0]["gtmStrategy"] }
   | { type: "enterMarket"; productId: string }
   | { type: "optimizeLaunch"; productId: string; autoDelegate?: boolean }
+  | { type: "launchAll"; productIds: string[] }
   | { type: "selectMarketNode"; nodeId: string | null }
   | { type: "marketAction"; nodeId: string; action?: "expand" | "reinforce" | "contest"; tactic?: MarketTactic }
   | { type: "marketExpand"; nodeId: string }
@@ -566,6 +567,33 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         const autoDelegate = command.autoDelegate ?? draft.settings.autoDelegate;
         if (autoDelegate && draft.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE) {
           executeDelegatedMarketSession(draft, p, result.delegationStrategy, r);
+        }
+        break;
+      }
+      case "launchAll": {
+        if (draft.marketBattle || draft.marketResult) break;
+
+        const products = command.productIds
+          .map((productId) => draft.products.find((product) => product.id === productId))
+          .filter((product): product is Product => Boolean(product && product.status === "ready"));
+        if (!products.length) break;
+
+        const canDelegate =
+          draft.settings.autoDelegate &&
+          draft.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE;
+
+        for (const product of products) {
+          const result = optimizeProductLaunch(draft, product);
+          recordTutorialEvent(draft, "spentLaunchPoint");
+
+          if (!canDelegate) continue;
+
+          // Each delegated launch produces a result, but the existing results
+          // screen can present only one report. Keep the latest report visible
+          // while still applying every launch in this batch.
+          draft.marketResult = null;
+          setPause(draft, "results", false);
+          executeDelegatedMarketSession(draft, product, result.delegationStrategy, r);
         }
         break;
       }

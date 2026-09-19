@@ -1,7 +1,7 @@
 import type { Vector3Tuple } from 'three';
 import { assetUrl, KitOrGltf } from '../assets/useKitOrGltf';
 import { Bevel } from '../geometry/Bevel';
-import { Desk, Monitor } from './Furniture';
+import { Chair, Desk, Monitor } from './Furniture';
 
 type Placed={position:Vector3Tuple};
 const kit=(id:string,fallback:React.ReactNode)=><KitOrGltf id={id} path={assetUrl('props',`${id}.glb`)} fallback={fallback}/>;
@@ -78,15 +78,18 @@ export function AutonomousWorkstations({position,count=3}:Placed&{count?:number}
   return <group position={position}>{Array.from({length:count},(_,i)=><AgentTerminal key={i} position={[i*2,0,0]}/>)}</group>;
 }
 
-/** Cheap visual-only mezzanine field; agents stay on the ground plane. */
+/** Grounded, visual-only automation bay; agents stay on the main navigation plane. */
 export function WorkstationField({position,count,autonomous}:{position:Vector3Tuple;count:number;autonomous:boolean}) {
+  const columns=Math.min(4,Math.max(2,Math.ceil(Math.sqrt(count))));
   return <group position={position}>{Array.from({length:count},(_,i)=>{
-    const x=(i%8)*1.55-5.4,z=Math.floor(i/8)*1.5;
+    const column=i%columns,row=Math.floor(i/columns);
+    const x=(column-(columns-1)/2)*2.15,z=row*2.25;
     return <group key={i} position={[x,0,z]}>
-      <Bevel position={[0,.7,0]} size={[1.12,.08,.58]} color="#c89e6e"/>
-      <Bevel position={[0,1.04,-.16]} size={[.55,.52,.055]} color="#282c30"/>
-      <Bevel position={[0,1.04,-.128]} size={[.44,.39,.012]} color={autonomous?'#5599ff':'#2b3e55'} emissive={autonomous?'#5599ff':undefined} emissiveIntensity={.13}/>
-      {!autonomous&&<Bevel position={[0,.4,.64]} size={[.36,.6,.35]} color="#33373b"/>}
+      <Desk position={[0,0,0]} standing={autonomous}/>
+      <Monitor position={[0,autonomous ? .99 : .78,-.12]}/>
+      {autonomous
+        ? <><Bevel position={[0,.34,.57]} size={[.58,.68,.44]} color="#2b3e55" radius={.04}/><Bevel position={[0,.68,.57]} size={[.34,.025,.28]} color="#5599ff" emissive="#5599ff" emissiveIntensity={.18}/></>
+        : <Chair position={[0,0,.72]} rotation={Math.PI}/>}
     </group>;
   })}</group>;
 }

@@ -46,4 +46,12 @@ describe('semantic facility placement',()=>{
       expect(list.length).toBe(['coffee','food','desks','transit'].includes(p.id)||p.upgrades[tier]!.requiredOffice>level?0:1);
     }
   });
+  it('reserves a neighborhood-sized exterior parcel for employee housing',()=>{
+    for(const level of [4,5]) {
+      const housing=installedFacilities(level,[{id:'life',level:3}])[0]!;
+      expect(housing.exterior).toBe(true);
+      expect(housing.width).toBeGreaterThanOrEqual(12);
+      expect(housing.depth).toBeGreaterThanOrEqual(11);
+    }
+  });
 });
