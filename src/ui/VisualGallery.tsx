@@ -43,7 +43,7 @@ import { offices } from '../data/offices';
 import { perks } from '../data/perks';
 import { promos } from '../data/promos';
 import { models } from '../data/models';
-import { PerkVisual } from '../game3d/props/PerkSet';
+import { PerkPreviewVisual } from '../game3d/props/PerkPreviewVisual';
 import { PromoVisual } from '../game3d/props/PromoVisuals';
 import { CatalogAudit } from './visuals/CatalogAudit';
 import { ModelVisual } from '../game3d/props/ModelVisuals';
@@ -184,7 +184,7 @@ export function VisualGallery() {
           />
           <Framing mode={mode} level={index%offices.length}/>
           {environmentMode?<EnvironmentPreview level={index%offices.length}/> : catalogMode ? (
-            catalogAsset.kind==='perk'?<PerkVisual perk={{id:catalogAsset.id,level:catalogAsset.level}}/>:catalogAsset.kind==='promo'?<PromoVisual id={catalogAsset.id}/>:<ModelVisual modelId={catalogAsset.id}/>
+            catalogAsset.kind==='perk'?<PerkPreviewVisual perk={{id:catalogAsset.id,level:catalogAsset.level}}/>:catalogAsset.kind==='promo'?<PromoVisual id={catalogAsset.id}/>:<ModelVisual modelId={catalogAsset.id}/>
           ) : propsMode ? (
             <Asset position={[0, asset.offset ?? 0, 0]} />
           ) : (

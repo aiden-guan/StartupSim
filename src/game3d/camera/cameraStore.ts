@@ -23,7 +23,7 @@ interface CameraState {
 
 export function overviewShot(level: number): CameraGoal {
   const {camera}=layoutFor(level);
-  return {position:camera.overview,target:camera.target,duration:.9,mode:'PLAYER'};
+  return {position:camera.overview.map(v=>v*1.24) as [number,number,number],target:[camera.target[0],camera.target[1],camera.target[2]+1.5],duration:.9,mode:'PLAYER'};
 }
 
 export const TITLE_SHOT: CameraGoal = {

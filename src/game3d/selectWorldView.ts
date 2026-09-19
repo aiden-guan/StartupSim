@@ -1,3 +1,5 @@
+import { normalizeActiveLocation } from "../simulation/locationView";
+import { cityThemeFor, type CityTheme } from "./exterior/cityThemes";
 import { BALANCE } from "../config/balance";
 import { offices } from "../data/offices";
 import { perks as perkDefs } from "../data/perks";
@@ -18,6 +20,9 @@ export interface AgentView {
 }
 
 export interface WorldView {
+  activeLocationId: string | null;
+  cityTheme: CityTheme;
+  transitTier: number;
   officeLevel: number;
   officeId: string;
   officeName: string;
@@ -73,6 +78,9 @@ export function selectWorldView(game: GameState): WorldView {
     return { id: p.id, level: p.level, object };
   });
   return {
+    activeLocationId: normalizeActiveLocation(game.company),
+    cityTheme: cityThemeFor(normalizeActiveLocation(game.company)),
+    transitTier: game.company.perks.find(perk => perk.id === "transit")?.level ?? -1,
     officeLevel: game.company.officeLevel,
     officeId: office.id,
     officeName: office.name,

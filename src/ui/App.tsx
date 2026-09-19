@@ -29,6 +29,7 @@ import { createNewGame } from "../simulation/newGame";
 import { createEnvironmentPreviewGame } from '../game3d/environment/devEnvironmentPreview';
 import { createProduct } from "../simulation/products";
 import { Rng } from "../simulation/rng";
+import { WorldQaToolbar } from "./visuals/WorldQaToolbar";
 
 function useTutorialCamera() {
   const pending = useGame((s) => s.game?.pendingMentor);
@@ -95,6 +96,7 @@ export function App() {
     if (drawer !== slide.workspace) useGame.getState().setDrawer(slide.workspace);
   },[screen,revealPlaying,slide?.id,slide?.workspace,drawer]);
   const uiScale = game?.settings.uiScale ?? 1;
+  const worldQaEnabled = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("world");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -196,6 +198,7 @@ export function App() {
       <AchievementsOverlay />
       <AchievementToast />
       <DebugPanel />
+      {worldQaEnabled ? <WorldQaToolbar /> : null}
       <Analytics />
     </div>
   );

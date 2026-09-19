@@ -41,3 +41,17 @@ export function route(from:Vector3Tuple,to:Vector3Tuple,layout:OfficeLayout):Vec
   // inflated collision volume near a prop.
   out.shift();out.pop();out.push(to);return out;
 }
+
+/** Renovation can materialize furniture where a worker was walking. Move only
+ * those workers to the nearest clear floor cell before replanning their route. */
+export function clearRenovationPosition(position:Vector3Tuple,layout:OfficeLayout):Vector3Tuple {
+  const facilities=(layout.facilities??[]).filter(f=>!f.exterior);
+  if(!facilities.some(f=>Math.abs(position[0]-f.anchor[0])<f.width/2+.3 && Math.abs(position[2]-f.anchor[2])<f.depth/2+.3))return position;
+  const obstacles=navigationObstacles(layout),{width,depth}=officeScale(layout.level);
+  let best:Vector3Tuple=position,distance=Infinity;
+  for(let x=-width/2+.6;x<width/2-.4;x+=.6)for(let z=-depth/2+.6;z<depth/2-.4;z+=.6) {
+    const d=Math.hypot(x-position[0],z-position[2]);
+    if(d<distance && !obstacles.some(o=>pointInsideObstacle(x,z,o,.3))) {best=[x,0,z];distance=d;}
+  }
+  return best;
+}

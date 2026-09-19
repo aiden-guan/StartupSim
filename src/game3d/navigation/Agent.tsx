@@ -6,7 +6,7 @@ import { Character, type CharacterActivity } from '../characters/Character';
 import { useGame } from '../../state/store';
 import type { OfficeLayout, ActivityPoint } from './layout';
 import { OfficeRuntime, chooseSession, isAtActivityPoint, stateForPoint, type AgentState } from './behavior';
-import { route } from './path';
+import { clearRenovationPosition, route } from './path';
 import type { AgentView } from '../selectWorldView';
 
 const ANIMATION:Record<AgentState,CharacterActivity>={SPAWNING:'walking',WALKING_TO_ACTIVITY:'walking',WORKING:'working',WHITEBOARD:'whiteboard',MEETING:'meeting',COFFEE:'coffee',IDLE:'idle',CHATTING:'talking',BURNED_OUT:'tired',CELEBRATING:'celebrate',DEPARTING:'walking'};
@@ -51,6 +51,10 @@ export function EmployeeAgent({agent,layout,reducedMotion,onSelect,runtime}:{age
     else plan(true);
     priorTask.current=agent.taskType;
   },[agent.taskType,agent.burnoutDays]);
+  useEffect(()=>{
+    if(ref.current)ref.current.position.set(...clearRenovationPosition(ref.current.position.toArray(),layout));
+    moveTo(point.current);
+  },[layout]);
   useEffect(()=>()=>runtime.release(agent.id),[runtime,agent.id]);
   useFrame((_,rawDt)=>{
     const g=ref.current;if(!g)return;
@@ -94,6 +98,12 @@ export function DepartingAgent({id,look,robot,layout,runtime}:{id:string;look:Ag
   const ref=useRef<THREE.Group>(null),start=useRef(runtime.positions.get(id)??runtime.lastPositions.get(id)??layout.hub);
   const exit=layout.points.find(p=>p.kind==='entrance')!;
   const path=useRef(route(start.current,exit.position,layout));
+  useEffect(()=>{
+    if(!ref.current)return;
+    const safe=clearRenovationPosition(ref.current.position.toArray(),layout);
+    ref.current.position.set(...safe);
+    path.current=route(safe,exit.position,layout);
+  },[layout]);
   useFrame((_,dt)=>{
     const g=ref.current;if(!g)return;
     if(!path.current.length){runtime.release(id);runtime.homes.delete(id);runtime.lastPositions.delete(id);useGame.getState().clearDeparture(id);return;}

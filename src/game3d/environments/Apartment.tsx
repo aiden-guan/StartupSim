@@ -1,8 +1,7 @@
 import { Bevel } from '../geometry/Bevel';
 import { Hotspot } from '../props/Hotspot';
 import { BookStack, BrandSign, CardboardBox, Chair, Couch, Desk, Keyboard, Lamp, Laptop, Monitor, Mug, PizzaBox, Plant, Rug, Whiteboard } from '../props/Furniture';
-import { CoffeeStation, FoodStation } from '../props/CultureDetails';
-import { PerkSet } from '../props/PerkSet';
+import { OfficeFacilities, OfficeKitchen } from '../facilities/OfficeFacilities';
 import type { CompanyBrand } from '../../simulation/types';
 import { apartmentLayout } from '../navigation/layout';
 import { assetUrl, KitOrGltf } from '../assets/useKitOrGltf';
@@ -14,10 +13,6 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
   const isFancy = deskTier >= 1;
   const isFocusPods = deskTier >= 2;
   const desktop = isStanding ? .99 : .78;
-  const coffeePerk = perks.find(p => p.id === 'coffee');
-  const foodPerk = perks.find(p => p.id === 'food');
-  const coffeeTier = coffeePerk ? coffeePerk.level : 0;
-  const foodTier = foodPerk ? foodPerk.level : 0;
   return <group>
     <KitOrGltf id="env_apartment_shell" path={assetUrl('environments','env_apartment_shell.glb')} fallback={<group>
     <Bevel position={[0,-.15,0]} size={[12.2,.29,10.2]} color="#d7c0a2" radius={.08}/>
@@ -60,24 +55,17 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
     <PizzaBox position={[-4.21,.30,1.87]}/>
     <Plant position={[-5.38,.005,4.08]} scale={1.15}/>
     <Plant position={[4.65,.005,-3.65]} scale={1.3}/>
-    <FoodStation tier={foodTier} position={[foodTier>=1?5.0:5.27, .68, 2.69]}/>
-    <Bevel position={[4.57,.39,1.57]} size={[1.15,.78,.62]} color="#c6b79c" radius={.024}/>
-    <Bevel position={[4.57,.80,1.57]} size={[1.23,.052,.7]} color="#e7d2b5" radius={.014}/>
-    <group position={[4.42,.825,1.57]} rotation={[0,-Math.PI/2,0]}>
-      <CoffeeStation tier={coffeeTier} position={[0,0,0]}/>
-    </group>
-    <BookStack position={[4.95,.83,1.64]}/>
+    <OfficeKitchen level={0} perks={perks} onObject={interactive ? onObject : undefined}/>
     <Lamp position={[-5.29,.34,-3.67]}/>
     <CardboardBox position={[-4.46,0,-4.12]} scale={1.2}/>
     <CardboardBox position={[-3.86,0,-4.04]}/>
     <Bevel position={[.3,.005,4.65]} size={[1.48,.018,.72]} color="#829386" radius={.008}/>
     {interactive ? <>
       <Hotspot id="founderDesk" position={[-2.35,1,-2.1]} label="Founder desk" onClick={onObject} size={[1.5,1.2,1]}/>
-      <Hotspot id="coffee" position={[4.8,.86,2.1]} size={[2.15,1.72,1.98]} label="Kitchen" onClick={onObject}/>
       <Hotspot id="board" position={[-.15,1.4,3.6]} label="Whiteboard" onClick={onObject} size={[2.2,1.4,.4]}/>
       <Hotspot id="plant" position={[4.7,.8,-3.6]} label="Company" onClick={onObject}/>
       {hasCompute && <Hotspot id="servers" position={[4.2, 1, -2.1]} label="Compute" onClick={onObject} size={[1.5, 1.8, 1.2]} />}
     </> : null}
-    <PerkSet perks={perks} level={0} skipKitchen={true}/>
+    <OfficeFacilities perks={perks} level={0}/>
   </group>;
 }

@@ -1,3 +1,4 @@
+import { locations } from '../data/locations';
 import { useEffect, useRef, useState } from 'react';
 import { SPEED_OPTIONS } from '../config/balance';
 import { useCameraDirector } from '../game3d/camera/cameraStore';
@@ -64,7 +65,7 @@ export function HUD({game}:{game:GameState}) {
   const unlockedAchievementCount = ACHIEVEMENTS.filter((achievement) => unlockedAchievements.has(achievement.id)).length;
   return <div className="game-hud">
     <header className="hud-bar">
-      <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className="brand-square" style={{background:game.company.brand.color}}/><span>{game.company.name}<small>{game.company.officeLevel===0?'Apartment':'Headquarters'}</small></span></button>
+      <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className="brand-square" style={{background:game.company.brand.color}}/><span>{game.company.name}<small>{locations.find(l=>l.id===game.company.activeLocationId)?.name ?? (game.company.officeLevel===0?'Apartment':'Headquarters')}</small></span></button>
       <button className={`hud-stat cash-stat ${cash.delta?`cash-${cash.delta.level} ${cash.delta.value>0?'cash-up':'cash-down'}`:''}`} onClick={()=>setDrawer('finance')} title="Open the ledger for a cash-flow breakdown"><small>Cash</small><strong aria-label={money(game.company.cash)}>{money(cash.display)}</strong>{cash.delta&&<span className="cash-delta">{cash.delta.value>0?'+':''}{money(cash.delta.value)}</span>}</button>
       <button className="hud-stat" onClick={()=>setDrawer('finance')} title={`Expected net burn ${money(burn)} per month`}><small>Runway</small><strong className={run<3?'warning':''}>{run>=99?'Profitable':`${run.toFixed(1)} months`}</strong></button>
       {burnedCount>0&&<button className="hud-alert-badge" onClick={()=>setDrawer('people')} title={`${burnedCount} team member${burnedCount>1?'s are':' is'} resting due to burnout`}>⚠ {burnedCount} Resting</button>}

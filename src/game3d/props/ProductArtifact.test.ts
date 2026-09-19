@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { recipes } from '../../data/recipes';
 import { perks } from '../../data/perks';
 import { promos } from '../../data/promos';
-import { PerkVisual } from './PerkSet';
+import { PerkPreviewVisual } from './PerkPreviewVisual';
 import { PromoVisual } from './PromoVisuals';
 import { primitiveDesignFor, recipeDesignFor, recipeDesigns } from './products/catalog';
 import { partRenderers } from './products/Parts';
 import { primitives } from '../../data/primitives';
 import { primitiveIconPaths } from '../../ui/shared/PrimitiveIcons';
-import { productArtifactSpec } from './ProductArtifact';
+import { fallbackProductDesign, ProductArtifact, productArtifactSpec } from './ProductArtifact';
 
 describe('product visual coverage', () => {
   it('gives every technology a distinct line icon', () => {
@@ -36,9 +36,9 @@ describe('product visual coverage', () => {
   });
 
   it('accepts every Culture tier and Promotion and rejects unmapped content',()=>{
-    for(const perk of perks) for(let level=0;level<perk.upgrades.length;level++) expect(()=>PerkVisual({perk:{id:perk.id,level}})).not.toThrow();
+    for(const perk of perks) for(let level=0;level<perk.upgrades.length;level++) expect(()=>PerkPreviewVisual({perk:{id:perk.id,level}})).not.toThrow();
     for(const promo of promos) expect(()=>PromoVisual({id:promo.id})).not.toThrow();
-    expect(()=>PerkVisual({perk:{id:'coffee',level:99}})).toThrow();
+    expect(()=>PerkPreviewVisual({perk:{id:'coffee',level:99}})).toThrow();
     expect(()=>PromoVisual({id:'missing'})).toThrow();
   });
 
@@ -53,5 +53,16 @@ describe('product visual coverage', () => {
         expect(primitiveIconPaths[forward.parts[1]]).toBeTruthy();
       }
     }
+  });
+
+  it('generates a valid composite fallback design for uncataloged product pairs', () => {
+    const fallback = fallbackProductDesign('chat', 'robotics');
+    const reversed = fallbackProductDesign('robotics', 'chat');
+    expect(fallback).toEqual(reversed);
+    expect(fallback.parts.length).toBeGreaterThanOrEqual(2);
+    expect(fallback.concept).toContain('Conversation');
+    expect(() => ProductArtifact({ a: 'chat', b: 'robotics', allowFallback: true })).not.toThrow();
+    // Default without allowFallback still returns QuestionMarkArtifact for uncataloged pairs
+    expect(recipeDesignFor('chat', 'robotics')).toBeUndefined();
   });
 });

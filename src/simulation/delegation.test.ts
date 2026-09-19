@@ -50,6 +50,8 @@ describe("Delegated Market Launch and Subsequent Product Lifecycle", () => {
     expect(state.products[0]?.status).toBe("active");
     expect(state.marketResult).not.toBeNull();
     expect(state.marketResult?.productId).toBe(product.id);
+    expect(state.marketResult?.delegated).toBe(true);
+    expect(state.marketResult?.strategy).toBe("balanced");
 
     // 5. Verify "productReady" is gone and "results" is active
     expect(state.clock.pauseReasons).not.toContain("productReady");

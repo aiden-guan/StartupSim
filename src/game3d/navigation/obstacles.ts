@@ -1,3 +1,4 @@
+import { facilityFootprint, kitchenPlacement, loungePlacement } from '../facilities/facilityZones';
 import type { OfficeLayout } from './layout';
 import { officeScale } from '../environment/officeScale';
 
@@ -30,7 +31,7 @@ export function navigationObstacles(layout: OfficeLayout): NavigationObstacle[] 
   for (const point of layout.points.filter((item) => !item.id.includes('-slot-'))) {
     const [x, , z] = point.look;
     if (point.kind === 'board') obstacles.push(obstacle(x, z, 1.05, 0.08));
-    if (point.kind === 'coffee' && layout.level > 0) obstacles.push(obstacle(x, z, 0.76, 0.38));
+
     if (point.kind === 'lab') obstacles.push(obstacle(x, z, 0.92, 0.54));
     if (point.kind === 'server') obstacles.push(obstacle(x, z, 0.48, 0.42));
   }
@@ -43,8 +44,6 @@ export function navigationObstacles(layout: OfficeLayout): NavigationObstacle[] 
     obstacles.push(
       obstacle(-4.45, 3.08, 1.28, 0.72), // sofa
       obstacle(-4.15, 1.9, 0.72, 0.55), // coffee table
-      obstacle(4.57, 1.57, 0.78, 0.55), // kitchen counter
-      obstacle(5.27, 2.69, 0.48, 0.52), // fridge
       obstacle(-4.16, -4.08, 0.62, 0.48), // moving boxes
       obstacle(-5.38, 4.08, 0.52, 0.52),
       obstacle(4.65, -3.65, 0.58, 0.58),
@@ -52,7 +51,6 @@ export function navigationObstacles(layout: OfficeLayout): NavigationObstacle[] 
   } else {
     const { width, depth } = officeScale(layout.level);
     obstacles.push(
-      obstacle(-width * 0.3, depth * 0.34, 1.28, 0.72), // sofa
       obstacle(width / 2 - 1.1, -depth / 2 + 1.1, 0.62, 0.62),
       obstacle(-width / 2 + 1.1, -depth / 2 + 1.1, 0.62, 0.62),
     );
@@ -61,8 +59,8 @@ export function navigationObstacles(layout: OfficeLayout): NavigationObstacle[] 
       // The glass meeting room has two walls and an open side, not a solid
       // rectangle. Keep the walls physical while leaving the room reachable.
       obstacles.push(
-        obstacle(width * 0.28 - 3.15, depth * 0.25, 0.08, 2.36),
-        obstacle(width * 0.28, depth * 0.25 - 2.3, 3.25, 0.08),
+        obstacle(width * 0.28 - 3.15, depth * 0.25 - 1, 0.08, 2.36),
+        obstacle(width * 0.28, depth * 0.25 - 3.3, 3.25, 0.08),
       );
     }
     if (layout.level >= 4) {
@@ -79,6 +77,15 @@ export function navigationObstacles(layout: OfficeLayout): NavigationObstacle[] 
     }
   }
 
+  const kitchen = kitchenPlacement(layout.level);
+  obstacles.push(obstacle(kitchen.anchor[0], kitchen.anchor[2], kitchen.depth/2, kitchen.width/2));
+  if (layout.level > 0 && !(layout.level >= 2 && layout.facilities?.some(f => f.id === 'rest'))) {
+    const [x,,z]=loungePlacement(layout.level);
+    obstacles.push(obstacle(x,z,1.3,.75));
+  }
+  for (const facility of layout.facilities ?? []) {
+    if (!facility.exterior) obstacles.push(facilityFootprint(facility));
+  }
   return obstacles;
 }
 

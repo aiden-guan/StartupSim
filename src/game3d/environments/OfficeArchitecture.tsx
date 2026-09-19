@@ -11,6 +11,12 @@ export function OfficeArchitecture({level,quality='high'}:{level:number;quality?
   const id=['env_apartment_shell','env_tinyOffice_shell','env_hq_shell','env_aiLab_shell','env_campus_shell','env_megaCampus_shell'][level]!;
   return <KitOrGltf id={id} path={assetUrl('environments',`${id}.glb`)} fallback={<group>
     <Bevel position={[0,-.17,0]} size={[w,.32,d]} radius={.08} color={floor}/>
+    {level>=2&&<>
+      <Bevel position={[0,.005,d/2-(level>=4?4:2.1)]} size={[w-.45,.012,level>=4?7.4:3.7]} color="#c6b69c" radius={.004}/>
+      <Bevel position={[0,.015,d/2-(level>=4?8:4.3)]} size={[w-.5,.018,1.1]} color="#e6e0d3" radius={.003}/>
+      <Bevel position={[0,.018,d/2-(level>=4?8.6:4.9)]} size={[w-.5,.018,.045]} color="#a99b81" radius={.003}/>
+    </>}
+
     <Bevel position={[0,h/2,-d/2]} size={[w,h,.17]} radius={.02} color={industrial?'#dce3e1':'#e8ebe5'}/>
     <Bevel position={[-w/2,h/2,0]} size={[.17,h,d]} radius={.02} color={industrial?'#cbd4d3':'#dbe2de'}/>
     <Bevel position={[0,.05,-d/2+.17]} size={[w,.1,.14]} color="#f4f0e6"/>
@@ -26,7 +32,7 @@ export function OfficeArchitecture({level,quality='high'}:{level:number;quality?
       <Bevel position={[w*.2,.018,0]} size={[.07,.02,d*.72]} color={industrial?'#a6b8be':'#b8ad97'}/>
       <Bevel position={[0,.019,-d*.17]} size={[w*.75,.02,.07]} color={industrial?'#a6b8be':'#b8ad97'}/>
     </>}
-    {level===2&&<group position={[w*.28,0,d*.25]}>
+    {level===2&&<group position={[w*.28,0,d*.25-1]}>
       <Bevel position={[0,.025,0]} size={[6.5,.05,4.7]} color="#ded3c3"/>
       <Bevel position={[-3.15,1.4,0]} size={[.09,2.8,4.7]} color="#8b9da4"/>
       <mesh position={[0,1.4,-2.3]}><boxGeometry args={[6.5,2.8,.035]}/><meshStandardMaterial color="#b9cfd5" transparent opacity={.22} roughness={.5} depthWrite={false}/></mesh>
@@ -40,6 +46,8 @@ export function OfficeArchitecture({level,quality='high'}:{level:number;quality?
       {[-1,1].map(side=><Bevel key={side} position={[side*w*.36,.025,-d*.2]} size={[.07,.015,d*.38]} color="#e6aa48"/>)}
     </>}
     {level>=4&&<>
+      <Bevel position={[level===4?.1:-3.5,.013,level===4?-6.4:-9]} size={[level===4?13.6:21,.018,level===4?10.5:14.4]} color="#b8b9aa"/>
+      <Bevel position={[level===4?-7.5:-15.5,.017,level===4?-6.4:-9]} size={[.055,.02,level===4?12:16]} color="#e8e1d2"/>
       <Bevel position={[0,.02,d*.2]} size={[w*.26,.035,d*.24]} color="#e3e8e0"/>
       <Bevel position={[0,.13,d*.14]} size={[w*.16,.22,d*.13]} color="#9daa8e"/>
       {quality!=='low'&&[-2,-1,0,1,2].map(i=><Plant key={i} position={[i*2,.25,d*.14]} scale={1.9}/>)}

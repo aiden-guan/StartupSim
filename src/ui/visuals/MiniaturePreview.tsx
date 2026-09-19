@@ -1,7 +1,7 @@
 import { ContactShadows, OrthographicCamera } from "@react-three/drei";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useLayoutEffect } from "react";
-import { PerkVisual } from "../../game3d/props/PerkSet";
+import { PerkPreviewVisual } from "../../game3d/props/PerkPreviewVisual";
 import { PromoVisual } from "../../game3d/props/PromoVisuals";
 import { ModelVisual } from "../../game3d/props/ModelVisuals";
 import { Bevel } from "../../game3d/geometry/Bevel";
@@ -28,7 +28,7 @@ export function MiniaturePreview({ item, label }: { item: PreviewItem; label: st
       <directionalLight position={[-3, 6, 4]} intensity={2.2} castShadow shadow-mapSize={512} />
       <group position={[0, 0, 0]}>
         <Bevel position={[0, -.08, 0]} size={[3.3, .16, 2.5]} color="#ded3c3" />
-        {item.kind === "perk" ? <PerkVisual perk={{ id: item.id, level: item.level }} /> : item.kind === "promo" ? <PromoVisual id={item.id} /> : <ModelVisual modelId={item.id} />}
+        {item.kind === "perk" ? <PerkPreviewVisual perk={{ id: item.id, level: item.level }} /> : item.kind === "promo" ? <PromoVisual id={item.id} /> : <ModelVisual modelId={item.id} />}
       </group>
       <ContactShadows opacity={.25} scale={7} blur={2.6} far={4} resolution={256} />
     </Canvas>

@@ -16,6 +16,8 @@ export interface OfficeLayout {
   level: number;
   points: ActivityPoint[];
   hub: Vector3Tuple;
+  /** Shared installed geometry, populated by the world selector. */
+  facilities?: import("../facilities/facilityZones").InstalledFacility[];
   camera: { overview: Vector3Tuple; target: Vector3Tuple; min: number; max: number };
 }
 
@@ -148,8 +150,17 @@ const ALL = [apartmentLayout, garageLayout, loftLayout, labLayout, campusLayout,
     const x=startX+(i%columns)*gapX,z=startZ+Math.floor(i/columns)*gapZ;
     return {id:`desk-${i}`,kind:'desk',position:[x,0,z],look:[x,0,z-.8],capacity:1};
   });
+  // Larger shells gain a central team neighborhood, using the same furniture
+  // coordinates and collision contract as the original workstation bank.
+  if(layout.level>=4) {
+    const cols=layout.level===4?4:6, rows=layout.level===4?3:4;
+    for(let row=0;row<rows;row++)for(let col=0;col<cols;col++) {
+      const x=(layout.level===4?-5:-12)+col*3.4,z=(layout.level===4?-9:-13)+row*3.4;
+      desks.push({id:`desk-central-${row}-${col}`,kind:'desk',position:[x,0,z],look:[x,0,z-.8],capacity:1});
+    }
+  }
   const activities=layout.points.filter(p=>p.kind!=='desk').flatMap(p=>{
-    const point=p;
+    const point=layout.level===2 && p.kind==='meet' ? {...p, position:[p.position[0],0,p.position[2]-1] as Vector3Tuple,look:[p.look[0],0,p.look[2]-1] as Vector3Tuple} : p;
     if(point.kind==='entrance')return [point];
     const n=Math.min(point.kind==='idle'?4:point.kind==='coffee'?1:3,point.capacity);
     const dx=point.look[0]-point.position[0],dz=point.look[2]-point.position[2],len=Math.hypot(dx,dz)||1;

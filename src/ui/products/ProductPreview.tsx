@@ -14,6 +14,7 @@ function Aim() {
 
 export function ProductPreview({ a, b, created = false }: { a: string | null; b: string | null; created?: boolean }) {
   const discovered = Boolean(a && b && findRecipe(a, b));
+  const showModel = Boolean(a && b && (discovered || created));
   const label = a && b
     ? created
       ? `${primitiveById[a]?.name ?? a} and ${primitiveById[b]?.name ?? b} existing product model`
@@ -29,7 +30,7 @@ export function ProductPreview({ a, b, created = false }: { a: string | null; b:
       <hemisphereLight args={['#fffaf0', '#9da9a5', 1.5]} />
       <ambientLight intensity={.45} />
       <directionalLight position={[-3, 6, 4]} intensity={2.2} castShadow shadow-mapSize={512} />
-      {!b ? <PrimitiveArtifact id={a}/> : discovered ? <ProductArtifact key={[a, b].sort().join(':')} a={a} b={b} /> : <QuestionMarkArtifact key="undiscovered" />}
+      {!b ? <PrimitiveArtifact id={a}/> : showModel ? <ProductArtifact key={[a, b].sort().join(':')} a={a} b={b} allowFallback={created} /> : <QuestionMarkArtifact key="undiscovered" />}
       <ContactShadows opacity={.26} scale={5} blur={2.6} far={4} resolution={256} />
     </Canvas> : <div className="product-model-empty" aria-hidden="true">
       <span><GameIcon name={a ?? 'products'} /></span>

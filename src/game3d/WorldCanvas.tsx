@@ -15,6 +15,8 @@ import { useGame } from "../state/store";
 import { DEFAULT_BRAND } from "../simulation/newGame";
 import { CrowdSilhouettes } from "./props/Crowd";
 import { DynamicEnvironment } from './environment/DynamicEnvironment';
+import { installedFacilities } from "./facilities/facilityZones";
+import { ExteriorEnvironment } from "./exterior/ExteriorEnvironment";
 import { ProductShowcase } from './props/ProductShowcase';
 
 function Scene() {
@@ -27,8 +29,10 @@ function Scene() {
   const departures = useGame((s) => s.departures);
   const view = useMemo(() => (game ? selectWorldView(game) : null), [game]);
   const level = view?.officeLevel ?? 0;
-  const layout = layoutFor(level);
-  const runtime = useMemo(()=>new OfficeRuntime(layout,game?.meta.seed??1),[layout,game?.meta.seed]);
+  const facilityKey = JSON.stringify(view?.perks ?? []);
+  const layout = useMemo(() => ({...layoutFor(level), facilities: installedFacilities(level, JSON.parse(facilityKey))}), [level, facilityKey]);
+  const runtime = useMemo(()=>new OfficeRuntime(layout,game?.meta.seed??1),[level,game?.meta.seed]);
+  useEffect(()=>{runtime.layout=layout;},[runtime,layout]);
   const reduced = Boolean(game?.settings.reducedMotion);
   const quality = game?.settings.graphics ?? "high";
   const standing = Boolean(game?.company.perks.some((p) => p.id === "desks"));
@@ -81,8 +85,8 @@ function Scene() {
 
   return (
     <>
-      <OfficeLighting level={screen === "playing" ? level : 0} quality={quality} />
-      <CameraDirector reducedMotion={reduced} minDistance={layout.camera.min} maxDistance={layout.camera.max} />
+      <OfficeLighting level={screen === "playing" ? level : 0} quality={quality} sky={screen === "playing" ? view?.cityTheme.sky : undefined} />
+      <CameraDirector reducedMotion={reduced} minDistance={layout.camera.min} maxDistance={layout.camera.max*1.35} />
       {screen === "setup" && setup.step === "founder" ? (
         <group position={[0, 0, 0]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
@@ -107,6 +111,9 @@ function Scene() {
         </group>
       ) : null}
       {screen === "title" || (screen === "playing" && view) ? office : null}
+      {(screen === "title" || (screen === "playing" && view)) && (
+        <ExteriorEnvironment level={level} locationId={view?.activeLocationId ?? null} transitTier={view?.transitTier ?? -1} reducedMotion={reduced} quality={quality} />
+      )}
       {screen === 'playing' && view&&<DynamicEnvironment state={view.environment} quality={quality}/>}
       {screen === 'playing' && showcasedProduct && <ProductShowcase product={showcasedProduct} level={level} onOpen={() => setDrawer('products')} />}
       {screen === "title" ? (

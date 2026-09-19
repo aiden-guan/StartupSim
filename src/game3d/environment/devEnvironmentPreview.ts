@@ -3,6 +3,7 @@ import { createProduct } from '../../simulation/products';
 import { Rng } from '../../simulation/rng';
 import { recipes } from '../../data/recipes';
 import { perks } from '../../data/perks';
+import { locations } from '../../data/locations';
 import { models } from '../../data/models';
 
 /** Local, unsaved fixture for visual and interaction QA. Never imported by gameplay rendering. */
@@ -41,7 +42,18 @@ export function createEnvironmentPreviewGame(level:number) {
       game.products=[product];
     }
     const tier=params.get('cultureTier');
-    if(tier!==null) game.company.perks=perks.map(p=>({id:p.id,level:Math.min(p.upgrades.length-1,Math.max(0,Number(tier)||0))})).filter(p=>perks.find(def=>def.id===p.id)!.upgrades[p.level]!.requiredOffice<=stage);
+    if(tier!==null) game.company.perks=tier==='none'?[]:perks.flatMap(p=>{
+      const available=p.upgrades.map((u,i)=>({u,i})).filter(({u})=>u.requiredOffice<=stage);
+      const requested=tier==='max'?99:Math.max(0,Number(tier)||0);
+      const chosen=available.filter(({i})=>i<=requested).at(-1);
+      return chosen?[{id:p.id,level:chosen.i}]:[];
+    });
+    const location=params.get('location');
+    game.company.locations=locations.map(l=>l.id);
+    game.company.activeLocationId=locations.some(l=>l.id===location)?location:null;
+    if(params.get('motion')==='reduced')game.settings.reducedMotion=true;
+    const quality=params.get('quality');
+    if(quality==='low'||quality==='medium'||quality==='high')game.settings.graphics=quality;
   }
   return game;
 }

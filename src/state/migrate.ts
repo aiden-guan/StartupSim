@@ -1,3 +1,4 @@
+import { normalizeActiveLocation } from "../simulation/locationView";
 import { BALANCE } from "../config/balance";
 import { offices } from "../data/offices";
 import { onboarding } from "../data/onboarding";
@@ -21,6 +22,7 @@ export function migrateGameState(raw: GameState): GameState {
     look: normalizeLook(employee.look),
   }));
   state.achievements ??= [];
+  state.company.activeLocationId = normalizeActiveLocation(state.company);
   if (state.stats) state.stats.dilutionsCount ??= 0;
   if (!state.company.brand) state.company.brand = { ...DEFAULT_BRAND };
   if (!state.company.brand.color) state.company.brand.color = DEFAULT_BRAND.color;

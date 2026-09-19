@@ -1,0 +1,47 @@
+.world-qa-toolbar {
+  position: fixed;
+  left: 18px;
+  bottom: 112px;
+  z-index: 31;
+  width: min(370px, calc(100vw - 36px));
+  color: #314b49;
+  background: #f5f0e3f2;
+  border: 1px solid #c6baa7;
+  box-shadow: 0 8px 28px #263c4c2a;
+  pointer-events: auto;
+}
+
+.world-qa-toolbar > summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 37px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.world-qa-toolbar > summary::-webkit-details-marker { display: none; }
+.world-qa-toolbar > summary::before { content: ""; width: 5px; height: 5px; background: #bf643c; }
+.world-qa-toolbar[open] > summary { border-bottom: 1px solid #d3c9b9; }
+.world-qa-title { font: 600 10px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.world-qa-summary { overflow: hidden; color: #718074; font-size: 9px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.world-qa-chevron { color: #a56542; font-size: 15px; line-height: 1; transform: translateY(-1px); }
+.world-qa-toolbar[open] .world-qa-chevron { transform: rotate(180deg) translateY(1px); }
+
+.world-qa-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+.world-qa-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.world-qa-grid label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.world-qa-grid label > span { color: #8a6c52; font: 8px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.world-qa-grid select { width: 100%; min-width: 0; padding: 6px 7px; color: #324b49; background: #ebe9dd; border: 1px solid #c1c9bb; border-radius: 2px; font-size: 10px; }
+.world-qa-check { display: flex; align-items: center; gap: 7px; color: #5f7065; font-size: 10px; }
+.world-qa-check input { accent-color: #bf643c; }
+.world-qa-reload { width: 100%; padding: 8px 10px; color: #fff9e9; background: #2f4b50; border: 1px solid #243f43; border-radius: 2px; font-size: 10px; font-weight: 600; }
+.world-qa-reload:hover { background: #3c5c5c; }
+.world-qa-note { margin: 0; color: #859083; font-size: 8px; line-height: 1.35; }
+
+@media (max-width: 600px) {
+  .world-qa-toolbar { left: 10px; bottom: 88px; width: min(370px, calc(100vw - 20px)); }
+}
+

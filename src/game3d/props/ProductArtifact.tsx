@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Bevel } from '../geometry/Bevel';
 import { Composition } from './products/Parts';
-import { recipeDesignFor, primitiveDesignFor } from './products/catalog';
+import type { Part } from './products/Parts';
+import { recipeDesignFor, primitiveDesignFor, type ProductDesign } from './products/catalog';
 const copper = '#d06a3c';
 
 export function productArtifactSpec(a:string,b:string) {
@@ -10,9 +11,26 @@ export function productArtifactSpec(a:string,b:string) {
 export function PrimitiveArtifact({id}:{id:string}) {
   return <Composition parts={primitiveDesignFor(id).parts}/>;
 }
-export function ProductArtifact({a,b}:{a:string;b:string}) {
-  const design=recipeDesignFor(a,b);
-  // Experimental products deliberately retain the discovery placeholder.
+export function fallbackProductDesign(a: string, b: string): ProductDesign {
+  const [first, second] = [a, b].sort() as [string, string];
+  const pa = primitiveDesignFor(first);
+  const pb = primitiveDesignFor(second);
+  const parts: Part[] = [
+    ...pa.parts.map((part) => ({
+      ...part,
+      at: [part.at[0] - 0.38, part.at[1] ?? 0, part.at[2]] as [number, number, number],
+      scale: (part.scale ?? 1) * 0.75,
+    })),
+    ...pb.parts.map((part) => ({
+      ...part,
+      at: [part.at[0] + 0.38, part.at[1] ?? 0, part.at[2]] as [number, number, number],
+      scale: (part.scale ?? 1) * 0.75,
+    })),
+  ];
+  return { concept: `${pa.concept} + ${pb.concept}`, parts };
+}
+export function ProductArtifact({a,b,allowFallback=false}:{a:string;b:string;allowFallback?:boolean}) {
+  const design=recipeDesignFor(a,b) ?? (allowFallback ? fallbackProductDesign(a,b) : undefined);
   return design ? <Composition parts={design.parts}/> : <QuestionMarkArtifact/>;
 }
 

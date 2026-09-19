@@ -60,6 +60,27 @@ export function MarketResults({ game }: { game: GameState }) {
           {outcomeTitle}
         </div>
 
+        {r.delegated && (
+          <div
+            className="delegated-confirmation-badge"
+            style={{
+              display: "block",
+              background: "#dceadb",
+              color: "#244b32",
+              border: "1px solid #acc6b2",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              padding: "4px 10px",
+              borderRadius: 3,
+              marginBottom: 10,
+            }}
+          >
+            ✓ Automated Launch Delegated ({r.strategy ? r.strategy.toUpperCase() : "BALANCED"})
+          </div>
+        )}
+
         <h1>{p?.name} is live.</h1>
         <p>{r.outcome}</p>
 

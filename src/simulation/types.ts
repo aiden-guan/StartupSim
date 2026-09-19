@@ -535,6 +535,8 @@ export interface MarketResult {
   topSegment?: string;
   rivalShare?: number;
   rivalName?: string;
+  delegated?: boolean;
+  strategy?: "balanced" | "aggressive" | "niche" | "expansion";
   segments?: {
     id: string;
     name: string;
@@ -571,6 +573,8 @@ export interface CompanyState {
   expertise: Record<string, number>;
   perks: PerkState[];
   locations: string[];
+  /** The owned office being viewed; null is the original headquarters. */
+  activeLocationId: string | null;
   verticals: string[];
   acquisitions: string[];
   specialProjects: string[];

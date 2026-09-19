@@ -137,6 +137,7 @@ export function createNewGame(input: NewGameInput): GameState {
     expertise: {},
     perks: [],
     locations: [],
+    activeLocationId: null,
     verticals: ["consumer"],
     acquisitions: [],
     specialProjects: [],

@@ -1,9 +1,5 @@
 import { useState } from "react";
-import { locations } from "../../data/locations";
-import { lobbies } from "../../data/lobbies";
 import { offices } from "../../data/offices";
-import { specialProjects } from "../../data/specialProjects";
-import { verticals } from "../../data/verticals";
 import { formatDate } from "../../simulation/date";
 import type { GameState, GameplayEventKind } from "../../simulation/types";
 import { useGame } from "../../state/store";
@@ -17,6 +13,7 @@ import { CompanyMark } from "../visuals/CompanyMark";
 import { archetypeLabel, worldConditionLabel } from "../../visuals/registry";
 import { isMinorFee } from "../../simulation/pause";
 import { BALANCE } from "../../config/balance";
+import { ExpansionPanel } from "./ExpansionPanel";
 
 
 export { ResearchPanel } from './Research';
@@ -75,76 +72,7 @@ export function WorldPanel({ game }: { game: GameState }) {
       <details className="economy-details"><summary>Detailed indicators</summary><div className="world-meter-list">{worldMeters.map((k) => (<div key={k}><div><span>{k.replace(/([A-Z])/g,' $1')}</span><strong>{game.world[k].toFixed(0)}</strong></div><div className="condition-track"><i style={{ width: `${Math.min(100, game.world[k])}%` }} /></div></div>))}</div><div className="market-index-grid">{marketIndexes.map(([label,value])=><div key={label}><small>{label}</small><strong>{Math.round(value*100)}</strong><span>{value>1.02?'Above baseline':value<.98?'Below baseline':'Baseline'}</span></div>)}</div></details>
       </>}
       {tab==="competitors"&&<div className="competitor-list">{game.competitors.map((c) => { const def=competitorDefs.find((d)=>d.id===c.id); return <details key={c.id} className="competitor-card"><summary><CompanyMark company={c.id}/><span><strong>{c.name}</strong><small>{archetypeLabel(def?.archetype ?? c.archetype)} · {c.personality}</small></span><em><small>Market share</small><strong>{pct(c.marketShare)}</strong></em></summary><div className="competitor-detail"><CharacterPortrait look={lookFromSeed(c.id,def?.archetype)} /><div><p>{def?.description}</p><small>Founded by {def?.founder} · Focus: {def?.focus.join(', ')}</small></div>{game.unlocks.acquisitions&&!c.disabled?<button type="button" onClick={()=>dispatch({type:'acquire',competitorId:c.id})}>Acquire company</button>:null}</div></details>; })}</div>}
-      {tab==="expansion"&&<div className="expansion-catalog">
-      {game.unlocks.locations
-        ? locations.map((l) => {
-            const owned = game.company.locations.includes(l.id);
-            const reason = owned ? 'Already expanded' : game.company.cash < l.cost ? `Need ${money(l.cost - game.company.cash)} more` : '';
-            return (
-              <GameButton
-                key={l.id}
-                className="mt-1 w-full text-left"
-                disabled={!!reason}
-                title={reason || l.bonuses}
-                onClick={() => dispatch({ type: "buyLocation", locationId: l.id })}
-              >
-                {l.name} · {owned ? 'Established' : money(l.cost)}
-              </GameButton>
-            );
-          })
-        : null}
-      {game.unlocks.verticals
-        ? verticals.map((v) => {
-            const active = game.company.verticals.includes(v.id);
-            const reason = active ? 'Already active' : game.company.cash < v.cost ? `Need ${money(v.cost - game.company.cash)} more` : '';
-            return (
-              <GameButton
-                key={v.id}
-                className="mt-1 w-full text-left"
-                disabled={!!reason}
-                title={reason || v.description}
-                onClick={() => dispatch({ type: "buyVertical", verticalId: v.id })}
-              >
-                {v.name} · {active ? 'Active' : money(v.cost)}
-              </GameButton>
-            );
-          })
-        : null}
-      {specialProjects.map((p) => {
-        const ready = p.requiresTechs.every((t) => game.company.technologies.includes(t));
-        const done = game.company.specialProjects.includes(p.id);
-        const missing = p.requiresTechs.filter(t => !game.company.technologies.includes(t));
-        const reason = done ? 'Project completed' : !ready ? `Requires ${missing.join(', ')}` : game.company.cash < p.cost ? `Need ${money(p.cost - game.company.cash)} more` : '';
-        return (
-          <GameButton
-            key={p.id}
-            className="mt-1 w-full text-left"
-            disabled={!!reason}
-            title={reason || p.description}
-            onClick={() => dispatch({ type: "startProject", projectId: p.id })}
-          >
-            {p.name} · {done ? "Completed" : money(p.cost)}
-          </GameButton>
-        );
-      })}
-      {game.unlocks.lobbying
-        ? lobbies.map((l) => {
-            const active = game.company.lobbies.includes(l.id);
-            const reason = active ? 'Already active' : game.company.cash < l.cost ? `Need ${money(l.cost - game.company.cash)} more` : '';
-            return (
-              <GameButton
-                key={l.id}
-                className="mt-1 w-full text-left"
-                disabled={!!reason}
-                title={reason || l.description}
-                onClick={() => dispatch({ type: "startLobby", lobbyId: l.id })}
-              >
-                {l.name} · {active ? 'Active' : money(l.cost)}
-              </GameButton>
-            );
-          })
-        : null}
-      </div>}
+      {tab === "expansion" && <ExpansionPanel game={game} />}
     </div>
   );
 }

@@ -63,7 +63,7 @@ export function CulturePromotionPanel({ game }: { game: GameState }) {
 
     {mode === "culture" ? <div className="visual-choice-layout">
       <section>
-        <div className="choice-section-heading"><div><span className="eyebrow">Company culture</span><h3>Improve the workplace.</h3></div><p>Choose a category. Each purchase changes company metrics and adds an object to the office.</p></div>
+        <div className="choice-section-heading"><div><span className="eyebrow">Company culture</span><h3>Improve the workplace.</h3></div><p>Choose a category. Each purchase changes company metrics and transforms the workplace.</p></div>
         <div className="culture-catalog">
           {perks.map((perk) => {
             const owned = game.company.perks.find((item) => item.id === perk.id);

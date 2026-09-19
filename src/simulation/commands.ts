@@ -86,6 +86,7 @@ export type GameCommand =
   | { type: "buyPerk"; perkId: string }
   | { type: "upgradeOffice" }
   | { type: "buyLocation"; locationId: string }
+  | { type: "setActiveLocation"; locationId: string | null }
   | { type: "buyVertical"; verticalId: string }
   | { type: "generateFunding" }
   | { type: "acceptOffer"; offerId: string }
@@ -455,6 +456,8 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         const p = draft.products.find((x) => x.id === command.productId);
         if (!p || p.status !== "ready") break;
         if (draft.company.productsLaunched < BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE) break;
+        const strategy: DelegationStrategy = command.strategy ?? "balanced";
+        const profile = DELEGATION_PROFILES[strategy];
         const session = startMarketSession(draft, p, r);
         for (let t = 0; t < session.maxTurns; t++) {
           if (shouldEndSession(session)) break;
@@ -464,8 +467,6 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
             ...pMoves.reinforce.map((id) => ({ action: "reinforce" as const, nodeId: id })),
             ...pMoves.contest.map((id) => ({ action: "contest" as const, nodeId: id })),
           ];
-          const strategy: DelegationStrategy = command.strategy ?? "balanced";
-          const profile = DELEGATION_PROFILES[strategy];
           if (allPMoves.length) {
             allPMoves.sort((a, b) => {
               const na = session.nodes.find((n) => n.id === a.nodeId)!;
@@ -527,6 +528,10 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           session.turn += 1;
         }
         applyMarketEntryResults(draft, session, r);
+        if (draft.marketResult) {
+          draft.marketResult.delegated = true;
+          draft.marketResult.strategy = strategy;
+        }
         setPause(draft, "productReady", false);
         setPause(draft, "market", false);
         setPause(draft, "results", true);
@@ -804,6 +809,13 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         draft.company.officeLevel = next.level;
         draft.company.hype += 6;
         draft.company.prestige += 5;
+        break;
+      }
+      case "setActiveLocation": {
+        const id = command.locationId;
+        if (id === null || (locations.some(location => location.id === id) && draft.company.locations.includes(id))) {
+          draft.company.activeLocationId = id;
+        }
         break;
       }
       case "buyLocation": {

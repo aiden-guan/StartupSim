@@ -3,17 +3,21 @@ import { ContactShadows } from "@react-three/drei";
 export function OfficeLighting({
   level,
   quality,
+  sky,
 }: {
   level: number;
+  sky?: string;
   quality: "low" | "medium" | "high";
 }) {
   const cool = level >= 3;
   const late = level >= 4;
+  const background=sky ?? (late ? "#b8c2c0" : cool ? "#c5d0c4" : "#e8e9e4");
+  const fogStart=[38,52,74,105,155,240][level]??38;
   const shadows = quality !== "low";
   return (
     <>
-      <color attach="background" args={[late ? "#b8c2c0" : cool ? "#c5d0c4" : "#e8e9e4"]} />
-      <fog attach="fog" args={[late ? "#b8c2c0" : cool ? "#c5d0c4" : "#e8e9e4", level>=5?160:level>=4?110:level>=3?70:quality === "high" ? 28 : 40, level>=5?320:level>=4?220:level>=3?140:quality === "low" ? 80 : 60]} />
+      <color attach="background" args={[background]} />
+      <fog attach="fog" args={[background, fogStart, fogStart*2.1]} />
       <hemisphereLight args={[cool ? "#e8eef2" : "#fffdf7", cool ? "#6d7788" : "#a0a9b3", 1.25]} />
       <ambientLight intensity={0.45} />
       <directionalLight
