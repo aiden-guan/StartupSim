@@ -129,7 +129,7 @@ export function reconcileTutorial(state:GameState) {
       setPause(state,'tutorial',true);return;
     }
     const step=onboarding.find(s=> !state.onboarding.finished.includes(s.id) && (!s.after || state.onboarding.finished.includes(s.after)) && eligible(state,s.id));
-    if(!step) {setPause(state,'tutorial',false);return;}
+    if(!step) {state.pendingMentor=null;setPause(state,'tutorial',false);return;}
     state.pendingMentor=step.id;state.onboarding.slideIndex=0;
   }
 }

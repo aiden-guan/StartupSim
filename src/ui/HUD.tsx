@@ -72,7 +72,16 @@ export function HUD({game}:{game:GameState}) {
       {creditDepleted&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('compute')} title={`API credits depleted · ${money(uncoveredInference)}/week of inference billed to cash`}>⚠ Credits depleted</button>}
       {lowRunway&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('finance')} title="Runway critically low · under 2 months">⚠ Low runway</button>}
       <div className="hud-clock"><span>{formatDate(game.clock.date)}</span><div className="speed-controls" data-tutorial="speed-controls">
-        {SPEED_OPTIONS.map(speed=><button key={speed} data-tutorial={speed===1?'speed-one':undefined} aria-label={speed===0?'Pause':`${speed}× speed`} aria-pressed={speed===0?game.clock.paused:!game.clock.paused&&game.clock.speed===speed} onClick={()=>dispatch(speed===0?{type:'setPaused',paused:true}:{type:'setSpeed',speed})}>{speed===0?'Ⅱ':`${speed}×`}</button>)}
+        {SPEED_OPTIONS.map(speed=><button key={speed} data-tutorial={speed===1?'speed-one':undefined} aria-label={speed===0?(game.clock.paused?'Resume':'Pause'):`${speed}× speed`} aria-pressed={speed===0?game.clock.paused:!game.clock.paused&&game.clock.speed===speed} onClick={()=>{
+          if (speed === 0) {
+            dispatch({ type: 'setPaused', paused: !game.clock.paused, reason: game.clock.pauseReasons.includes('event') ? 'Inbox' : undefined });
+          } else {
+            if (game.clock.pauseReasons.includes('event')) {
+              dispatch({ type: 'setPaused', paused: false, reason: 'Inbox' });
+            }
+            dispatch({ type: 'setSpeed', speed });
+          }
+        }}>{speed===0?'Ⅱ':`${speed}×`}</button>)}
       </div></div>
       <button className="settings-button relative flex items-center justify-center text-sm" aria-label="Achievements" title={`Achievements (${unlockedAchievementCount} / ${ACHIEVEMENTS.length} unlocked)`} onClick={()=>useGame.getState().setAchievementsOpen(true)}>
         🏆
@@ -84,7 +93,10 @@ export function HUD({game}:{game:GameState}) {
       </button>
       <button className="settings-button" aria-label="Settings" onClick={()=>useGame.getState().setSettingsOpen(true)}>⚙</button>
     </header>
-    {game.clock.paused&&<div className="pause-caption">Ⅱ {game.clock.reasonPaused??'Paused'}</div>}
+    {game.clock.paused&&<div className="pause-caption" onClick={() => {
+      if (game.clock.pauseReasons.includes('event')) setDrawer('inbox');
+      else if (game.clock.pauseReasons.includes('productReady')) setDrawer('products');
+    }} style={{ cursor: (game.clock.pauseReasons.includes('event') || game.clock.pauseReasons.includes('productReady')) ? 'pointer' : undefined }} title={game.clock.pauseReasons.includes('event') ? 'Click to open inbox' : game.clock.pauseReasons.includes('productReady') ? 'Click to open products' : undefined}>Ⅱ {game.clock.reasonPaused??'Paused'}</div>}
     {!drawer&&!game.pendingMentor&&<ProgressStack game={game}/>}
     {!game.pendingMentor&&!game.marketBattle&&!game.marketResult&&<NewsFeed game={game}/>}
     <button className="overview-button" onClick={()=>useCameraDirector.getState().overview(game.company.officeLevel)}>↗ Office overview</button>

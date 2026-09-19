@@ -187,6 +187,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         draft.clock.speed = command.speed;
         setPause(draft, "manual", command.speed === 0);
         if (command.speed > 0) {
+          setPause(draft, "productReady", false);
           if (draft.clock.pauseReasons.includes("event")) {
             draft.clock.prePauseSpeed = command.speed;
           }
@@ -207,14 +208,23 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
             if (draft.clock.prePauseSpeed) {
               draft.clock.speed = draft.clock.prePauseSpeed;
               draft.clock.prePauseSpeed = undefined;
+            } else if (draft.clock.speed === 0) {
+              draft.clock.speed = 1;
             }
           }
         } else {
           setPause(draft, "manual", command.paused);
-          if (!command.paused) {
+          if (command.paused) {
+            if (!draft.clock.prePauseSpeed && draft.clock.speed > 0) {
+              draft.clock.prePauseSpeed = draft.clock.speed;
+            }
+          } else {
+            setPause(draft, "productReady", false);
             if (draft.clock.prePauseSpeed) {
               draft.clock.speed = draft.clock.prePauseSpeed;
               draft.clock.prePauseSpeed = undefined;
+            } else if (draft.clock.speed === 0) {
+              draft.clock.speed = 1;
             }
           }
         }

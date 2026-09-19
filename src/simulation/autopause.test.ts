@@ -556,5 +556,48 @@ describe("Event Autopause & Speed Restoration", () => {
       expect(mail.choices?.length).toBe(2);
     });
   });
+
+  describe("Player Unpausing & Speed Controls", () => {
+    it("allows the player to explicitly unpause when productReady is active", () => {
+      let state = createNewGame({ founderName: "Elena", companyName: "VectorPrime", cofounderId: "marcus", skipTutorial: true });
+      state = applyCommand(state, { type: "setSpeed", speed: 2 })!;
+      state = produce(state, (draft) => {
+        draft.clock.pauseReasons = ["productReady"];
+        draft.clock.paused = true;
+      });
+
+      // Player unpauses via setPaused(false)
+      state = applyCommand(state, { type: "setPaused", paused: false })!;
+      expect(state.clock.paused).toBe(false);
+      expect(state.clock.pauseReasons).not.toContain("productReady");
+
+      // Set productReady pause again
+      state = produce(state, (draft) => {
+        draft.clock.pauseReasons = ["productReady"];
+        draft.clock.paused = true;
+      });
+
+      // Player selects speed 4x: clears productReady and resumes
+      state = applyCommand(state, { type: "setSpeed", speed: 4 })!;
+      expect(state.clock.paused).toBe(false);
+      expect(state.clock.speed).toBe(4);
+      expect(state.clock.pauseReasons).not.toContain("productReady");
+    });
+
+    it("allows explicit unpause of inbox event via reason: Inbox", () => {
+      let state = createNewGame({ founderName: "Elena", companyName: "VectorPrime", cofounderId: "marcus", skipTutorial: true });
+      state = applyCommand(state, { type: "setSpeed", speed: 4 })!;
+      state = applyCommand(state, { type: "setPaused", paused: true, reason: "Inbox" })!;
+      expect(state.clock.paused).toBe(true);
+      expect(state.clock.prePauseSpeed).toBe(4);
+
+      // Player explicitly unpauses
+      state = applyCommand(state, { type: "setPaused", paused: false, reason: "Inbox" })!;
+      expect(state.clock.paused).toBe(false);
+      expect(state.clock.speed).toBe(4);
+      expect(state.clock.pauseReasons).not.toContain("event");
+      expect(state.clock.prePauseSpeed).toBeUndefined();
+    });
+  });
 });
 

@@ -1,8 +1,10 @@
 import type { Employee, GameState, SkillName, Task } from "./types";
 import { SKILLS } from "./types";
 import { communicationMultiplier } from "./overhead";
-import { companySkill, idleWorkers, workerSkill } from "./workers";
+import { companySkill, companyTraitBonus, idleWorkers, workerSelfBonus, workerSkill } from "./workers";
 import { managementRelief, workersFor } from "./tasks";
+import { locations } from "../data/locations";
+import { offices } from "../data/offices";
 
 export const TASK_SKILLS: Record<Task["type"], SkillName[]> = {
   product: ["engineering", "product", "research", "growth", "productivity"],
@@ -98,14 +100,148 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
     ? idleWorkers(state)
     : state.employees.filter((w) => w.burnoutDays <= 0 && w.role !== "ai");
 
+  if (!open.length) {
+    return { assigned: [] };
+  }
+
+  // --- Precompute company-wide constants once ---
+  const traitBonuses: Record<SkillName, number> = {
+    engineering: companyTraitBonus(state, "engineering"),
+    research: companyTraitBonus(state, "research"),
+    product: companyTraitBonus(state, "product"),
+    growth: companyTraitBonus(state, "growth"),
+    productivity: companyTraitBonus(state, "productivity"),
+  };
+
+  const relief = managementRelief(state);
+  const bureau = 1 - Math.min(0.45, state.company.culture.bureaucracy / 200);
+  const officeProd = 1 + (offices[state.company.officeLevel]?.productivity ?? 0) / 100;
+  const bureauOffice = bureau * officeProd;
+  const autoEng = state.company.automation.engineering ?? 0;
+
+  const locBonuses: Record<SkillName, number> = {
+    engineering: 0,
+    research: 0,
+    product: 0,
+    growth: 0,
+    productivity: 0,
+  };
+  for (const id of state.company.locations) {
+    const def = locations.find((l) => l.id === id);
+    if (def) {
+      for (const s of SKILLS) {
+        locBonuses[s] += (def.skills[s] ?? 0) / 8;
+      }
+    }
+  }
+
+  // Precompute worker skills for all involved workers
+  const workerSkills = new Map<string, Record<SkillName, number>>();
+  function getWorkerSkills(w: Employee): Record<SkillName, number> {
+    let cached = workerSkills.get(w.id);
+    if (!cached) {
+      cached = {
+        engineering: Math.max(0, w.skills.engineering + workerSelfBonus(w, "engineering") + traitBonuses.engineering),
+        research: Math.max(0, w.skills.research + workerSelfBonus(w, "research") + traitBonuses.research),
+        product: Math.max(0, w.skills.product + workerSelfBonus(w, "product") + traitBonuses.product),
+        growth: Math.max(0, w.skills.growth + workerSelfBonus(w, "growth") + traitBonuses.growth),
+        productivity: Math.max(0, w.skills.productivity + workerSelfBonus(w, "productivity") + traitBonuses.productivity),
+      };
+      workerSkills.set(w.id, cached);
+    }
+    return cached;
+  }
+
+  for (const w of open) {
+    getWorkerSkills(w);
+  }
+
+  function fastCompanySkill(name: SkillName, activeWorkers: Employee[], scaleByProductivity = false): number {
+    let total = 0;
+    for (const w of activeWorkers) {
+      const skills = getWorkerSkills(w);
+      const s = skills[name];
+      const prod = scaleByProductivity ? Math.max(0.3, skills.productivity / 8) : 1;
+      total += Math.max(0, s * prod);
+    }
+    if (name === "engineering" || name === "research" || name === "productivity") {
+      total *= 1 + autoEng / 200;
+    }
+    return Math.max(0, (total + locBonuses[name]) * bureauOffice);
+  }
+
+  function fastDailyOutput(task: Task, activeWorkers: Employee[]): number {
+    if (!activeWorkers.length) return 0;
+    const efficiency = communicationMultiplier(activeWorkers.length, relief);
+    const skills = relevantSkillsFor(task);
+    if (task.type === "research") {
+      return (
+        (fastCompanySkill("engineering", activeWorkers) +
+          fastCompanySkill("research", activeWorkers) +
+          fastCompanySkill("product", activeWorkers) / 3) *
+        0.22 *
+        efficiency
+      );
+    }
+    if (task.type === "lobby" || task.type === "hiring") {
+      return fastCompanySkill("growth", activeWorkers, task.type === "lobby") * 0.22 * efficiency;
+    }
+    if (task.type === "special" || task.type === "training") {
+      return (
+        ((fastCompanySkill("research", activeWorkers, true) +
+          fastCompanySkill("engineering", activeWorkers, true) +
+          fastCompanySkill("product", activeWorkers, true)) /
+          3) *
+        0.22 *
+        efficiency
+      );
+    }
+    return fastCompanySkill(skills.includes("productivity") ? "productivity" : skills[0]!, activeWorkers) * 0.22 * efficiency;
+  }
+
+  interface WorkerTaskMeta {
+    worker: Employee;
+    fit: number;
+    skill: SkillName;
+    soloScore: number;
+  }
+
+  const projectCandidates = new Map<string, WorkerTaskMeta[]>();
+  const maxNeededPerProject = projects.length * MAX_AUTO_ASSIGN_TEAM_SIZE + 1;
+
+  for (const task of projects) {
+    const needs = relevantSkillsFor(task);
+    const metas: WorkerTaskMeta[] = [];
+    for (const worker of open) {
+      const skills = getWorkerSkills(worker);
+      const fit = needs.reduce((sum, skill, i) => {
+        const w = i === 0 ? 1.35 : i === 1 ? 1.1 : 0.85;
+        return sum + skills[skill] * w;
+      }, 0) / Math.max(1, needs.length);
+
+      let bestSkill = needs[0] ?? "productivity";
+      let bestSkillVal = skills[bestSkill] ?? 0;
+      for (let i = 1; i < needs.length; i++) {
+        const s = needs[i]!;
+        const val = skills[s] ?? 0;
+        if (val > bestSkillVal) {
+          bestSkillVal = val;
+          bestSkill = s;
+        }
+      }
+
+      const soloOutput = fastDailyOutput(task, [worker]);
+      const soloScore = soloOutput * 1.4 + fit * 0.35;
+      metas.push({ worker, fit, skill: bestSkill, soloScore });
+    }
+
+    metas.sort((a, b) => b.soloScore - a.soloScore);
+    projectCandidates.set(task.id, metas.length > maxNeededPerProject ? metas.slice(0, maxNeededPerProject) : metas);
+  }
+
   const assigned: AutoAssignResult["assigned"] = [];
   const taken = new Set<string>();
 
-  // Keep each project's simulated team in sync while planning so later picks
-  // account for both team overhead and the people selected earlier in this plan.
-  // For single task, keep workers already on the task in the team count.
-  // For auto-assign all, clear active workers so everyone can be placed into the best position,
-  // keeping only resting workers in place on their respective tasks.
   const teams = new Map(
     projects.map((task) => [
       task.id,
@@ -119,23 +255,23 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
     let best: { task: Task; worker: Employee; score: number; skill: SkillName } | null = null;
     for (const task of projects) {
       const current = teams.get(task.id)!;
-      const activeCount = current.filter((worker) => worker.burnoutDays <= 0).length;
-      if (activeCount >= MAX_AUTO_ASSIGN_TEAM_SIZE || (coverageOnly && activeCount > 0)) continue;
-      const needs = relevantSkillsFor(task);
-      const before = dailyOutput(state, task, current);
-      for (const worker of open) {
-        if (taken.has(worker.id)) continue;
-        const after = dailyOutput(state, task, [...current, worker]);
+      const activeCurrent = current.filter((worker) => worker.burnoutDays <= 0);
+      if (activeCurrent.length >= MAX_AUTO_ASSIGN_TEAM_SIZE || (coverageOnly && activeCurrent.length > 0)) continue;
+
+      const before = fastDailyOutput(task, activeCurrent);
+      const candidates = projectCandidates.get(task.id)!;
+
+      for (const meta of candidates) {
+        if (taken.has(meta.worker.id)) continue;
+        const after = fastDailyOutput(task, [...activeCurrent, meta.worker]);
         const marginal = after - before;
-        const fit = workerFit(state, worker, task);
-        const score = marginal * 1.4 + fit * 0.35;
-        const skill = needs.slice().sort((a, b) => workerSkill(worker, state, b) - workerSkill(worker, state, a))[0] ?? "productivity";
-        if (!best || score > best.score) best = { task, worker, score, skill };
+        const score = marginal * 1.4 + meta.fit * 0.35;
+        if (!best || score > best.score) {
+          best = { task, worker: meta.worker, score, skill: meta.skill };
+        }
       }
     }
 
-    // Coverage is the explicit priority, even when the only available fit is
-    // weak. Once every project has a teammate, avoid adding zero-value depth.
     if (!best || (!coverageOnly && best.score <= 0.05)) return false;
     taken.add(best.worker.id);
     teams.get(best.task.id)!.push(best.worker);
@@ -156,14 +292,10 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
     return true;
   }
 
-  // First give every uncovered project a teammate. This loop intentionally has
-  // no quality threshold: one capable person is better than a stalled project.
   while (taken.size < open.length && projects.some((task) => (teams.get(task.id) ?? []).every((worker) => worker.burnoutDays > 0))) {
     if (!addBest(true)) break;
   }
 
-  // With coverage satisfied, distribute any remaining capacity by marginal
-  // output plus task fit, preserving the existing four-person team cap.
   while (taken.size < open.length) {
     if (!addBest(false)) break;
   }

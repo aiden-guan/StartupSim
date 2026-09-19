@@ -243,6 +243,34 @@ describe("assignment", () => {
     expect(after.employees.filter((worker) => worker.taskId === first!.id).length).toBeGreaterThanOrEqual(1);
     expect(after.employees.filter((worker) => worker.taskId === second!.id).length).toBeGreaterThanOrEqual(1);
   });
+
+  it("scales auto-assign efficiently with 500+ late-game employees without lag", () => {
+    let g = boot(20);
+    g = startNamedProduct(g, "chat", "writing");
+    g = startNamedProduct(g, "search", "image");
+    g = startNamedProduct(g, "code", "agent");
+    const template = g.employees[1]!;
+    for (let i = 0; i < 500; i++) {
+      g.employees.push({
+        ...structuredClone(template),
+        id: `scale-worker-${i}`,
+        name: `Worker ${i}`,
+        taskId: null,
+        skills: {
+          engineering: (i * 3) % 15,
+          research: (i * 5) % 15,
+          product: (i * 7) % 15,
+          growth: (i * 2) % 15,
+          productivity: (i * 4) % 15,
+        },
+      });
+    }
+    const t0 = performance.now();
+    const plan = planAutoAssign(g);
+    const elapsed = performance.now() - t0;
+    expect(plan.assigned.length).toBe(g.tasks.length * 4); // Max capacity filled
+    expect(elapsed).toBeLessThan(100); // Must execute in under 100ms
+  });
 });
 
 describe("hiring", () => {

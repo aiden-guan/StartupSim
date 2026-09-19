@@ -133,6 +133,37 @@ export function App() {
     return undefined;
   }, [toggleDebug, setGalleryOpen]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      if (e.code === "Space") {
+        const state = useGame.getState();
+        if (state.screen === "playing" && state.game && !state.settingsOpen && !state.achievementsOpen) {
+          e.preventDefault();
+          const eventReason = state.game.clock.pauseReasons.includes("event") ? "Inbox" : undefined;
+          state.dispatch({ type: "setPaused", paused: !state.game.clock.paused, reason: eventReason });
+        }
+      } else if (e.key === "1" || e.key === "2" || e.key === "3" || e.key === "4") {
+        const state = useGame.getState();
+        if (state.screen === "playing" && state.game && !state.settingsOpen && !state.achievementsOpen) {
+          const speeds: Record<string, 1 | 2 | 4 | 8> = { "1": 1, "2": 2, "3": 4, "4": 8 };
+          const sp = speeds[e.key];
+          if (sp) {
+            if (state.game.clock.pauseReasons.includes("event")) {
+              state.dispatch({ type: "setPaused", paused: false, reason: "Inbox" });
+            }
+            state.dispatch({ type: "setSpeed", speed: sp });
+          }
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   if (import.meta.env.DEV && galleryOpen) return (
     <>
       <VisualGallery />

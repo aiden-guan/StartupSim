@@ -232,6 +232,7 @@ export const useGame = create<AppState>((set, get) => ({
       !next.marketResult &&
       next.inbox.some((m) => m.requiresResponse && isLifeOrDeathEvent(m, next) && !prev.inbox.some((p) => p.id === m.id))
     ) {
+      set({ drawer: "inbox" });
       get().dispatch({ type: "setPaused", paused: true, reason: "Inbox" });
     }
     if (next && (cmd.type === "tickDay" ? next.clock.date.day === 1 : true) && next.settings.autosave) {

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { BALANCE } from "../config/balance";
+import { currentTutorialSlide } from "../simulation/tutorial";
 import { useGame } from "./store";
 
 export function useSimClock() {
@@ -8,7 +9,10 @@ export function useSimClock() {
 
   useEffect(() => {
     if (!game || screen !== "playing") return;
-    if (game.clock.paused || game.clock.speed === 0 || game.pendingMentor || game.marketBattle || game.endingId) {
+    const isMentorBlocking = Boolean(
+      game.pendingMentor && game.onboarding.tutorialEnabled && currentTutorialSlide(game)
+    );
+    if (game.clock.paused || game.clock.speed === 0 || isMentorBlocking || game.marketBattle || game.endingId) {
       return;
     }
     const ms = BALANCE.MS_PER_DAY_AT_1X / game.clock.speed;
@@ -19,6 +23,7 @@ export function useSimClock() {
     game?.clock.paused,
     game?.clock.speed,
     game?.pendingMentor,
+    game?.onboarding.tutorialEnabled,
     Boolean(game?.marketBattle),
     game?.endingId,
   ]);
