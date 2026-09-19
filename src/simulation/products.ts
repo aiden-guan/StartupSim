@@ -5,7 +5,7 @@ import { modelById } from "../data/models";
 import { calculateModelImpact, calculateWeeklyProductInference } from "./modelImpact";
 import { PRICING_MODELS } from "../data/pricing";
 import { GTM_STRATEGIES } from "../data/gtm";
-import type { GameState, LaunchStat, Product, ProductPoints } from "./types";
+import { isServiceProductStatus, type GameState, type LaunchStat, type Product, type ProductPoints } from "./types";
 import { uid, type Rng } from "./rng";
 import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from "./gtm";
 import { isModelAvailable } from "./effects";
@@ -220,12 +220,13 @@ export function setProductEconomics(
 }
 
 export function harvestProduct(product: Product, rng: Rng, serviceMultiplier = 1): { revenue: number; inference: number; operations: number } {
-  if (product.status !== "active" && product.status !== "mature" && product.status !== "declining") {
+  if (!isServiceProductStatus(product.status)) {
     return { revenue: 0, inference: 0, operations: 0 };
   }
   const range = product.weeklyRevenue * 0.1;
   const collected = Math.max(0, rng.float(product.weeklyRevenue - range, product.weeklyRevenue + range));
   const revenue = Math.round(collected * Math.max(0, Math.min(1, serviceMultiplier)));
+  const inference = product.weeklyInference;
   const operations = product.weeklyOperatingCost;
   const change = product.ageWeeks < product.rampWeeks ? 1 + product.weeklyGrowthRate : product.retentionRate;
   product.weeklyRevenue *= change;
@@ -237,5 +238,5 @@ export function harvestProduct(product: Product, rng: Rng, serviceMultiplier = 1
   if (product.ageWeeks > 16) product.status = "mature";
   if (product.weeklyRevenue < 400 && product.ageWeeks > 8) product.status = "declining";
   if (product.weeklyRevenue < 40 && product.ageWeeks > 12) product.status = "deprecated";
-  return { revenue, inference: product.weeklyInference, operations };
+  return { revenue, inference, operations };
 }

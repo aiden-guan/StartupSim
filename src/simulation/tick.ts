@@ -749,6 +749,16 @@ export function tickDay(state: GameState): GameState {
       draft.company.currentMonthBreakdown.office += rent;
       draft.company.currentMonthBreakdown.fixedCompute += compute;
       draft.company.currentMonthBreakdown.companyOperations += operations;
+      const operatingNet = draft.company.currentMonthBreakdown.revenue -
+        draft.company.currentMonthBreakdown.inference -
+        draft.company.currentMonthBreakdown.productOperations -
+        draft.company.currentMonthBreakdown.payroll -
+        draft.company.currentMonthBreakdown.office -
+        draft.company.currentMonthBreakdown.fixedCompute -
+        draft.company.currentMonthBreakdown.companyOperations;
+      const statementOpeningCash = draft.company.cashAtLastStatement ?? (draft.company.cash - operatingNet);
+      draft.company.lastMonthlyCashChange = draft.company.cash - statementOpeningCash;
+      draft.company.cashAtLastStatement = draft.company.cash;
       draft.company.lastMonthlyRevenue = draft.company.monthlyRevenue;
       draft.company.lastMonthlyCosts = draft.company.monthlyCosts;
       draft.company.lastMonthlyBreakdown = { ...draft.company.currentMonthBreakdown };

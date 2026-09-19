@@ -196,5 +196,8 @@ describe("Optimize Launch Game Command & Auto-Delegate Interactions", () => {
     expect(nextState!.stats.productsLaunched).toBe(2);
     expect(nextState!.marketResult?.productId).toBe(secondProduct.id);
     expect(nextState!.marketResult?.delegated).toBe(true);
+    expect(state.products.find((p) => p.id === product.id)?.status).toBe("ready");
+    expect(state.products.find((p) => p.id === secondProduct.id)?.status).toBe("ready");
+    expect(state.marketResult).toBeNull();
   });
 });

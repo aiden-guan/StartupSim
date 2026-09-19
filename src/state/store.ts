@@ -34,6 +34,14 @@ export interface Departure {
   robot: boolean;
 }
 
+export interface LaunchAllSummary {
+  launchedCount: number;
+  totalWeeklyRevenue: number;
+  totalWeeklyNetContribution: number;
+  totalUsers: number;
+  averageMarketShare: number;
+}
+
 export type SetupStep = "founder" | "cofounder" | "company";
 
 export interface SetupDraft {
@@ -64,6 +72,7 @@ interface UiState {
   departures: Departure[];
   achievementsOpen: boolean;
   recentAchievement: AchievementDef | null;
+  launchAllSummary: LaunchAllSummary | null;
 }
 
 interface AppState extends UiState {
@@ -88,6 +97,7 @@ interface AppState extends UiState {
   setEventFrame: (frame: EventFrame | null) => void;
   setOfficeCaption: (caption: string | null) => void;
   clearDeparture: (id: string) => void;
+  dismissLaunchAllSummary: () => void;
 }
 
 function blankSetup(): SetupDraft {
@@ -121,6 +131,7 @@ export const useGame = create<AppState>((set, get) => ({
   departures: [],
   achievementsOpen: false,
   recentAchievement: null,
+  launchAllSummary: null,
   dispatch: (cmd) => {
     const prev = get().game;
     const next = applyCommand(prev, cmd);
@@ -134,9 +145,38 @@ export const useGame = create<AppState>((set, get) => ({
       patch.eventFrame = null;
       patch.officeCaption = null;
       patch.departures = [];
+      patch.launchAllSummary = null;
     }
     if (next?.marketBattle || next?.marketResult) patch.screen = "market";
-    if (cmd.type === "continueMarketResults" && next && !next.marketResult) { patch.screen = "playing"; patch.drawer = "products"; }
+    if (cmd.type === "launchAll" && next && prev && next.marketResult?.delegated) {
+      const launchedProducts = cmd.productIds
+        .map((productId) => {
+          const before = prev.products.find((product) => product.id === productId);
+          const after = next.products.find((product) => product.id === productId);
+          return before?.status === "ready" && after?.status === "active" ? after : null;
+        })
+        .filter((product): product is GameState["products"][number] => Boolean(product));
+
+      if (launchedProducts.length > 0) {
+        patch.launchAllSummary = {
+          launchedCount: launchedProducts.length,
+          totalWeeklyRevenue: launchedProducts.reduce((sum, product) => sum + product.weeklyRevenue, 0),
+          totalWeeklyNetContribution: launchedProducts.reduce(
+            (sum, product) => sum + product.weeklyRevenue - product.weeklyInference - product.weeklyOperatingCost,
+            0,
+          ),
+          totalUsers: launchedProducts.reduce((sum, product) => sum + product.users, 0),
+          averageMarketShare: launchedProducts.reduce((sum, product) => sum + product.marketShare, 0) / launchedProducts.length,
+        };
+        patch.screen = "playing";
+        patch.drawer = "products";
+      }
+    }
+    if (cmd.type === "continueMarketResults" && next && !next.marketResult) {
+      patch.screen = "playing";
+      patch.drawer = "products";
+      patch.launchAllSummary = null;
+    }
     if (get().screen === "market" && next && !next.marketBattle && !next.marketResult) {
       patch.screen = "playing";
     }
@@ -244,6 +284,7 @@ export const useGame = create<AppState>((set, get) => ({
       drawer: currentTutorialSlide(migrated)?.workspace ?? null,
       selectedEmployeeId: null, departures: [], eventFrame: null, officeCaption: null,
       revealPlaying: false,
+      launchAllSummary: null,
     });
   },
   reportTutorialAction: (action) => {
@@ -264,4 +305,8 @@ export const useGame = create<AppState>((set, get) => ({
   setEventFrame: (frame) => set({ eventFrame: frame }),
   setOfficeCaption: (caption) => set({ officeCaption: caption }),
   clearDeparture: (id) => set({ departures: get().departures.filter((d) => d.id !== id) }),
+  dismissLaunchAllSummary: () => {
+    if (get().game?.marketResult) get().dispatch({ type: "continueMarketResults" });
+    else set({ launchAllSummary: null });
+  },
 }));

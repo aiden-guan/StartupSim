@@ -155,6 +155,8 @@ export function createNewGame(input: NewGameInput): GameState {
     lastMonthlyCosts: 0,
     currentMonthBreakdown: { revenue: 0, inference: 0, productOperations: 0, payroll: 0, office: 0, fixedCompute: 0, companyOperations: 0 },
     lastMonthlyBreakdown: { revenue: 0, inference: 0, productOperations: 0, payroll: 0, office: 0, fixedCompute: 0, companyOperations: 0 },
+    cashAtLastStatement: BALANCE.STARTING_CASH,
+    lastMonthlyCashChange: 0,
     productsLaunched: 0,
     seenMarket: false,
     ceoAutomated: false,

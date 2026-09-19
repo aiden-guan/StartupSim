@@ -1,6 +1,6 @@
 import { primitiveById } from "../data/primitives";
 import { inferenceCoverage } from "./derived";
-import type { GameState, Task } from "./types";
+import { isServiceProductStatus, type GameState, type Task } from "./types";
 
 export const COMPUTE_TASK_TYPES = new Set(["product", "research", "special"]);
 
@@ -10,7 +10,7 @@ export function isComputeTask(task: Task): boolean {
 
 export function weeklyInferenceDemand(state: GameState): number {
   return state.products
-    .filter((p) => p.status === "active" || p.status === "mature" || p.status === "declining")
+    .filter((p) => isServiceProductStatus(p.status))
     .reduce((sum, p) => sum + p.weeklyInference, 0);
 }
 

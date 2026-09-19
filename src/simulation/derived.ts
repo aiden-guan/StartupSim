@@ -1,6 +1,6 @@
 import { offices } from "../data/offices.js";
 import { BALANCE } from "../config/balance.js";
-import type { GameState } from "./types.js";
+import { isServiceProductStatus, type FinancialBreakdown, type GameState } from "./types.js";
 import { monthlyArr } from "./conditions.js";
 
 export { monthlyArr };
@@ -21,19 +21,19 @@ export function fixedComputeCost(state: GameState): number {
   return state.compute.rentedGpus * 2400 + state.compute.reservedCapacity * 6500 + state.compute.dataCenters * 180000 + state.compute.monthlyCloudBill;
 }
 export function monthlyCompute(state: GameState): number {
-  const weekly = state.products.filter(p=>["active","mature","declining"].includes(p.status)).reduce((sum,p)=>sum+p.weeklyInference,0);
+  const weekly = state.products.filter((p) => isServiceProductStatus(p.status)).reduce((sum, p) => sum + p.weeklyInference, 0);
   return Math.max(0, weekly-inferenceCoverage(state))*4.33 + fixedComputeCost(state);
 }
 
 export function monthlyProductOperations(state: GameState): number {
   return state.products
-    .filter((p) => ["active", "mature", "declining"].includes(p.status))
+    .filter((p) => isServiceProductStatus(p.status))
     .reduce((sum, p) => sum + (p.weeklyOperatingCost ?? 0) * 4.33, 0);
 }
 
 export function monthlyCompanyOperations(state: GameState): number {
   const headcount = state.employees.length;
-  const activeProducts = state.products.filter((p) => ["active", "mature", "declining"].includes(p.status)).length;
+  const activeProducts = state.products.filter((p) => isServiceProductStatus(p.status)).length;
   const peopleComplexity = headcount <= 6 ? 0 : Math.pow(headcount - 6, 1.35) * BALANCE.COMPLEXITY_COST_PER_EMPLOYEE;
   const portfolioComplexity = activeProducts <= 1 ? 0 : Math.pow(activeProducts - 1, 1.45) * BALANCE.COMPLEXITY_COST_PER_PRODUCT;
   const managementRelief = state.employees.filter((w) => w.department === "management" && w.role === "employee").length * 0.08;
@@ -41,9 +41,27 @@ export function monthlyCompanyOperations(state: GameState): number {
 }
 
 export function monthlyBurn(state: GameState): number {
-  const costs = monthlyPayroll(state) + monthlyRent(state) + monthlyCompute(state) + monthlyProductOperations(state) + monthlyCompanyOperations(state);
-  const rev = monthlyArr(state);
-  return Math.max(0, costs - rev);
+  const forecast = monthlyExpenseBreakdown(state);
+  const costs = forecast.inference + forecast.fixedCompute + forecast.productOperations + forecast.payroll + forecast.office + forecast.companyOperations;
+  return Math.max(0, costs - forecast.revenue);
+}
+
+export function monthlyExpenseBreakdown(state: GameState): FinancialBreakdown {
+  const weeklyInference = state.products
+    .filter((p) => isServiceProductStatus(p.status))
+    .reduce((sum, p) => sum + p.weeklyInference, 0);
+  const fixedCompute = fixedComputeCost(state);
+  const inference = Math.max(0, weeklyInference - inferenceCoverage(state)) * 4.33;
+  const breakdown: FinancialBreakdown = {
+    revenue: monthlyArr(state),
+    inference,
+    productOperations: monthlyProductOperations(state),
+    payroll: monthlyPayroll(state),
+    office: monthlyRent(state),
+    fixedCompute,
+    companyOperations: monthlyCompanyOperations(state),
+  };
+  return breakdown;
 }
 
 export function runwayMonths(state: GameState): number {
@@ -55,7 +73,7 @@ export function runwayMonths(state: GameState): number {
 export function grossMargin(state: GameState): number {
   const rev = monthlyArr(state);
   const inf = state.products
-    .filter((p) => p.status === "active" || p.status === "mature" || p.status === "declining")
+    .filter((p) => isServiceProductStatus(p.status))
     .reduce((s, p) => s + p.weeklyInference * 4.33, 0);
   if (rev <= 0) return 0;
   return (rev - inf) / rev;
@@ -76,5 +94,8 @@ export function valuationOf(state: GameState): number {
     state.economy === "aiBubble" ? 28 : state.economy === "boom" ? 18 : state.economy === "recession" ? 6 : 12;
   const hype = 1 + state.company.hype / 80;
   const tech = 1 + state.company.technologies.length * 0.04;
-  return Math.max(state.company.cash, arr * multiple * hype * tech + state.funding.raisedTotal * 0.4);
+  // Cash is a balance-sheet asset, not an operating valuation. Keep it out of
+  // the company-value estimate so a well-funded but pre-revenue company does
+  // not look like it has earned that value through the business itself.
+  return Math.max(0, arr * multiple * hype * tech + state.funding.raisedTotal * 0.4);
 }

@@ -30,6 +30,10 @@ export function migrateGameState(raw: GameState): GameState {
   const emptyBreakdown = () => ({ revenue: 0, inference: 0, productOperations: 0, payroll: 0, office: 0, fixedCompute: 0, companyOperations: 0 });
   state.company.currentMonthBreakdown = { ...emptyBreakdown(), ...(state.company.currentMonthBreakdown ?? {}) };
   state.company.lastMonthlyBreakdown = { ...emptyBreakdown(), ...(state.company.lastMonthlyBreakdown ?? {}) };
+  const lastBreakdown = state.company.lastMonthlyBreakdown;
+  const lastOperatingNet = lastBreakdown.revenue - lastBreakdown.inference - lastBreakdown.productOperations - lastBreakdown.payroll - lastBreakdown.office - lastBreakdown.fixedCompute - lastBreakdown.companyOperations;
+  state.company.lastMonthlyCashChange ??= lastOperatingNet;
+  state.company.cashAtLastStatement ??= state.company.cash - (state.company.lastMonthlyCashChange - lastOperatingNet);
   state.world.inferenceCostIndex ??= 1;
   state.world.talentCostIndex ??= 1;
   state.world.enterpriseDemandIndex ??= 1;

@@ -52,6 +52,27 @@ describe("Inbox & Communication System", () => {
     expect(mail.choices?.some((c) => c.id === "no")).toBe(true);
   });
 
+  it("does not treat the company's cash balance as its acquisition valuation", () => {
+    const game = createNewGame({ founderName: "Elena", companyName: "VectorPrime", cofounderId: "marcus" });
+    game.company.cash = 100_000_000;
+    game.company.valuation = 1_000_000;
+    const r = new Rng(42);
+
+    const mail = buildAcquisitionMail(game, r, {
+      id: "mail-cash-valuation-test",
+      at: { year: 2023, month: 6, day: 15 },
+      from: "macrosoft",
+      subject: "They would like to buy you",
+      body: "Initial inquiry",
+      read: false,
+      requiresResponse: true,
+    });
+
+    const currentValRow = mail.context?.find((c) => c.label === "Current valuation");
+    expect(currentValRow?.value).toContain("$1.00M");
+    expect(currentValRow?.value).not.toContain("$100.00M");
+  });
+
   it("enriches poach offers with search firm metadata and financial impacts", () => {
     const game = createNewGame({ founderName: "Alex", companyName: "Hyperion", cofounderId: "marcus" });
     const r = new Rng(88);

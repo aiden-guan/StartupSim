@@ -718,6 +718,35 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .result-note { margin:8px 0;line-height:1.4;font-size:10px; }
 .market-results article>small { display:block;font-size:9px;margin-top:4px;color:#8a927d; }
 .warning { color:#e4a880; }
+.launch-summary-overlay { position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:18px;background:#18252d99;backdrop-filter:blur(5px); }
+.launch-summary-sheet { position:relative;width:min(520px,100%);background:#f5efdf;color:#2e4b43;border:1px solid #c8bca9;box-shadow:0 24px 80px #102b384d;animation:workspace-in .22s var(--ease-game); }
+.launch-summary-sheet::before { content:"";position:absolute;inset:0 0 auto;height:3px;background:#c66b3e; }
+.launch-summary-header { display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid #c9cbbb; }
+.launch-summary-eyebrow { color:#9a6d4e;font:9px var(--font-mono);font-weight:700;letter-spacing:.13em;text-transform:uppercase; }
+.launch-summary-close { width:30px;height:30px;padding:0;color:#6f7a6e;font-size:16px; }
+.launch-summary-close:hover { color:#2e4b43; }
+.launch-summary-content { padding:24px 22px 22px;text-align:center; }
+.launch-summary-mark { display:grid;place-items:center;width:42px;height:42px;margin:0 auto 10px;background:#e8d7c7;color:#b95f37;border:1px solid #cda98e;font-size:21px; }
+.launch-summary-content h2 { margin:0;color:#294545;font:32px/1.1 var(--font-display); }
+.launch-summary-intro { margin:8px 0 18px;color:#718272;font-size:12px; }
+.launch-summary-stats { display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 15px;text-align:left; }
+.launch-summary-stats>div { padding:11px 12px;background:#e8ede0;border:1px solid #d0dbc7; }
+.launch-summary-stats small { display:block;color:#7e8b71;font-size:9px;letter-spacing:.06em;text-transform:uppercase; }
+.launch-summary-stats strong { display:block;margin-top:5px;color:#2e4b43;font:21px var(--font-display); }
+.launch-summary-stats strong.is-positive { color:#3d7854; }
+.launch-summary-stats strong.is-negative { color:#b55333; }
+.launch-summary-note { max-width:360px;margin:10px auto 17px;color:#718272;font-size:11px;line-height:1.5; }
+.launch-summary-action { margin-top:3px; }
+.launch-summary-paused { display:block;margin-top:5px;color:#8a927d;font-size:9px; }
+@media(max-width:520px) {
+  .launch-summary-overlay { padding:12px; }
+  .launch-summary-content { padding:20px 15px 16px; }
+  .launch-summary-content h2 { font-size:28px; }
+  .launch-summary-stats strong { font-size:18px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .launch-summary-sheet { animation:none; }
+}
 @keyframes workspace-in { from {opacity:0;transform:translateY(9px)} to {opacity:1;transform:translateY(0)} }
 @media(min-width:1600px) { .workspace {right:40px;width:1080px;top:120px;bottom:120px;} .mentor-card{width:340px;left:40px;bottom:125px;} .hud-bar{left:30px;right:30px;} }
 @media(max-width:1150px) { .hud-bar {gap:18px;padding:10px 14px;} .hud-clock{gap:10px;} .company-wordmark{font-size:17px;} .hud-stat strong{font-size:14px;} .workspace{width:calc(100vw - 330px);right:16px;} .mentor-card{left:16px;width:320px;} .workspace-body{padding:18px;} .game-dock button{padding:8px 10px;min-width:68px;} .overview-button{bottom:104px;} .assignment-grid{grid-template-columns:1fr;} .people-workspace,.recruiting-layout{grid-template-columns:175px 1fr;} }

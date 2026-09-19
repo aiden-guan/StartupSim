@@ -249,10 +249,43 @@ export function executeDelegatedMarketSession(
   setPause(draft, "results", true);
 }
 
+function applyLaunchAll(
+  state: GameState,
+  command: Extract<GameCommand, { type: "launchAll" }>,
+): GameState {
+  if (state.marketBattle || state.marketResult) return state;
+
+  const next = structuredClone(state);
+  const r = rng(next);
+  const products = command.productIds
+    .map((productId) => next.products.find((product) => product.id === productId))
+    .filter((product): product is Product => Boolean(product && product.status === "ready"));
+  if (!products.length) return state;
+
+  const canDelegate =
+    next.settings.autoDelegate &&
+    next.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE;
+
+  for (const product of products) {
+    const result = optimizeProductLaunch(next, product);
+    recordTutorialEvent(next, "spentLaunchPoint");
+
+    if (canDelegate) {
+      executeDelegatedMarketSession(next, product, result.delegationStrategy, r);
+    }
+  }
+
+  checkOnboarding(next);
+  checkAchievements(next);
+  commit(next, r);
+  return next;
+}
+
 export function applyCommand(state: GameState | null, command: GameCommand): GameState | null {
   if (command.type === "newGame") return createNewGame(command.input);
   if (!state) return state;
   if (command.type === "tickDay") return state.clock.paused ? state : tickDay(state);
+  if (command.type === "launchAll") return applyLaunchAll(state, command);
 
   const next = produce(state, (draft) => {
     const r = rng(draft);
@@ -567,33 +600,6 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         const autoDelegate = command.autoDelegate ?? draft.settings.autoDelegate;
         if (autoDelegate && draft.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE) {
           executeDelegatedMarketSession(draft, p, result.delegationStrategy, r);
-        }
-        break;
-      }
-      case "launchAll": {
-        if (draft.marketBattle || draft.marketResult) break;
-
-        const products = command.productIds
-          .map((productId) => draft.products.find((product) => product.id === productId))
-          .filter((product): product is Product => Boolean(product && product.status === "ready"));
-        if (!products.length) break;
-
-        const canDelegate =
-          draft.settings.autoDelegate &&
-          draft.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE;
-
-        for (const product of products) {
-          const result = optimizeProductLaunch(draft, product);
-          recordTutorialEvent(draft, "spentLaunchPoint");
-
-          if (!canDelegate) continue;
-
-          // Each delegated launch produces a result, but the existing results
-          // screen can present only one report. Keep the latest report visible
-          // while still applying every launch in this batch.
-          draft.marketResult = null;
-          setPause(draft, "results", false);
-          executeDelegatedMarketSession(draft, product, result.delegationStrategy, r);
         }
         break;
       }

@@ -26,6 +26,16 @@ export type ProductStatus =
   | "deprecated"
   | "sold";
 
+export const SERVICE_PRODUCT_STATUSES: ReadonlySet<ProductStatus> = new Set([
+  "active",
+  "mature",
+  "declining",
+]);
+
+export function isServiceProductStatus(status: ProductStatus): boolean {
+  return SERVICE_PRODUCT_STATUSES.has(status);
+}
+
 export type TaskType =
   | "product"
   | "promo"
@@ -603,6 +613,10 @@ export interface CompanyState {
   lastMonthlyCosts: number;
   currentMonthBreakdown: FinancialBreakdown;
   lastMonthlyBreakdown: FinancialBreakdown;
+  /** Cash immediately after the last monthly statement was recorded. */
+  cashAtLastStatement?: number;
+  /** Actual cash delta represented by the last monthly statement period. */
+  lastMonthlyCashChange?: number;
   productsLaunched: number;
   seenMarket: boolean;
   ceoAutomated: boolean;

@@ -30,6 +30,7 @@ import { createEnvironmentPreviewGame } from '../game3d/environment/devEnvironme
 import { createProduct } from "../simulation/products";
 import { Rng } from "../simulation/rng";
 import { WorldQaToolbar } from "./visuals/WorldQaToolbar";
+import { LaunchAllSummaryPopup } from "./products/LaunchAllSummaryPopup";
 
 function useTutorialCamera() {
   const pending = useGame((s) => s.game?.pendingMentor);
@@ -86,6 +87,8 @@ export function App() {
   const leaderboardOpen = useGame((s) => s.leaderboardOpen);
   const toggleDebug = useGame((s) => s.toggleDebug);
   const setGalleryOpen = useGame((s) => s.setGalleryOpen);
+  const launchAllSummary = useGame((s) => s.launchAllSummary);
+  const dismissLaunchAllSummary = useGame((s) => s.dismissLaunchAllSummary);
   useSimClock();
   useTutorialCamera();
   useAmbient();
@@ -229,6 +232,7 @@ export function App() {
       <AchievementsOverlay />
       <AchievementToast />
       <DebugPanel />
+      {launchAllSummary ? <LaunchAllSummaryPopup summary={launchAllSummary} onClose={dismissLaunchAllSummary} /> : null}
       {worldQaEnabled ? <WorldQaToolbar /> : null}
       <Analytics />
     </div>
