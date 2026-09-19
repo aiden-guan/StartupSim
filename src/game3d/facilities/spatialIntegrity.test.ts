@@ -7,6 +7,8 @@ import { InstalledFacilityVisual, InstalledKitchen } from './InstalledFacilityVi
 import { DynamicEnvironment } from '../environment/DynamicEnvironment';
 import type { EnvironmentVisualState } from '../environment/environmentVisualState';
 import { officeScale } from '../environment/officeScale';
+import { layoutFor } from '../navigation/layout';
+import { AutonomyStatusWall } from '../props/AutonomyProps';
 
 type Bounds = {
   minX: number;
@@ -338,6 +340,32 @@ describe('procedural facility spatial integrity', () => {
       }
     });
   }
+
+  it('renders AutonomyStatusWall with grounded base at y=0 and valid support structure', () => {
+    const wallBounds = renderedBounds(AutonomyStatusWall({ position: [0, 0, 0] }));
+    expect(hasBounds(wallBounds)).toBe(true);
+    expect(wallBounds.minY).toBeCloseTo(0, 1);
+    expect(wallBounds.maxY).toBeGreaterThan(2.0);
+    expect(wallBounds.maxX - wallBounds.minX).toBeGreaterThanOrEqual(3.5);
+  });
+
+  it('keeps AutonomyStatusWall clear of all human desks in level 2', () => {
+    const wallSolids = collectSolidBounds(AutonomyStatusWall({ position: [5.2, 0, -2.3] }));
+    const desks = layoutFor(2).points.filter((p) => p.kind === 'desk');
+    for (const desk of desks) {
+      const [x, , z] = desk.position;
+      const podBounds: Bounds = {
+        minX: x - 0.85,
+        maxX: x + 0.85,
+        minY: 0,
+        maxY: 1.8,
+        minZ: z - 1.25,
+        maxZ: z + 0.2,
+      };
+      const collisions = wallSolids.filter((solid) => overlapsIn3d(podBounds, solid));
+      expect(collisions, `desk ${desk.id} at [${x}, ${z}] intersects AutonomyStatusWall`).toHaveLength(0);
+    }
+  });
 });
 
 function collectSolidBounds(node: ReactNode) {

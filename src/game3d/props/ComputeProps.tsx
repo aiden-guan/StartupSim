@@ -85,6 +85,14 @@ export function CoolingUnit({position,active=false}:Placed&{active?:boolean}) {
 
 export function ComputeStatusWall({position,load=0}:Placed&{load?:number}) {
   return <group position={position}>
+    <Bevel position={[0, 0.03, 0]} size={[2.6, 0.06, 0.4]} color="#1e2126" radius={0.012} />
+    {[-0.9, 0.9].map((x) => (
+      <group key={x}>
+        <Bevel position={[x, 0.04, 0]} size={[0.2, 0.08, 0.48]} color="#24282e" radius={0.01} />
+        <Bevel position={[x, 0.8, 0]} size={[0.07, 1.54, 0.07]} color="#33373b" radius={0.008} />
+      </group>
+    ))}
+    <Bevel position={[0, 0.35, 0]} size={[1.6, 0.5, 0.24]} color="#171c24" radius={0.012} />
     <Bevel position={[0,1.6,0]} size={[2.5,1.45,.12]} color={charcoal}/>
     {Array.from({length:4},(_,i)=><group key={i} position={[-.83+i*.55,1.55,.07]}>
       <Bevel size={[.38,.75,.014]} color="#192739"/>

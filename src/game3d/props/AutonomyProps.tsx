@@ -17,12 +17,60 @@ export function AgentTerminal({position}:Placed) {
 
 export function AutonomyStatusWall({position}:Placed) {
   return <group position={position}>{kit('prop_autonomy_statusWall_A',<group>
-    <Bevel position={[0,1.55,0]} size={[3.5,1.8,.12]} color="#282c30"/>
-    {[-1,0,1].map((x,i)=><group key={x} position={[x,1.55,.073]}>
-      <Bevel size={[.87,1.45,.015]} color="#192638"/>
-      <Bevel position={[0,.34,.014]} size={[.62,.055,.009]} color="#5599ff" emissive="#5599ff" emissiveIntensity={.2}/>
-      {[0,1,2].map(j=><Bevel key={j} position={[-.22+j*.21,-.24+j*.12,.016]} size={[.08,.32+j*.12,.01]} color={i===1?'#5c6e5a':'#1e78ff'}/>)}
-    </group>)}
+    {/* Grounded heavy-duty architectural floor base */}
+    <Bevel position={[0, 0.04, 0]} size={[3.6, 0.08, 0.46]} color="#1c2024" radius={0.015} />
+    {/* Dual heavy structural steel upright support pillars */}
+    {[-1.2, 1.2].map((x) => (
+      <group key={x}>
+        <Bevel position={[x, 0.05, 0]} size={[0.26, 0.09, 0.58]} color="#24282e" radius={0.012} />
+        <Bevel position={[x, 0.76, 0]} size={[0.08, 1.48, 0.08]} color="#3a4048" radius={0.008} />
+      </group>
+    ))}
+    {/* Rear horizontal cross-braces */}
+    <Bevel position={[0, 0.55, -0.02]} size={[2.6, 0.05, 0.04]} color="#30353c" radius={0.006} />
+    <Bevel position={[0, 0.95, -0.02]} size={[2.6, 0.05, 0.04]} color="#30353c" radius={0.006} />
+    {/* Lower telemetry / equipment rack unit between the pillars */}
+    <Bevel position={[0, 0.38, 0]} size={[2.1, 0.56, 0.28]} color="#22262c" radius={0.016} />
+    <Bevel position={[0, 0.38, 0.145]} size={[1.9, 0.44, 0.015]} color="#181b20" radius={0.008} />
+    {/* Status LEDs & rack ventilation on the controller base */}
+    {[-0.65, -0.45, -0.25].map((x, i) => (
+      <Bevel
+        key={x}
+        position={[x, 0.52, 0.155]}
+        size={[0.12, 0.03, 0.01]}
+        color={i === 1 ? '#5c8646' : '#5599ff'}
+        emissive={i === 1 ? '#5c8646' : '#5599ff'}
+        emissiveIntensity={0.35}
+        radius={0.003}
+      />
+    ))}
+    {[0.42, 0.34, 0.26].map((y) => (
+      <Bevel key={y} position={[0.25, y, 0.153]} size={[1.1, 0.02, 0.008]} color="#2d333b" radius={0.002} />
+    ))}
+
+    {/* Main screen frame */}
+    <Bevel position={[0, 1.55, 0]} size={[3.5, 1.8, 0.12]} color="#282c30" radius={0.02} />
+    {/* Top header bar with glowing accent */}
+    <Bevel position={[0, 2.38, 0.05]} size={[1.6, 0.08, 0.025]} color="#1e2329" radius={0.006} />
+    <Bevel position={[0, 2.38, 0.065]} size={[0.6, 0.022, 0.008]} color="#5599ff" emissive="#5599ff" emissiveIntensity={0.5} radius={0.002} />
+
+    {/* 3 Metric Displays */}
+    {[-1, 0, 1].map((x, i) => (
+      <group key={x} position={[x, 1.55, 0.073]}>
+        <Bevel size={[0.87, 1.45, 0.015]} color="#192638" radius={0.008} />
+        <Bevel position={[0, 0.52, 0.014]} size={[0.72, 0.08, 0.009]} color="#1e3450" radius={0.003} />
+        <Bevel position={[-0.15, 0.52, 0.02]} size={[0.32, 0.03, 0.006]} color="#5599ff" emissive="#5599ff" emissiveIntensity={0.3} radius={0.002} />
+        <Bevel position={[0, 0.34, 0.014]} size={[0.62, 0.055, 0.009]} color="#5599ff" emissive="#5599ff" emissiveIntensity={0.2} />
+        {[0, 1, 2].map((j) => (
+          <Bevel
+            key={j}
+            position={[-0.22 + j * 0.21, -0.24 + j * 0.12, 0.016]}
+            size={[0.08, 0.32 + j * 0.12, 0.01]}
+            color={i === 1 ? '#5c6e5a' : '#1e78ff'}
+          />
+        ))}
+      </group>
+    ))}
   </group>)}</group>;
 }
 
