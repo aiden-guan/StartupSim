@@ -71,10 +71,12 @@ export function SavePanel({
         <button
           type="button"
           onClick={() => void loadId(latest.id)}
-          className="w-72 border border-white/20 px-5 py-3 text-left text-sm"
+          className="w-72 border border-white/20 bg-white/5 px-5 py-3 text-left text-sm text-[#efe8dc] hover:bg-white/10 hover:border-white/35 transition-colors rounded-lg"
         >
-          Continue {latest.company}
-          <span className="block font-mono text-[11px] text-[#9aa3b2]">
+          <span className="block font-medium text-[#fcf9f1]">
+            Continue {latest.company}
+          </span>
+          <span className="block font-mono text-[11px] text-[#9aa3b2] mt-0.5">
             {saveLabel(latest.id)} · {latest.date}
           </span>
         </button>
@@ -85,18 +87,22 @@ export function SavePanel({
             <button
               key={id}
               type="button"
-              className="border border-white/20 px-3 py-1 text-xs"
+              className="border border-white/20 bg-white/5 px-3 py-1 text-xs text-[#efe8dc] hover:bg-white/10 hover:border-white/35 transition-colors rounded"
               onClick={() => void saveTo(id)}
             >
               Save {saveLabel(id)}
             </button>
           ))}
-          <button type="button" className="border border-white/20 px-3 py-1 text-xs" onClick={() => downloadSaveFile(game)}>
+          <button
+            type="button"
+            className="border border-white/20 bg-white/5 px-3 py-1 text-xs text-[#efe8dc] hover:bg-white/10 hover:border-white/35 transition-colors rounded"
+            onClick={() => downloadSaveFile(game)}
+          >
             Export file
           </button>
         </div>
       ) : null}
-      <label className="inline-flex w-fit cursor-pointer border border-white/20 px-3 py-1 text-xs">
+      <label className="inline-flex w-fit cursor-pointer items-center gap-1.5 border border-white/20 bg-white/5 px-3 py-1 text-xs text-[#efe8dc] hover:bg-white/10 hover:border-white/35 transition-colors rounded">
         Import file
         <input
           type="file"
@@ -113,16 +119,16 @@ export function SavePanel({
         <ul className="space-y-1 font-mono text-[11px] text-[#9aa3b2]">
           {(variant === "title" ? saves.slice(1) : saves).map((save) => (
             <li key={save.id} className="flex flex-wrap items-center gap-2">
-              <span>
+              <span className="text-[#d8d1c4]">
                 {saveLabel(save.id)} · {save.company} · {save.date}
               </span>
-              <button type="button" className="underline" onClick={() => void loadId(save.id)}>
+              <button type="button" className="text-copper hover:underline font-sans" onClick={() => void loadId(save.id)}>
                 load
               </button>
               {save.id !== "autosave" ? (
                 <button
                   type="button"
-                  className="underline"
+                  className="text-[#e07a7a] hover:underline font-sans"
                   onClick={() => {
                     void deleteSave(save.id).then(refresh);
                   }}

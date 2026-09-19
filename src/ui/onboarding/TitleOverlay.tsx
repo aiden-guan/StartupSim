@@ -34,8 +34,8 @@ export function TitleOverlay() {
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center p-6 text-ink bg-gradient-to-t from-[#1b2230]/75 via-transparent to-[#1b2230]/40">
-      <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-white/20 bg-[#1b2230]/88 p-8 text-center shadow-2xl backdrop-blur-md">
+    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-gradient-to-t from-[#1b2230]/75 via-transparent to-[#1b2230]/40">
+      <div className="pointer-events-auto w-full max-w-md rounded-2xl border border-white/20 bg-[#1b2230]/88 p-8 text-center shadow-2xl backdrop-blur-md text-[#efe8dc]">
         <div className="font-mono text-[10px] uppercase tracking-[0.4em] text-copper">November 2022 · The AI Boom</div>
         <h1 className="mt-2 font-display text-5xl font-bold tracking-tight text-[#fcf9f1] drop-shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
           {identity.title}
