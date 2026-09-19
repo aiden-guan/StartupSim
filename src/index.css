@@ -1243,22 +1243,27 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .achievement-card.is-unlocked { background:#e8efdf;border-color:#a8bca5;border-top-color:#6f9077; }
 .achievement-card.is-special { background:#f4ead7;border-color:#d1b185;border-top-color:#b76a40; }
 .achievement-card.is-locked { opacity:.72; }
+.achievement-card.is-unknown { opacity:.9;background:#e5e4da;border-color:#c4c7ba;border-top-color:#818a7d; }
 .achievement-card-topline { display:flex;align-items:flex-start;justify-content:space-between;gap:10px; }
 .achievement-icon { width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:#dce3d7;border:1px solid #c4cec0;font-size:23px;line-height:1; }
 .achievement-card.is-unlocked .achievement-icon { background:#d7e4d3;border-color:#aec3ac; }
 .achievement-card.is-special .achievement-icon { background:#ecddbf;border-color:#d2b37c; }
 .achievement-card.is-locked .achievement-icon { filter:grayscale(1);background:#dfe0d9;border-color:#d0d0c5; }
+.achievement-card.is-unknown .achievement-icon { filter:none;background:#d8d9cf;border-color:#b5baad;color:#5f6b60;font:30px/1 var(--font-display); }
 .achievement-status { padding:4px 6px;border:1px solid #b9c5b4;color:#778478;font:8px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap; }
 .achievement-card.is-unlocked .achievement-status { border-color:#8eae91;color:#4f765c; }
 .achievement-card.is-special .achievement-status { border-color:#c7a474;color:#9b623d; }
+.achievement-card.is-unknown .achievement-status { border-color:#aeb5a8;color:#667267; }
 .achievement-card-copy { min-width:0; }
 .achievement-card-meta { display:flex;justify-content:space-between;gap:10px;margin-bottom:4px;color:#8a947f;font:8px var(--font-mono);letter-spacing:.07em;text-transform:uppercase; }
 .achievement-card-meta span:last-child { color:#9a6d4e;white-space:nowrap; }
 .achievement-card h3 { display:flex;align-items:center;gap:7px;margin:0;color:#2e4a49;font:21px/1.1 var(--font-display); }
 .achievement-card.is-locked h3 { color:#59665e; }
+.achievement-card.is-unknown h3 { color:#46564b;letter-spacing:.02em; }
 .achievement-card h3 em { padding:3px 5px;background:#ead8b7;border:1px solid #d0b27f;color:#9b633f;font:7px var(--font-mono);font-style:normal;letter-spacing:.09em;text-transform:uppercase; }
 .achievement-subtitle { margin:5px 0 0;color:#55705f;font-size:10px;font-weight:650; }
 .achievement-card.is-locked .achievement-subtitle { color:#7b8278; }
+.achievement-card.is-unknown .achievement-subtitle { color:#657267; }
 .achievement-description { margin:7px 0 0;color:#69766c;font-size:10px;line-height:1.5; }
 .achievement-empty { padding:48px 20px;text-align:center;color:#748176;font-size:12px; }
 .achievement-sheet-footer { display:flex;justify-content:space-between;align-items:center;gap:14px;padding:13px 30px;background:#e6e4d8;border-top:1px solid #c9cbbb;color:#7a8479;font-size:10px; }

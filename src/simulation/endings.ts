@@ -46,9 +46,6 @@ export function detectEnding(state: GameState): { id: string; note: string } | n
   if (arr > 8_000_000_000) {
     return { id: "monopoly", note: ENDINGS.monopoly.line };
   }
-  if (state.world.aiCapability >= 90) {
-    return { id: "unknown", note: ENDINGS.unknown.line };
-  }
   if (state.world.regulation >= 88 && arr < 2_000_000) {
     return { id: "regulated", note: ENDINGS.regulated.line };
   }
@@ -87,11 +84,19 @@ export function detectEnding(state: GameState): { id: string; note: string } | n
 
 export function biography(state: GameState): string[] {
   const ending = ENDINGS[state.endingId ?? ""] ?? { title: "Closed", line: state.endingNote ?? "" };
+  const dollars = (value: number) => `$${Math.round(value).toLocaleString()}`;
+  const bestProduct = [...state.products].sort((a, b) => b.earnedRevenue - a.earnedRevenue)[0];
+  const years = Math.max(1, state.clock.date.year - 2022);
   return [
-    `${state.company.name}, ${state.clock.date.year}.`,
+    `${state.company.name}, 2022–${state.clock.date.year}. ${years} ${years === 1 ? "year" : "years"} on the record.`,
     ending.line,
-    `Launched ${state.stats.productsLaunched} products. Hired ${state.stats.employeesHired}. Peak headcount ${state.stats.peakEmployees}.`,
-    `Peak valuation ${Math.round(state.stats.peakValuation).toLocaleString()}. Compute burned: ${Math.round(state.stats.computeConsumed).toLocaleString()}.`,
-    state.company.ceoAutomated ? "The CEO seat is a process." : `Founder still listed: ${state.founder.name}.`,
+    `Collected ${dollars(state.company.lifetimeRevenue)} in lifetime revenue across ${state.stats.productsLaunched} launches; tracked operating spend reached ${dollars(state.company.lifetimeCosts)}.`,
+    bestProduct
+      ? `${bestProduct.name} became the signature product with ${dollars(bestProduct.earnedRevenue)} in recorded revenue.`
+      : "No product made it from the lab into a recorded market run.",
+    `The roster peaked at ${state.stats.peakEmployees}: ${state.stats.employeesHired} hired, ${state.stats.employeesFired} departed, and ${state.stats.researchCompleted} research programs completed.`,
+    state.company.ceoAutomated
+      ? "The CEO seat ended as a process, not a person."
+      : `${state.founder.name} remained founder of record with ${(state.company.ownership.founder * 100).toFixed(1)}% ownership.`,
   ];
 }

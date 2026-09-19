@@ -29,6 +29,8 @@ export interface AchievementDef {
   icon: string;
   category: AchievementCategory;
   points: number;
+  /** Keep rare discoveries undisclosed in the achievement archive until earned. */
+  secret?: boolean;
   check: (game: GameState) => boolean;
 }
 
@@ -40,6 +42,7 @@ export interface UnlockedAchievement {
   icon: string;
   category: AchievementCategory;
   points: number;
+  secret?: boolean;
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
@@ -102,6 +105,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "👑",
     category: "scale",
     points: 30_000,
+    secret: true,
     check: (g) => g.stats.peakValuation >= 10_000_000_000 || g.company.valuation >= 10_000_000_000,
   },
 
@@ -134,6 +138,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "⚡",
     category: "strategy",
     points: 25_000,
+    secret: true,
     check: (g) => (g.stats.peakValuation >= 100_000_000 || g.company.valuation >= 100_000_000) && g.clock.date.year <= 2023,
   },
   {
@@ -144,6 +149,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🤝",
     category: "strategy",
     points: 20_000,
+    secret: true,
     check: (g) => g.stats.acquisitions >= 3 || g.company.acquisitions.length >= 3,
   },
   {
@@ -168,6 +174,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🧠",
     category: "tech",
     points: 20_000,
+    secret: true,
     check: (g) => g.company.specialProjects.includes("foundation-model"),
   },
   {
@@ -178,6 +185,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🖲️",
     category: "tech",
     points: 20_000,
+    secret: true,
     check: (g) =>
       g.company.specialProjects.includes("gpu-cluster") ||
       g.company.specialProjects.includes("custom-chip") ||
@@ -192,6 +200,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🔬",
     category: "tech",
     points: 25_000,
+    secret: true,
     check: (g) => g.company.specialProjects.includes("autonomous-lab"),
   },
   {
@@ -212,6 +221,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🌐",
     category: "tech",
     points: 15_000,
+    secret: true,
     check: (g) =>
       g.endingId === "open-source" ||
       (g.products.filter((p) => p.combo.includes("opensource") && p.status === "active").length >= 2 && g.company.hype >= 20),
@@ -246,6 +256,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🤖",
     category: "culture",
     points: 25_000,
+    secret: true,
     check: (g) => {
       if (g.company.ceoAutomated) return true;
       const autoVals = Object.values(g.company.automation);
@@ -274,6 +285,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🎬",
     category: "culture",
     points: 15_000,
+    secret: true,
     check: (g) => (g.stats.dilutionsCount ?? 0) > 0 && g.employees.some(isEduardoSaverin),
   },
   {
@@ -294,6 +306,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🧊",
     category: "culture",
     points: 12_000,
+    secret: true,
     check: (g) => g.company.cash >= 1_000_000 && (g.stats.dilutionsCount ?? 0) > 0,
   },
   {
@@ -304,6 +317,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🦈",
     category: "culture",
     points: 10_000,
+    secret: true,
     check: (g) => (g.stats.dilutionsCount ?? 0) >= 3,
   },
   {
@@ -326,6 +340,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🔔",
     category: "legacy",
     points: 35_000,
+    secret: true,
     check: (g) => g.endingId === "ipo",
   },
   {
@@ -336,6 +351,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🏛️",
     category: "legacy",
     points: 40_000,
+    secret: true,
     check: (g) => g.endingId === "monopoly",
   },
   {
@@ -346,6 +362,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "🤫",
     category: "legacy",
     points: 30_000,
+    secret: true,
     check: (g) => g.endingId === "quiet-profit",
   },
   {
@@ -356,6 +373,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     icon: "📜",
     category: "legacy",
     points: 10_000,
+    secret: true,
     check: (g) => g.endingId === "bankruptcy" && g.stats.productsLaunched >= 2,
   },
 ];
@@ -377,6 +395,7 @@ export function evaluateAchievements(game: GameState): UnlockedAchievement[] {
           icon: def.icon,
           category: def.category,
           points: def.points,
+          secret: def.secret,
         });
       }
     } catch {

@@ -491,7 +491,7 @@ export function checkOnboarding(state: GameState): void {
   reconcileTutorial(state);
 }
 
-const TERMINAL = new Set(["bankruptcy", "board-out", "automated-ceo", "safety-crisis", "monopoly", "unknown"]);
+const TERMINAL = new Set(["bankruptcy", "board-out", "automated-ceo", "safety-crisis", "monopoly"]);
 
 function checkEndings(state: GameState): void {
   if (state.endingId) return;

@@ -11,6 +11,7 @@ export interface AchievementDef {
   category: "founders" | "growth" | "chaos" | "tech" | "business";
   subtitle: string;
   points: number;
+  secret?: boolean;
 }
 
 const categoryMap: Record<string, AchievementDef["category"]> = {
@@ -41,6 +42,7 @@ export const ACHIEVEMENTS: AchievementDef[] = SIMULATION_ACHIEVEMENTS.map((achie
       : categoryMap[achievement.category] ?? "business",
   subtitle: achievement.subtitle,
   points: achievement.points,
+  secret: achievement.secret,
 }));
 
 export const achievementById: Record<string, AchievementDef> = Object.fromEntries(

@@ -98,8 +98,9 @@ export function computeRunSeal(params: {
   peakValuation: number;
   productsLaunched: number;
   scandals: number;
+  lifetimeRevenue?: number;
 }): string {
-  const payload = [
+  const values: Array<string | number> = [
     params.runId,
     params.seed,
     params.endingId,
@@ -107,8 +108,10 @@ export function computeRunSeal(params: {
     Math.round(params.peakValuation),
     params.productsLaunched,
     params.scandals,
-    RUN_SALT,
-  ].join("::");
+  ];
+  if (params.lifetimeRevenue !== undefined) values.push(Math.round(params.lifetimeRevenue));
+  values.push(RUN_SALT);
+  const payload = values.join("::");
   return sha256Sync(payload);
 }
 
@@ -196,6 +199,11 @@ export function validateRunIntegrity(sub: LeaderboardSubmission): ValidationResu
     return { valid: false, reason: "Treasury exceeds plausible bounds" };
   }
 
+  const lifetimeRevenue = sub.company?.lifetimeRevenue;
+  if (typeof lifetimeRevenue !== "number" || !Number.isFinite(lifetimeRevenue) || lifetimeRevenue < 0 || lifetimeRevenue > 500_000_000_000_000) {
+    return { valid: false, reason: "Invalid lifetime revenue" };
+  }
+
   // 6. Cryptographic seal verification
   const expectedSeal = computeRunSeal({
     runId: sub.runId,
@@ -205,6 +213,7 @@ export function validateRunIntegrity(sub: LeaderboardSubmission): ValidationResu
     peakValuation: peakVal,
     productsLaunched: products,
     scandals: sub.stats?.scandals ?? 0,
+    lifetimeRevenue,
   });
 
   if (sub.seal !== expectedSeal) {
@@ -230,6 +239,7 @@ export function validateRunIntegrity(sub: LeaderboardSubmission): ValidationResu
 
   // 8. Canonical server-side score calculation (client cannot dictate score)
   const breakdown = calculateScoreFromComponents({
+    lifetimeRevenue,
     peakValuation: peakVal,
     cash,
     arr: Math.max(0, sub.arr ?? 0),

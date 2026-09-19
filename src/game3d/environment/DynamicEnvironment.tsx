@@ -23,6 +23,12 @@ export function DynamicEnvironment({state,quality}:{state:EnvironmentVisualState
   const rackPlan=computeRackLayout(level,requestedComputeRacks(state));
   const robotX=level===1?4.7:w/2-(level>=4?15:level>=3?9:3.5);
   const robotZ=level===1?-4.7:level>=4?2:level>=3?3:0;
+  // Large-office planters occupy the middle of the floor. Keep the autonomy
+  // pieces together in a technical bay to the right so standing workstations
+  // do not cut through the landscaping or the robotics field.
+  const automationAnchor:[number,number,number]=level>=5?[17,0,13]:level===4?[14,0,9]:level===3?[6.5,0,-2.5]:level===2?[5.2,0,-.5]:[0,0,2];
+  const workstationFieldAnchor:[number,number,number]=level>=5?[17,0,8]:[10,0,11];
+  const ceoLocalPosition:[number,number,number]=level===4?[0,0,8]:[0,0,4.5];
   const hasResearch=state.hasResearchLab||state.hasFoundationModel||state.hasAutonomousLab;
   return <group>
     {level>=3&&<>
@@ -62,14 +68,14 @@ export function DynamicEnvironment({state,quality}:{state:EnvironmentVisualState
       {level>=3&&state.roboticsTier>=2&&<MachineField position={[level>=5?-14:level===4?-6:-3,0,level>=5?0:level===4?2:4]} columns={level>=5?(quality==='high'?8:quality==='medium'?6:3):level===4?(quality==='high'?5:3):3} rows={level>=5?(quality==='high'?3:2):level===4?2:1}/>}
     </group>}
 
-    {(state.hasAgents||state.automationTier>0)&&<group position={[level>=5?8:level===4?-7:level===3?6.5:level===2?5.2:0, 0, level>=5?10:level===4?6:level===3?-2.5:level===2?-0.5:2]}>
+    {(state.hasAgents||state.automationTier>0)&&<group position={automationAnchor}>
       {state.hasAgents&&<AgentTerminal position={[0,0,0]}/>}
       {state.hasComputerUse&&level>=2&&level<4&&<AutonomousWorkstations position={[2.1,0,0]} count={quality==='low'?1:2}/>}
       {state.automationTier>=1&&level>=2&&<AutonomyStatusWall position={[0,0,-1.8]}/>}
       {state.automationTier>=2&&level>=3&&level<4&&<AutonomousWorkstations position={[0,0,2.5]} count={quality==='high'?3:1}/>}
-      {state.automationTier>=3&&level>=2&&<AutonomousCeoStation position={[level>=4?0:level===2?-1:1,0,level>=4?4.5:level===2?1.8:2.5]}/>}
+      {state.automationTier>=3&&level>=2&&<AutonomousCeoStation position={level>=4?ceoLocalPosition:[level===2?-1:1,0,level===2?1.8:2.5]}/>}
     </group>}
-    {level>=4&&state.automationTier>=2&&<WorkstationField position={[level>=5?17:3,0,level>=5?8:4.5]} count={quality==='high'?(level>=5?12:8):quality==='medium'?6:4} autonomous/>}
+    {level>=4&&state.automationTier>=2&&<WorkstationField position={workstationFieldAnchor} count={quality==='high'?(level>=5?12:8):quality==='medium'?6:4} autonomous/>}
 
     {state.prominentVerticals.slice(0,level===0?1:level===1?1:2).map((id,i)=><VerticalKit key={id} id={id} position={verticalBays[i]!} secondary={level===0||(id==='robotics'&&state.roboticsTier>=2)}/>)}
     {quality==='high'&&level>=3&&state.secondaryVerticals.slice(0,Math.min(5,level)).map((id,i)=><VerticalKit key={id} id={id} position={[ribbon[0]![0]+i*1.3,0,ribbon[0]![2]]} secondary/>)}

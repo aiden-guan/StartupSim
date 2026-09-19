@@ -91,6 +91,8 @@ export function AchievementsOverlay() {
     const isUnlocked = allUnlocked.has(a.id);
     if (filter === "unlocked" && !isUnlocked) return false;
     if (filter === "locked" && isUnlocked) return false;
+    // A secret record should not reveal its category through category filters.
+    if (category !== "all" && a.secret && !isUnlocked) return false;
     if (category !== "all" && a.category !== category) return false;
     return true;
   });
@@ -173,28 +175,40 @@ export function AchievementsOverlay() {
             <div className="achievement-grid">
               {filtered.map((item) => {
                 const isUnlocked = allUnlocked.has(item.id);
-                const isSpecial = item.id === "the-social-network";
+                const isUnknown = Boolean(item.secret && !isUnlocked);
+                const isSpecial = item.id === "the-social-network" && isUnlocked;
 
                 return (
                   <article
                     key={item.id}
-                    className={`achievement-card ${isUnlocked ? "is-unlocked" : "is-locked"} ${isSpecial ? "is-special" : ""}`}
+                    className={`achievement-card ${isUnlocked ? "is-unlocked" : "is-locked"} ${isUnknown ? "is-unknown" : ""} ${isSpecial ? "is-special" : ""}`}
                   >
                     <div className="achievement-card-topline">
-                      <div className="achievement-icon" aria-hidden="true">{item.icon}</div>
+                      <div className="achievement-icon" aria-hidden="true">{isUnknown ? "?" : item.icon}</div>
                       <span className="achievement-status">
-                        {isUnlocked ? "✓ recorded" : "locked"}
+                        {isUnlocked ? "✓ recorded" : isUnknown ? "unknown" : "locked"}
                       </span>
                     </div>
-                    <div className="achievement-card-copy">
-                      <div className="achievement-card-meta">
-                        <span>{categoryLabel(item.category)}</span>
-                        <span>{item.points.toLocaleString()} pts</span>
+                    {isUnknown ? (
+                      <div className="achievement-card-copy">
+                        <div className="achievement-card-meta">
+                          <span>Classified record</span>
+                        </div>
+                        <h3>Unknown</h3>
+                        <p className="achievement-subtitle">Details sealed</p>
+                        <p className="achievement-description">Unlock this record to reveal what happened.</p>
                       </div>
-                      <h3>{item.name}{isSpecial ? <em>Iconic</em> : null}</h3>
-                      <p className="achievement-subtitle">{item.subtitle}</p>
-                      <p className="achievement-description">{item.description}</p>
-                    </div>
+                    ) : (
+                      <div className="achievement-card-copy">
+                        <div className="achievement-card-meta">
+                          <span>{categoryLabel(item.category)}</span>
+                          <span>{item.points.toLocaleString()} pts</span>
+                        </div>
+                        <h3>{item.name}{isSpecial ? <em>Iconic</em> : null}</h3>
+                        <p className="achievement-subtitle">{item.subtitle}</p>
+                        <p className="achievement-description">{item.description}</p>
+                      </div>
+                    )}
                   </article>
                 );
               })}

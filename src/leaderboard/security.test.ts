@@ -11,6 +11,7 @@ describe("Leaderboard Anti-Cheat & Security", () => {
     const peakValuation = 1_200_000_000;
     const productsLaunched = 3;
     const scandals = 0;
+    const lifetimeRevenue = 86_400_000;
 
     const seal = computeRunSeal({
       runId,
@@ -20,6 +21,7 @@ describe("Leaderboard Anti-Cheat & Security", () => {
       peakValuation,
       productsLaunched,
       scandals,
+      lifetimeRevenue,
     });
 
     return {
@@ -42,6 +44,7 @@ describe("Leaderboard Anti-Cheat & Security", () => {
       company: {
         cash: 18_000_000,
         valuation: 1_200_000_000,
+        lifetimeRevenue,
         hype: 65,
         trust: 80,
         raisedTotal: 25_000_000,
@@ -65,13 +68,23 @@ describe("Leaderboard Anti-Cheat & Security", () => {
     expect(result.verifiedEntry).toBeDefined();
     expect(result.verifiedEntry?.handle).toBe("FOUNDER_SAM");
     expect(result.verifiedEntry?.verified).toBe(true);
-    expect(result.verifiedEntry?.score).toBeGreaterThan(500_000);
+    expect(result.verifiedEntry?.score).toBe(86_400_000);
   });
 
   it("rejects run submission when seal does not match (tamper detection)", () => {
     const sub = validSubmissionFixture();
     sub.seal = "fake_tampered_hash_value";
     const result = validateRunIntegrity(sub);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toContain("seal mismatch");
+  });
+
+  it("seals the lifetime revenue used for leaderboard rank", () => {
+    const sub = validSubmissionFixture();
+    sub.company.lifetimeRevenue += 1_000_000_000;
+
+    const result = validateRunIntegrity(sub);
+
     expect(result.valid).toBe(false);
     expect(result.reason).toContain("seal mismatch");
   });
@@ -89,6 +102,7 @@ describe("Leaderboard Anti-Cheat & Security", () => {
       peakValuation: sub.stats.peakValuation,
       productsLaunched: sub.stats.productsLaunched,
       scandals: sub.stats.scandals,
+      lifetimeRevenue: sub.company.lifetimeRevenue,
     });
 
     const result = validateRunIntegrity(sub);
@@ -108,6 +122,7 @@ describe("Leaderboard Anti-Cheat & Security", () => {
       peakValuation: sub.stats.peakValuation,
       productsLaunched: sub.stats.productsLaunched,
       scandals: sub.stats.scandals,
+      lifetimeRevenue: sub.company.lifetimeRevenue,
     });
 
     const result = validateRunIntegrity(sub);

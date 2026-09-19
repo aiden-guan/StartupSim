@@ -10,6 +10,7 @@ import type { GameState } from "../simulation/types";
 import { initSocialState, isMilestoneSatisfied, applySocialMilestone } from "../simulation/social";
 import { SOCIAL_MILESTONES } from "../data/social";
 import { Rng } from "../simulation/rng";
+import { ENDINGS } from "../simulation/endings";
 
 export function migrateGameState(raw: GameState): GameState {
   const state = structuredClone(raw);
@@ -90,6 +91,12 @@ export function migrateGameState(raw: GameState): GameState {
   state.marketResult ??= null;
   state.firstLaunchTick ??= state.company.seenMarket ? state.clock.tick : null;
   state.clock.pauseReasons ??= state.clock.paused ? ["manual"] : [];
+  // AI capability used to terminate otherwise healthy companies with an opaque
+  // "Unknown" ending. Reopen only saves produced by that retired cutoff.
+  if (state.endingId === "unknown" && state.endingNote === ENDINGS.unknown.line) {
+    state.endingId = null;
+    state.endingNote = null;
+  }
   if (legacyTutorial && state.onboarding.tutorialEnabled) {
     state.onboarding.finished = state.company.seenMarket ? ["intro","assign","clock","designer","market"] : state.products[0]?.status === "ready" ? ["intro","assign","clock"] : state.products.length ? ["intro"] : [];
     state.pendingMentor = null;
@@ -154,6 +161,7 @@ export function migrateGameState(raw: GameState): GameState {
   setPause(state,"results",Boolean(state.marketResult));
   setPause(state,"productReady",false);
   setPause(state,"settings",false);
+  setPause(state,"ended",Boolean(state.endingId));
 
   if (!state.social) {
     const r = new Rng(state.meta.seed || 1);

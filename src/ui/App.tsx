@@ -26,6 +26,7 @@ import { audio } from "../audio/Audio";
 import { startMarketSession, applyMarketEntryResults } from "../market/marketMap";
 import { applyCommand } from "../simulation/commands";
 import { createNewGame } from "../simulation/newGame";
+import { ENDINGS } from "../simulation/endings";
 import { createEnvironmentPreviewGame } from '../game3d/environment/devEnvironmentPreview';
 import { createProduct } from "../simulation/products";
 import { Rng } from "../simulation/rng";
@@ -124,6 +125,41 @@ export function App() {
       g.products.push(p);
       const session = startMarketSession(g, p, new Rng(1));
       applyMarketEntryResults(g, session, new Rng(1));
+      useGame.getState().loadGame(g);
+    }
+    if (import.meta.env.DEV && params.get("postmortem") === "1") {
+      const g = createNewGame({ founderName: "Ada", companyName: "Northstar Systems", cofounderId: "reya", skipTutorial: true });
+      const products = [
+        createProduct(g, "code", "agent", new Rng(11)),
+        createProduct(g, "search", "image", new Rng(12)),
+        createProduct(g, "chat", "writing", new Rng(13)),
+      ];
+      const productRevenue = [1_840_000_000, 720_000_000, 315_000_000];
+      products.forEach((product, index) => {
+        product.status = "active";
+        product.earnedRevenue = productRevenue[index]!;
+        g.products.push(product);
+      });
+      g.clock.date = { year: 2034, month: 8, day: 18 };
+      g.company.cash = 827_140_000;
+      g.company.valuation = 8_650_000_000;
+      g.company.lifetimeRevenue = 4_275_400_000;
+      g.company.lifetimeCosts = 2_910_800_000;
+      g.company.ownership.founder = 0.318;
+      g.funding.raisedTotal = 640_000_000;
+      g.stats.productsLaunched = 18;
+      g.stats.employeesHired = 53;
+      g.stats.employeesFired = 11;
+      g.stats.peakEmployees = 70;
+      g.stats.peakValuation = 12_850_000_000;
+      g.stats.researchCompleted = 14;
+      g.stats.acquisitions = 3;
+      g.history = [
+        { year: 2034, month: 6, cash: 640_000_000, revenue: 280_000_000, burn: 24_000_000, hype: 72, trust: 68, employees: 66, valuation: 10_400_000_000 },
+        { year: 2034, month: 7, cash: 745_000_000, revenue: 390_000_000, burn: 22_000_000, hype: 77, trust: 71, employees: 70, valuation: 12_850_000_000 },
+      ];
+      g.endingId = "ipo";
+      g.endingNote = ENDINGS.ipo.line;
       useGame.getState().loadGame(g);
     }
     if (params.get("debug") === "1" || import.meta.env.DEV) {

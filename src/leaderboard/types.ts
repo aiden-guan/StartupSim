@@ -58,6 +58,7 @@ export interface LeaderboardSubmissionStats {
 export interface LeaderboardSubmissionCompany {
   cash: number;
   valuation: number;
+  lifetimeRevenue: number;
   hype: number;
   trust: number;
   raisedTotal: number;

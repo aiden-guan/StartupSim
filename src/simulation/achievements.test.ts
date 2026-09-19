@@ -34,6 +34,15 @@ describe("Achievements System", () => {
     expect(DISPLAY_ACHIEVEMENTS.map((achievement) => achievement.id)).toEqual(
       ACHIEVEMENTS.map((achievement) => achievement.id),
     );
+    expect(DISPLAY_ACHIEVEMENTS.map((achievement) => achievement.secret ?? false)).toEqual(
+      ACHIEVEMENTS.map((achievement) => achievement.secret ?? false),
+    );
+  });
+
+  it("keeps rare discoveries secret until they are unlocked", () => {
+    expect(ACHIEVEMENTS.find((achievement) => achievement.id === "the-social-network")?.secret).toBe(true);
+    expect(ACHIEVEMENTS.find((achievement) => achievement.id === "ring-the-bell")?.secret).toBe(true);
+    expect(ACHIEVEMENTS.find((achievement) => achievement.id === "first-ship")?.secret).not.toBe(true);
   });
 
   it("records Eduardo dilution in ownership, morale, and achievements", () => {

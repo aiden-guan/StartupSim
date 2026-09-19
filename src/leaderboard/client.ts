@@ -3,7 +3,7 @@ import { evaluateAchievements } from "../simulation/achievements";
 import { monthlyArr } from "../simulation/conditions";
 import type { GameState } from "../simulation/types";
 import { computeRunSeal, sanitizeHandle, sanitizeQuote } from "./security";
-import { getDaysElapsed } from "./scoring";
+import { computeScoreTier, getDaysElapsed } from "./scoring";
 import type {
   LeaderboardEntry,
   LeaderboardFilter,
@@ -124,6 +124,7 @@ export async function submitRunToLeaderboard(
     peakValuation: peakVal,
     productsLaunched,
     scandals,
+    lifetimeRevenue: game.company.lifetimeRevenue,
   });
 
   const submission: LeaderboardSubmission = {
@@ -147,6 +148,7 @@ export async function submitRunToLeaderboard(
     company: {
       cash: game.company.cash,
       valuation: game.company.valuation,
+      lifetimeRevenue: game.company.lifetimeRevenue,
       hype: game.company.hype,
       trust: game.company.trust,
       raisedTotal: game.funding.raisedTotal,
@@ -193,8 +195,8 @@ export async function submitRunToLeaderboard(
     handle: submission.handle,
     companyName: submission.companyName,
     founderName: submission.founderName,
-    score: Math.max(1000, Math.round(peakVal / 1000 + arr * 0.05)),
-    tier: "A",
+    score: Math.max(0, Math.round(game.company.lifetimeRevenue)),
+    tier: computeScoreTier(game.company.lifetimeRevenue),
     endingId,
     endingTitle: endingId.toUpperCase(),
     valuation: peakVal,

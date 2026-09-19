@@ -49,6 +49,7 @@ describe("Leaderboard API Handler", () => {
     const peakValuation = 2_000_000_000;
     const productsLaunched = 4;
     const scandals = 0;
+    const lifetimeRevenue = 143_000_000;
 
     const seal = computeRunSeal({
       runId,
@@ -58,6 +59,7 @@ describe("Leaderboard API Handler", () => {
       peakValuation,
       productsLaunched,
       scandals,
+      lifetimeRevenue,
     });
 
     const submission: LeaderboardSubmission = {
@@ -80,6 +82,7 @@ describe("Leaderboard API Handler", () => {
       company: {
         cash: 30_000_000,
         valuation: 2_000_000_000,
+        lifetimeRevenue,
         hype: 75,
         trust: 85,
         raisedTotal: 40_000_000,
@@ -120,6 +123,7 @@ describe("Leaderboard API Handler", () => {
         companyName: "Cheaters Inc",
         endingId: "unicorn",
         stats: { peakValuation: 999_999_999_999, productsLaunched: 1, scandals: 0 },
+        company: { lifetimeRevenue: 1 },
         clock: { daysElapsed: 10 },
         seal: "invalid_tampered_seal",
       },

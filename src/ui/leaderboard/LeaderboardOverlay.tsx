@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { identity } from "../../branding/identity";
 import { fetchLeaderboard } from "../../leaderboard/client";
-import type { LeaderboardEntry, LeaderboardFilter, ScoreTier } from "../../leaderboard/types";
+import type { LeaderboardEntry, LeaderboardFilter } from "../../leaderboard/types";
 import { ACHIEVEMENT_MAP } from "../../simulation/achievements";
+import { startupTierForValuation, type StartupTierId } from "../../simulation/startupTiers";
 import { useGame } from "../../state/store";
 import { money } from "../format";
 
@@ -15,13 +16,13 @@ const FILTERS: { id: LeaderboardFilter; label: string }[] = [
   { id: "bootstrapped", label: "Bootstrapped" },
 ];
 
-const TIER_STYLES: Record<ScoreTier, { marker: string; text: string; label: string }> = {
-  SSS: { marker: "bg-[#c9a227]", text: "text-[#8a6810]", label: "Titan" },
-  SS: { marker: "bg-[#8c7761]", text: "text-[#665340]", label: "Pioneer" },
-  S: { marker: "bg-[#9c6648]", text: "text-[#7c432b]", label: "Unicorn" },
-  A: { marker: "bg-[#2e704e]", text: "text-[#2e704e]", label: "Operator" },
-  B: { marker: "bg-[#b78b42]", text: "text-[#806329]", label: "Veteran" },
-  C: { marker: "bg-[#7d8587]", text: "text-[#5c6466]", label: "Founder" },
+const TIER_STYLES: Record<StartupTierId, { marker: string; text: string }> = {
+  hectocorn: { marker: "bg-[#c9a227]", text: "text-[#8a6810]" },
+  decacorn: { marker: "bg-[#c4622d]", text: "text-[#9c4520]" },
+  unicorn: { marker: "bg-[#7656a3]", text: "text-[#68478f]" },
+  "scale-up": { marker: "bg-[#39718c]", text: "text-[#315f75]" },
+  "venture-backed": { marker: "bg-[#2e704e]", text: "text-[#2e704e]" },
+  "early-stage": { marker: "bg-[#7d8587]", text: "text-[#5c6466]" },
 };
 
 type LeaderboardSource = "global" | "local";
@@ -148,7 +149,7 @@ export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
                   <span>Company / founder</span>
                   <span>Outcome</span>
                   <span className="text-right">Peak value</span>
-                  <span className="text-right">Score</span>
+                  <span className="text-right">Lifetime revenue</span>
                 </div>
                 <div className="divide-y divide-line/80 border-y border-line">
                   {entries.map((entry) => (
@@ -161,7 +162,7 @@ export function LeaderboardOverlay({ onClose }: { onClose?: () => void }) {
                   ))}
                 </div>
                 <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.16em] text-muted">
-                  {entries.length} validated {entries.length === 1 ? "record" : "records"} · ranked by score, then arrival
+                  {entries.length} validated {entries.length === 1 ? "record" : "records"} · ranked by lifetime revenue, then arrival
                 </p>
                 {selectedEntry ? (
                   <div className="mt-5 lg:hidden">
@@ -252,7 +253,8 @@ function LeaderboardRow({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const tier = TIER_STYLES[entry.tier] ?? TIER_STYLES.C;
+  const startupTier = startupTierForValuation(entry.valuation);
+  const tier = TIER_STYLES[startupTier.id];
   const rank = entry.rank ?? 0;
 
   return (
@@ -266,14 +268,14 @@ function LeaderboardRow({
     >
       <div className="flex items-start gap-2">
         <span className="font-mono text-lg tabular-nums text-ink">{String(rank).padStart(2, "0")}</span>
-        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${tier.marker}`} title={`${entry.tier} · ${tier.label}`} />
+        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${tier.marker}`} title={startupTier.label} />
       </div>
 
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate font-mono text-sm font-semibold tracking-[0.08em] text-ink">{entry.handle}</span>
           <span className={`hidden shrink-0 font-mono text-[9px] uppercase tracking-[0.12em] sm:inline ${tier.text}`}>
-            {entry.tier}
+            {startupTier.label}
           </span>
         </div>
         <p className="mt-1 truncate font-display text-sm text-muted">{entry.companyName}</p>
@@ -291,15 +293,16 @@ function LeaderboardRow({
       </div>
 
       <div className="text-right">
-        <p className="font-mono text-base font-semibold tabular-nums text-copper">{entry.score.toLocaleString()}</p>
-        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-muted">points</p>
+        <p className="font-mono text-base font-semibold tabular-nums text-copper">{money(entry.score)}</p>
+        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.12em] text-muted">lifetime</p>
       </div>
     </button>
   );
 }
 
 function RunDossier({ entry, onClose, compact = false }: { entry: LeaderboardEntry; onClose: () => void; compact?: boolean }) {
-  const tier = TIER_STYLES[entry.tier] ?? TIER_STYLES.C;
+  const startupTier = startupTierForValuation(entry.valuation);
+  const tier = TIER_STYLES[startupTier.id];
   const rank = entry.rank ? `#${entry.rank}` : "Unranked";
 
   return (
@@ -329,7 +332,7 @@ function RunDossier({ entry, onClose, compact = false }: { entry: LeaderboardEnt
         <p className={`font-mono text-[9px] uppercase tracking-[0.18em] ${compact ? "text-[#aeb5ba]" : "text-muted"}`}>Outcome</p>
         <p className={`mt-1 font-display text-xl ${compact ? "text-paper" : "text-ink"}`}>{entry.endingTitle}</p>
         <p className={`mt-1 font-mono text-[10px] uppercase tracking-[0.12em] ${compact ? "text-[#d89869]" : tier.text}`}>
-          Tier {entry.tier} · {tier.label}
+          {startupTier.label} · {startupTier.description}
         </p>
       </div>
 
@@ -340,7 +343,7 @@ function RunDossier({ entry, onClose, compact = false }: { entry: LeaderboardEnt
       ) : null}
 
       <div className={`mt-5 grid grid-cols-2 gap-px border ${compact ? "border-white/10 bg-white/10" : "border-line bg-line"}`}>
-        <DossierStat label="Score" value={`${entry.score.toLocaleString()} pts`} compact={compact} accent />
+        <DossierStat label="Lifetime revenue" value={money(entry.score)} compact={compact} accent />
         <DossierStat label="Peak value" value={money(entry.valuation)} compact={compact} />
         <DossierStat label="Annual ARR" value={money(entry.arr)} compact={compact} />
         <DossierStat label="Treasury" value={money(entry.cash)} compact={compact} />
@@ -362,7 +365,7 @@ function RunDossier({ entry, onClose, compact = false }: { entry: LeaderboardEnt
                 <div key={id} className={`flex items-center gap-2 border px-2.5 py-2 ${compact ? "border-white/10 bg-white/5" : "border-line bg-[#f3ecdf]"}`}>
                   <span className="text-base">{achievement.icon}</span>
                   <span className={`min-w-0 flex-1 truncate font-mono text-[10px] ${compact ? "text-fog" : "text-ink"}`}>{achievement.title}</span>
-                  <span className={`font-mono text-[9px] ${compact ? "text-[#aeb5ba]" : "text-muted"}`}>+{achievement.points.toLocaleString()}</span>
+                  <span className={`font-mono text-[9px] uppercase ${compact ? "text-[#aeb5ba]" : "text-muted"}`}>recorded</span>
                 </div>
               );
             })}
