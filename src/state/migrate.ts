@@ -75,6 +75,7 @@ export function migrateGameState(raw: GameState): GameState {
     pauseOnEvents: typeof incoming.pauseOnEvents === "boolean" ? incoming.pauseOnEvents : settings.pauseOnEvents,
     autosave: typeof incoming.autosave === "boolean" ? incoming.autosave : settings.autosave,
     uiScale: typeof incoming.uiScale === "number" ? incoming.uiScale : settings.uiScale,
+    autoDelegate: typeof incoming.autoDelegate === "boolean" ? incoming.autoDelegate : settings.autoDelegate,
   };
   if (state.company.officeLevel > offices.length - 1) {
     state.company.officeLevel = offices.length - 1;

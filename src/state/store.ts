@@ -192,7 +192,10 @@ export const useGame = create<AppState>((set, get) => ({
       if (next.products.length > prev.products.length) patch.drawer = 'tasks';
       if (cmd.type === 'startResearch' && next.tasks.length > prev.tasks.length) patch.drawer = 'tasks';
       const ready = next.products.find(p=>p.status==='ready' && prev.products.find(x=>x.id===p.id)?.status==='development');
-      if (ready) patch.drawer = 'products';
+      const tutorialSlide = currentTutorialSlide(next);
+      if (ready && next.onboarding.tutorialEnabled && tutorialSlide?.workspace === 'products') {
+        patch.drawer = 'products';
+      }
       const gone = prev.employees.filter(e=>!next.employees.some(n=>n.id===e.id));
       if (gone.length) {
         patch.departures = [...get().departures, ...gone.map(e=>({id:e.id,look:e.look,robot:e.role==='robot'}))];
@@ -253,7 +256,7 @@ export const useGame = create<AppState>((set, get) => ({
     set({
       game: migrated,
       screen: migrated.endingId ? "ended" : (migrated.marketBattle || migrated.marketResult) ? "market" : "playing",
-      drawer: currentTutorialSlide(migrated)?.workspace ?? (migrated.products.some(p=>p.status==="ready") ? "products" : null),
+      drawer: currentTutorialSlide(migrated)?.workspace ?? null,
       selectedEmployeeId: null, departures: [], eventFrame: null, officeCaption: null,
       revealPlaying: false,
     });

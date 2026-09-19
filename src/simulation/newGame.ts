@@ -63,6 +63,7 @@ export function defaultSettings(): GameState["settings"] {
     pauseOnEvents: true,
     autosave: true,
     uiScale: 1,
+    autoDelegate: false,
   };
 }
 

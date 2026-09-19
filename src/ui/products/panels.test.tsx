@@ -63,16 +63,37 @@ describe("Products and Tasks UI Panels", () => {
     expect(markup).toContain("3,000 users");
     expect(markup).toContain("10% share");
 
-    // Auto-Delegate launch options
+    // Launch automation controls: Optimize Launch action and Auto-Delegate toggle
+    expect(markup).toContain("Optimize Launch");
     expect(markup).toContain("Auto-Delegate:");
-    expect(markup).toContain("Balanced");
-    expect(markup).toContain("Aggressive");
-    expect(markup).toContain("Niche");
-    expect(markup).toContain("Expansion");
+    expect(markup).toContain("auto-delegate-toggle-btn");
+    expect(markup).toContain("OFF");
 
     // Tutorial markers preserved
     expect(markup).toContain('data-tutorial="product-ready"');
     expect(markup).toContain('data-tutorial="designer"');
     expect(markup).toContain('data-tutorial="enter-market"');
+  });
+
+  it("renders Auto-Delegate toggle as ON when setting is enabled, and shows LOCKED when below product threshold", () => {
+    const game = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "dustin-moskovitz", skipTutorial: true });
+    // Setting autoDelegate ON
+    game.settings.autoDelegate = true;
+    game.company.productsLaunched = BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE;
+
+    const p1 = createProduct(game, "chat", "writing", new Rng(1));
+    p1.status = "ready";
+    game.products = [p1];
+
+    let markup = renderToStaticMarkup(<ProductsPanel game={game} />);
+    expect(markup).toContain("Optimize &amp; Launch →");
+    expect(markup).toContain("Auto-Delegate:");
+    expect(markup).toContain("ON");
+
+    // When below threshold, Auto-Delegate shows LOCKED
+    game.company.productsLaunched = 2;
+    markup = renderToStaticMarkup(<ProductsPanel game={game} />);
+    expect(markup).toContain("LOCKED (2/8)");
+    expect(markup).toContain("Optimize Launch");
   });
 });

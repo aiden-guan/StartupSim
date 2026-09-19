@@ -362,6 +362,115 @@ function ProductEconomics({product:p}:{product:Product}) {
     </div>
   );
 }
+
+function LaunchAutomationControlGroup({
+  game,
+  product,
+  dispatch,
+}: {
+  game: GameState;
+  product: Product;
+  dispatch: (cmd: any) => void;
+}) {
+  const autoDelegate = Boolean(game.settings?.autoDelegate);
+  const delegationUnlocked = game.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE;
+  const isTutorialRestricted =
+    game.onboarding.tutorialEnabled &&
+    !game.company.seenMarket &&
+    currentTutorialSlide(game)?.id !== 'enter-market';
+
+  const toggleAutoDelegate = () => {
+    if (!delegationUnlocked) return;
+    dispatch({
+      type: 'setSettings',
+      patch: { autoDelegate: !autoDelegate },
+    });
+  };
+
+  const handleOptimizeLaunch = () => {
+    dispatch({
+      type: 'optimizeLaunch',
+      productId: product.id,
+      autoDelegate,
+    });
+  };
+
+  return (
+    <div className="launch-automation-controls" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <GameButton
+        tone="primary"
+        disabled={isTutorialRestricted}
+        onClick={handleOptimizeLaunch}
+        className="optimize-launch-btn"
+        title={
+          autoDelegate && delegationUnlocked
+            ? "Optimize launch setup and automatically enter the market"
+            : "Automatically allocate points and select recommended AI model, business model, and GTM strategy"
+        }
+      >
+        {autoDelegate && delegationUnlocked ? "⚡ Optimize & Launch →" : "⚡ Optimize Launch"}
+      </GameButton>
+
+      <div
+        className={`delegation-actions-group auto-delegate-pill ${!delegationUnlocked ? 'is-locked' : autoDelegate ? 'is-active' : 'is-inactive'}`}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '3px 8px',
+          background: autoDelegate && delegationUnlocked ? '#dbe8db' : '#eaeee5',
+          border: `1px solid ${autoDelegate && delegationUnlocked ? '#8da58f' : '#cbd5c7'}`,
+          borderRadius: 4,
+          fontSize: 11,
+        }}
+        title={
+          !delegationUnlocked
+            ? `Auto-Delegate unlocks after launching ${BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE} products (${game.company.productsLaunched}/${BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE})`
+            : "Toggle whether Optimize Launch automatically handles market entry"
+        }
+      >
+        <span className="eyebrow" style={{ fontSize: 10, margin: 0, color: autoDelegate && delegationUnlocked ? '#1f432a' : '#4a5b4e' }}>
+          Auto-Delegate:
+        </span>
+        {delegationUnlocked ? (
+          <button
+            type="button"
+            className="auto-delegate-toggle-btn"
+            aria-pressed={autoDelegate}
+            onClick={toggleAutoDelegate}
+            style={{
+              cursor: 'pointer',
+              border: '1px solid #9fb39e',
+              background: autoDelegate ? '#285836' : '#fff',
+              color: autoDelegate ? '#fff' : '#495f50',
+              fontWeight: 700,
+              fontSize: 10,
+              padding: '2px 8px',
+              borderRadius: 3,
+              letterSpacing: '0.04em',
+              transition: 'all .15s ease',
+            }}
+          >
+            {autoDelegate ? 'ON' : 'OFF'}
+          </button>
+        ) : (
+          <span
+            style={{
+              fontSize: 9,
+              color: '#849386',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+            }}
+          >
+            LOCKED ({game.company.productsLaunched}/{BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE})
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ProductsPanel({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch);
   const [editingId,setEditingId]=useState<string | null>(null);
@@ -474,6 +583,14 @@ export function ProductsPanel({game}:{game:GameState}) {
       </header>
       {isExpanded&&<>
         {p.status==='development'?<div className="development-notice"><p>Development is in progress. Configure the launch when it finishes.</p><GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>View development →</GameButton></div>:ready?<>
+          <div className="launch-automation-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '9px 14px', background: '#e4ece1', border: '1px solid #c2d1be', borderRadius: 4, margin: '0 0 16px', flexWrap: 'wrap' }}>
+            <LaunchAutomationControlGroup game={game} product={p} dispatch={dispatch} />
+            <span style={{ fontSize: 11, color: '#546957', fontWeight: 500 }}>
+              {game.settings?.autoDelegate && game.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE
+                ? 'Hands-off mode: Optimize will configure and launch into market'
+                : 'Autofills optimal points, model, business, and GTM for review'}
+            </span>
+          </div>
           <div className="launch-points"><span>Launch points</span>{(['engineering','product','growth'] as const).map(k=><div key={k}><small>{k}</small><strong>{Math.floor(p.points[k])}</strong></div>)}</div>
           <div className="designer-grid" data-tutorial="designer">{STATS.map(stat=>{
             const reason=p.levels[stat]>=BALANCE.MAX_LAUNCH_LEVEL?'Maximum level':!canAffordStat(p,stat)?`Need ${Math.ceil(costs[stat])} ${requiredFor(stat).join(' + ')} points`:'';
@@ -584,16 +701,18 @@ export function ProductsPanel({game}:{game:GameState}) {
           })()}
           <footer className="launch-footer">
             <span>Time pauses during the market launch.</span>
-            <GameButton tone="primary" data-tutorial="enter-market" disabled={game.onboarding.tutorialEnabled&&!game.company.seenMarket&&currentTutorialSlide(game)?.id!=='enter-market'} title={game.pendingMentor==='designer'&&currentTutorialSlide(game)?.id!=='enter-market'?'Finish configuring your first launch with the mentor':'Launch this product'} onClick={()=>dispatch({type:'enterMarket',productId:p.id})}>Enter market →</GameButton>
-            {game.company.productsLaunched>=BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE&&(
-              <div className="delegation-actions-group" style={{display:'flex',gap:6,flexWrap:'wrap',alignItems:'center'}}>
-                <span className="eyebrow" style={{fontSize:10,margin:0}}>Auto-Delegate:</span>
-                <GameButton tone="plain" onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'balanced'})} title="Delegate launch with balanced strategic weights">Balanced</GameButton>
-                <GameButton tone="plain" onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'aggressive'})} title="Delegate launch aggressively contesting rival hubs">Aggressive</GameButton>
-                <GameButton tone="plain" onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'niche'})} title="Delegate launch targeting high-value niche segments">Niche</GameButton>
-                <GameButton tone="plain" onClick={()=>dispatch({type:'delegateMarket',productId:p.id,strategy:'expansion'})} title="Delegate launch expanding network reach">Expansion</GameButton>
-              </div>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <LaunchAutomationControlGroup game={game} product={p} dispatch={dispatch} />
+              <GameButton
+                tone={game.settings?.autoDelegate && game.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE ? 'plain' : 'primary'}
+                data-tutorial="enter-market"
+                disabled={game.onboarding.tutorialEnabled && !game.company.seenMarket && currentTutorialSlide(game)?.id !== 'enter-market'}
+                title={game.pendingMentor === 'designer' && currentTutorialSlide(game)?.id !== 'enter-market' ? 'Finish configuring your first launch with the mentor' : 'Play the market-entry mini-game manually'}
+                onClick={() => dispatch({ type: 'enterMarket', productId: p.id })}
+              >
+                Enter market →
+              </GameButton>
+            </div>
           </footer>
         </>:<>
           <ProductEconomics product={p}/>

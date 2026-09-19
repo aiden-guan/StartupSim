@@ -520,6 +520,8 @@ export type MarketBattle = MarketSession;
 
 export type PauseReason = "manual" | "tutorial" | "market" | "event" | "productReady" | "results" | "settings" | "ended";
 
+export type DelegationStrategy = "balanced" | "aggressive" | "niche" | "expansion";
+
 export interface MarketResult {
   productId: string;
   share: number;
@@ -536,7 +538,7 @@ export interface MarketResult {
   rivalShare?: number;
   rivalName?: string;
   delegated?: boolean;
-  strategy?: "balanced" | "aggressive" | "niche" | "expansion";
+  strategy?: DelegationStrategy;
   segments?: {
     id: string;
     name: string;
@@ -717,5 +719,6 @@ export interface GameState {
     pauseOnEvents: boolean;
     autosave: boolean;
     uiScale: number;
+    autoDelegate: boolean;
   };
 }
