@@ -47,15 +47,19 @@ export function Character({
 
   // Pants styling and accents
   const pantsStyle = look.pantsId ?? 'jeans';
-  const { cuffColor, darkAccent, lightAccent, creaseColor, pocketShadow } = useMemo(() => {
+  const { cuffColor, darkAccent, lightAccent, creaseColor, pocketShadow, shoeDark, shoeLight, shoeSole } = useMemo(() => {
     try {
       const c = new Color(look.pants || '#3a3a44');
+      const s = new Color(look.shoes || '#111111');
       return {
         cuffColor: '#' + c.clone().lerp(new Color('#d6e0ea'), 0.38).getHexString(),
         darkAccent: '#' + c.clone().multiplyScalar(0.72).getHexString(),
         lightAccent: '#' + c.clone().lerp(new Color('#ffffff'), 0.28).getHexString(),
         creaseColor: '#' + c.clone().lerp(new Color('#ffffff'), 0.22).getHexString(),
         pocketShadow: '#' + c.clone().multiplyScalar(0.78).getHexString(),
+        shoeDark: '#' + s.clone().multiplyScalar(0.58).getHexString(),
+        shoeLight: '#' + s.clone().lerp(new Color('#ffffff'), 0.34).getHexString(),
+        shoeSole: '#' + s.clone().lerp(new Color('#f1f0eb'), 0.72).getHexString(),
       };
     } catch {
       return {
@@ -64,9 +68,12 @@ export function Character({
         lightAccent: '#606a75',
         creaseColor: '#5a6470',
         pocketShadow: '#282b30',
+        shoeDark: '#090909',
+        shoeLight: '#606060',
+        shoeSole: '#e0e0dc',
       };
     }
-  }, [look.pants]);
+  }, [look.pants, look.shoes]);
 
   useFrame(({ clock }, rawDt) => {
     const dt = Math.min(rawDt, 0.08);
@@ -369,18 +376,74 @@ export function Character({
                 </>
               )}
 
-              {/* Shoes */}
-              <Bevel
-                position={[0, -0.32, 0.045]}
-                size={[0.205, look.shoesId === 'boots' ? 0.155 : 0.115, 0.32]}
-                radius={0.037}
-                color={robot ? '#525a61' : look.shoes}
-              />
-              {(look.shoesId === 'sneakers' || look.shoesId === 'runners') && (
-                <>
-                  <Bevel position={[0, -0.365, 0.05]} size={[0.208, 0.035, 0.326]} radius={0.014} color="#d7d9d9" />
-                  <Bevel position={[0, -0.277, 0.11]} size={[0.125, 0.018, 0.055]} radius={0.005} color="#cbd0d2" />
-                </>
+              {/* Shoes: silhouette-specific pieces keep the four choices legible in the preview. */}
+              {look.shoesId === 'boots' ? (
+                <group>
+                  {/* Tall shaft, ankle collar, and a treaded lug sole. */}
+                  <Bevel
+                    position={[0, -0.245, -0.015]}
+                    size={[0.19, 0.19, 0.26]}
+                    radius={0.032}
+                    color={robot ? '#525a61' : look.shoes}
+                  />
+                  <Bevel
+                    position={[0, -0.36, 0.055]}
+                    size={[0.22, 0.075, 0.34]}
+                    radius={0.022}
+                    color={robot ? '#525a61' : look.shoes}
+                  />
+                  <Bevel position={[0, -0.403, 0.055]} size={[0.224, 0.026, 0.344]} radius={0.006} color={robot ? '#2c3338' : shoeDark} />
+                  <Bevel position={[0, -0.164, 0.105]} size={[0.105, 0.13, 0.036]} radius={0.01} color={robot ? '#829098' : shoeLight} />
+                  <Bevel position={[0, -0.145, 0]} size={[0.2, 0.026, 0.25]} radius={0.006} color={robot ? '#2c3338' : shoeDark} />
+                  {[-0.12, -0.04, 0.04, 0.12].map((z) => (
+                    <Bevel key={z} position={[0, -0.42, z]} size={[0.196, 0.016, 0.026]} radius={0.004} color={robot ? '#2c3338' : shoeDark} />
+                  ))}
+                </group>
+              ) : look.shoesId === 'dress' ? (
+                <group>
+                  {/* Low leather upper, tapered vamp, and a narrow heel instead of a sneaker sole. */}
+                  <Bevel
+                    position={[0, -0.328, 0.055]}
+                    size={[0.19, 0.095, 0.31]}
+                    radius={0.052}
+                    color={robot ? '#525a61' : look.shoes}
+                  />
+                  <Bevel position={[0, -0.373, 0.065]} size={[0.198, 0.025, 0.32]} radius={0.008} color={robot ? '#2c3338' : shoeDark} />
+                  <Bevel position={[0, -0.347, -0.095]} size={[0.15, 0.056, 0.07]} radius={0.008} color={robot ? '#2c3338' : shoeDark} />
+                  <Bevel position={[0, -0.286, 0.12]} size={[0.135, 0.018, 0.1]} radius={0.015} color={robot ? '#829098' : shoeLight} />
+                  <Bevel position={[0, -0.268, 0.15]} size={[0.12, 0.012, 0.01]} radius={0.003} color={robot ? '#2c3338' : shoeDark} />
+                </group>
+              ) : look.shoesId === 'runners' ? (
+                <group>
+                  {/* A lifted heel, bright midsole, and side stripe make runners read as technical footwear. */}
+                  <Bevel
+                    position={[0, -0.32, 0.055]}
+                    size={[0.198, 0.095, 0.335]}
+                    radius={0.045}
+                    color={robot ? '#525a61' : look.shoes}
+                  />
+                  <Bevel position={[0, -0.373, 0.06]} size={[0.216, 0.045, 0.35]} radius={0.014} color={robot ? '#323b40' : shoeSole} />
+                  <Bevel position={[0, -0.291, -0.1]} size={[0.19, 0.12, 0.06]} radius={0.018} color={robot ? '#2c3338' : shoeDark} />
+                  <Bevel position={[0, -0.276, 0.105]} size={[0.1, 0.024, 0.13]} radius={0.008} color={robot ? '#829098' : shoeLight} />
+                  {[-0.035, 0.005, 0.045].map((z) => (
+                    <Bevel key={z} position={[0, -0.26, z]} size={[0.09, 0.01, 0.014]} radius={0.003} color={robot ? '#2c3338' : shoeDark} />
+                  ))}
+                  <Bevel position={[side * 0.103, -0.31, 0.07]} rotation={[0, 0, side * 0.35]} size={[0.012, 0.06, 0.17]} radius={0.003} color={robot ? '#829098' : '#c4622d'} />
+                </group>
+              ) : (
+                <group>
+                  {/* Everyday low-top sneaker with a soft white sole and padded toe cap. */}
+                  <Bevel
+                    position={[0, -0.32, 0.045]}
+                    size={[0.205, 0.095, 0.32]}
+                    radius={0.045}
+                    color={robot ? '#525a61' : look.shoes}
+                  />
+                  <Bevel position={[0, -0.375, 0.05]} size={[0.214, 0.038, 0.33]} radius={0.012} color={robot ? '#323b40' : shoeSole} />
+                  <Bevel position={[0, -0.284, 0.12]} size={[0.125, 0.022, 0.095]} radius={0.008} color={robot ? '#829098' : shoeLight} />
+                  <Bevel position={[0, -0.261, 0.115]} size={[0.085, 0.012, 0.014]} radius={0.003} color={robot ? '#2c3338' : shoeDark} />
+                  <Bevel position={[side * 0.101, -0.31, 0.03]} rotation={[0, 0, side * 0.3]} size={[0.01, 0.045, 0.12]} radius={0.003} color={robot ? '#829098' : shoeLight} />
+                </group>
               )}
             </group>
           </group>
