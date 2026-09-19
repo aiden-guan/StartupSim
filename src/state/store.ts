@@ -141,15 +141,6 @@ export const useGame = create<AppState>((set, get) => ({
       patch.screen = "playing";
     }
     if (next?.endingId) patch.screen = "ended";
-    if (
-      next &&
-      cmd.type === "tickDay" &&
-      next.products.some((p) => p.status === "ready") &&
-      !prev?.products.some((p) => p.status === "ready") &&
-      true
-    ) {
-      patch.drawer = "products";
-    }
     if (next && prev && next.company.officeLevel !== prev.company.officeLevel) {
       const office = offices[next.company.officeLevel];
       if (office) patch.officeCaption = `${office.name.toUpperCase()} · CAPACITY ${office.capacity}`;
@@ -228,15 +219,10 @@ export const useGame = create<AppState>((set, get) => ({
     if (
       next &&
       prev &&
-      next.settings.pauseOnEvents &&
-      cmd.type !== "setPaused" &&
-      !next.pendingMentor &&
-      !next.marketBattle &&
-      !next.marketResult &&
-      next.inbox.some((m) => m.requiresResponse && isLifeOrDeathEvent(m, next) && !prev.inbox.some((p) => p.id === m.id))
+      next.clock.pauseReasons.includes("event") &&
+      !prev.clock.pauseReasons.includes("event")
     ) {
       set({ drawer: "inbox" });
-      get().dispatch({ type: "setPaused", paused: true, reason: "Inbox" });
     }
     if (next && (cmd.type === "tickDay" ? next.clock.date.day === 1 : true) && next.settings.autosave) {
       void writeSave("autosave", get().game ?? next);

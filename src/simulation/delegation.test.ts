@@ -39,9 +39,8 @@ describe("Delegated Market Launch and Subsequent Product Lifecycle", () => {
     // 1. Confirm product is ready
     expect(state.products[0]?.status).toBe("ready");
 
-    // 2. Confirm product-ready pause is active and game is paused
-    expect(state.clock.pauseReasons).toContain("productReady");
-    expect(state.clock.paused).toBe(true);
+    // 2. Confirm product completion does not pause game
+    expect(state.clock.pauseReasons).not.toContain("productReady");
 
     // 3. Delegate the launch
     state = applyCommand(state, { type: "delegateMarket", productId: product.id, strategy: "balanced" })!;
@@ -111,7 +110,7 @@ describe("Delegated Market Launch and Subsequent Product Lifecycle", () => {
     }
 
     expect(state.products[0]?.status).toBe("ready");
-    expect(state.clock.pauseReasons).toContain("productReady");
+    expect(state.clock.pauseReasons).not.toContain("productReady");
 
     // Enter market manually
     state = applyCommand(state, { type: "enterMarket", productId: product.id })!;

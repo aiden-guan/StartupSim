@@ -96,4 +96,54 @@ describe("Products and Tasks UI Panels", () => {
     expect(markup).toContain("LOCKED (2/8)");
     expect(markup).toContain("Optimize Launch");
   });
+
+  it("categorizes products into separate Ready to configure, Active in market, and Sunset sections", () => {
+    const game = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "dustin-moskovitz", skipTutorial: true });
+
+    const pReady = createProduct(game, "chat", "voice", new Rng(1));
+    pReady.name = "Memory Voice";
+    pReady.status = "ready";
+
+    const pActive = createProduct(game, "code", "agent", new Rng(2));
+    pActive.name = "CodePilot";
+    pActive.status = "active";
+    pActive.weeklyRevenue = 15000;
+    pActive.users = 6000;
+
+    const pSunset = createProduct(game, "chat", "writing", new Rng(3));
+    pSunset.name = "Copywright";
+    pSunset.status = "deprecated";
+
+    game.products = [pReady, pActive, pSunset];
+
+    const markup = renderToStaticMarkup(<ProductsPanel game={game} />);
+
+    // Header filter tabs with counts
+    expect(markup).toContain("Products (3)");
+    expect(markup).toContain("1 ready to launch");
+    expect(markup).toContain("1 active in market");
+    expect(markup).toContain("1 sunset");
+
+    // Distinct category sections rendered in order
+    expect(markup).toContain("catalog-section-ready");
+    expect(markup).toContain("Ready to configure");
+    expect(markup).toContain("Memory Voice");
+
+    expect(markup).toContain("catalog-section-active");
+    expect(markup).toContain("Active in market");
+    expect(markup).toContain("CodePilot");
+    expect(markup).toContain("$15.0k/wk");
+
+    expect(markup).toContain("catalog-section-sunset");
+    expect(markup).toContain("Sunset");
+    expect(markup).toContain("Copywright");
+    expect(markup).toContain("Hide sunset ▲");
+
+    // Sections order: Ready comes first, then Active, then Sunset
+    const readyIdx = markup.indexOf("catalog-section-ready");
+    const activeIdx = markup.indexOf("catalog-section-active");
+    const sunsetIdx = markup.indexOf("catalog-section-sunset");
+    expect(readyIdx).toBeLessThan(activeIdx);
+    expect(activeIdx).toBeLessThan(sunsetIdx);
+  });
 });

@@ -11,7 +11,7 @@ import { CharacterPortrait } from "../shared/CharacterPortrait";
 import { lookFromSeed } from "../../simulation/look";
 import { CompanyMark } from "../visuals/CompanyMark";
 import { archetypeLabel, worldConditionLabel } from "../../visuals/registry";
-import { isMinorFee } from "../../simulation/pause";
+import { isLifeOrDeathEvent, isMinorFee } from "../../simulation/pause";
 import { BALANCE } from "../../config/balance";
 import { ExpansionPanel } from "./ExpansionPanel";
 
@@ -245,6 +245,37 @@ export function InboxPanel({ game }: { game: GameState }) {
                 if not contested.
               </span>
             </div>
+          )}
+
+          {mail.requiresResponse && !isMinorFee(mail, game) && (
+            (() => {
+              const deadline = mail.deadlineDays ?? BALANCE.DECISION_EVENT_DEADLINE_DAYS;
+              const elapsed = mail.createdTick !== undefined ? game.clock.tick - mail.createdTick : 0;
+              const remaining = Math.max(0, deadline - elapsed);
+              const isCritical = isLifeOrDeathEvent(mail, game);
+              return (
+                <div
+                  className={`border rounded-md px-3 py-2 text-xs mb-3 flex items-center gap-2 ${
+                    isCritical
+                      ? remaining <= 1
+                        ? "bg-[#fee2e2] border-[#f87171] text-[#991b1b]"
+                        : "bg-[#fff7ed] border-[#fdba74] text-[#9a3412]"
+                      : "bg-[#f8fafc] border-[#cbd5e1] text-[#334155]"
+                  }`}
+                >
+                  <span className="font-bold">{remaining <= 1 ? "⚠" : "⏱"}</span>
+                  <span>
+                    <strong>{isCritical ? "Critical Decision Deadline:" : "Decision Deadline:"}</strong>{" "}
+                    <strong>{remaining} day{remaining === 1 ? "" : "s"} remaining</strong>
+                    {remaining <= 1
+                      ? " · Action required today before deadline expires!"
+                      : isCritical
+                      ? " · Simulation auto-pauses when 1 day away."
+                      : ""}
+                  </span>
+                </div>
+              );
+            })()
           )}
 
           {mail.autoCharged && (

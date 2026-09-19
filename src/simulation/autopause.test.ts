@@ -8,6 +8,7 @@ import { applyCommand } from "./commands";
 import type { Mail } from "./types";
 import { events } from "../data/events";
 import { tickDay } from "./tick";
+import { createProduct } from "./products";
 import { BALANCE } from "../config/balance";
 
 describe("Event Autopause & Speed Restoration", () => {
@@ -597,6 +598,190 @@ describe("Event Autopause & Speed Restoration", () => {
       expect(state.clock.speed).toBe(4);
       expect(state.clock.pauseReasons).not.toContain("event");
       expect(state.clock.prePauseSpeed).toBeUndefined();
+    });
+  });
+
+  describe("Deadline-Based Autopause", () => {
+    it("does not pause when a product finishes developing", () => {
+      let game = createNewGame({ founderName: "Elena", companyName: "VectorPrime", cofounderId: "marcus", skipTutorial: true });
+      game.clock.speed = 8;
+      game.clock.paused = false;
+      game.clock.pauseReasons = [];
+
+      const p = createProduct(game, "chat", "writing", new Rng(1));
+      p.status = "development";
+      game.products = [p];
+
+      // Add a task that completes in 1 day
+      game.tasks = [{
+        id: "task-p",
+        type: "product",
+        name: "Chat Tool",
+        progress: 99,
+        requiredProgress: 100,
+        productId: p.id,
+        repeat: false,
+      }];
+
+      // Assign all employees so it finishes immediately
+      for (const emp of game.employees) {
+        emp.taskId = "task-p";
+      }
+
+      game = tickDay(game);
+      expect(game.products[0]?.status).toBe("ready");
+      // MUST NOT have paused
+      expect(game.clock.pauseReasons).not.toContain("productReady");
+      expect(game.clock.paused).toBe(false);
+      expect(game.clock.speed).toBe(8);
+    });
+
+    it("does not pause when an event first arrives in the inbox", () => {
+      let game = createNewGame({ founderName: "Elena", companyName: "VectorPrime", cofounderId: "marcus", skipTutorial: true });
+      game.clock.speed = 8;
+      game.clock.paused = false;
+      game.clock.pauseReasons = [];
+
+      const criticalMail: Mail = {
+        id: "mail-crit-arrive",
+        at: { ...game.clock.date },
+        from: "security",
+        subject: "Security Incident",
+        body: "Keys leaked",
+        eventKind: "crisis",
+        choices: [
+          { id: "contain", label: "Contain", effects: [{ type: "cash", value: -10_000 }] },
+          { id: "quiet", label: "Quiet rotation", effects: [{ type: "trust", value: -10 }] },
+        ],
+        read: false,
+        requiresResponse: true,
+        deadlineDays: 14,
+        createdTick: game.clock.tick,
+      };
+
+      game = produce(game, (draft) => {
+        draft.inbox.unshift(criticalMail);
+      });
+
+      // Advance 1 day
+      game = tickDay(game);
+
+      // 1 day elapsed out of 14, 13 remaining -> MUST NOT be paused!
+      expect(game.clock.pauseReasons).not.toContain("event");
+      expect(game.clock.paused).toBe(false);
+      expect(game.clock.speed).toBe(8);
+    });
+
+    it("autopauses when a critical event deadline is exactly 1 day away and preserves speed", () => {
+      let game = createNewGame({ founderName: "Elena", companyName: "VectorPrime", cofounderId: "marcus", skipTutorial: true });
+      game.clock.speed = 8;
+      game.clock.paused = false;
+      game.clock.pauseReasons = [];
+
+      const criticalMail: Mail = {
+        id: "mail-crit-1day",
+        at: { ...game.clock.date },
+        from: "security",
+        subject: "Critical Incident",
+        body: "Severe vulnerability",
+        eventKind: "crisis",
+        choices: [
+          { id: "patch", label: "Patch", effects: [{ type: "cash", value: -50_000 }] },
+          { id: "ignore", label: "Ignore", effects: [{ type: "trust", value: -15 }] },
+        ],
+        read: false,
+        requiresResponse: true,
+        deadlineDays: 14,
+        createdTick: game.clock.tick,
+      };
+
+      game = produce(game, (draft) => {
+        draft.inbox.unshift(criticalMail);
+      });
+
+      // Advance 12 days (from tick 0 to tick 12: 2 days remaining)
+      for (let i = 0; i < 12; i++) {
+        game = tickDay(game);
+        expect(game.clock.paused).toBe(false);
+      }
+
+      // Advance 13th day (1 day remaining before deadline of 14)
+      game = tickDay(game);
+
+      // Now exactly 1 day away from deadline -> MUST autopause!
+      expect(game.clock.paused).toBe(true);
+      expect(game.clock.pauseReasons).toContain("event");
+      expect(game.clock.prePauseSpeed).toBe(8);
+      expect(game.clock.reasonPaused).toContain("Critical event deadline tomorrow");
+    });
+
+    it("does not autopause non-critical events when 1 day away from deadline", () => {
+      let game = createNewGame({ founderName: "Elena", companyName: "VectorPrime", cofounderId: "marcus", skipTutorial: true });
+      game.company.cash = 1_000_000;
+      game.clock.speed = 4;
+      game.clock.paused = false;
+      game.clock.pauseReasons = [];
+
+      const routineMail: Mail = {
+        id: "mail-routine-1day",
+        at: { ...game.clock.date },
+        from: "ops",
+        subject: "Routine Invoice",
+        body: "Contractor fee",
+        eventKind: "cost",
+        eventId: "contractor-invoice",
+        choices: [
+          { id: "pay", label: "Pay", effects: [{ type: "cash", value: -5_000 }] },
+          { id: "fight", label: "Dispute", effects: [{ type: "morale", value: -1 }] },
+        ],
+        read: false,
+        requiresResponse: true,
+        deadlineDays: 14,
+        createdTick: game.clock.tick,
+      };
+
+      game = produce(game, (draft) => {
+        draft.inbox.unshift(routineMail);
+      });
+
+      // Advance 13 days to 1 day before deadline
+      for (let i = 0; i < 13; i++) {
+        game = tickDay(game);
+      }
+
+      // Non-critical fee when cash is $1M should NOT autopause!
+      expect(game.clock.pauseReasons).not.toContain("event");
+      expect(game.clock.paused).toBe(false);
+    });
+
+    it("autopauses when an unresolved crisis task has 1 day remaining", () => {
+      let game = createNewGame({ founderName: "Elena", companyName: "VectorPrime", cofounderId: "marcus", skipTutorial: true });
+      game.clock.speed = 4;
+      game.clock.paused = false;
+      game.clock.pauseReasons = [];
+
+      game.tasks = [{
+        id: "task-crisis",
+        type: "crisis",
+        name: "Security Investigation",
+        progress: 0,
+        requiredProgress: 4,
+        dueWeeks: 1,
+        dueDays: 2, // 2 days left
+        skillTarget: "engineering",
+        skillNeed: 100,
+        skillVal: 10, // Not resolved!
+        repeat: false,
+      }];
+
+      // Advance 1 day -> dueDays becomes 1
+      game = tickDay(game);
+
+      expect(game.tasks[0]?.dueDays).toBe(1);
+      expect(game.clock.paused).toBe(true);
+      expect(game.clock.pauseReasons).toContain("event");
+      expect(game.clock.prePauseSpeed).toBe(4);
+      expect(game.clock.reasonPaused).toContain("Critical event deadline tomorrow");
     });
   });
 });

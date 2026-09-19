@@ -5,7 +5,7 @@ const LABELS: Record<PauseReason, string> = {
   manual: 'Paused',
   tutorial: 'Mentor',
   market: 'Market',
-  event: 'Critical event needs response',
+  event: 'Critical event deadline tomorrow',
   productReady: 'Product ready',
   results: 'Launch results',
   settings: 'Settings',

@@ -250,6 +250,8 @@ export interface Task {
   skillNeed?: number;
   skillVal?: number;
   dueWeeks?: number;
+  dueDays?: number;
+  deadlinePaused?: boolean;
   successEffects?: Effect[];
   failureEffects?: Effect[];
   successBody?: string;
@@ -328,6 +330,8 @@ export interface Mail {
   requiresResponse: boolean;
   autoChargeDays?: number;
   autoCharged?: boolean;
+  deadlineDays?: number;
+  deadlinePaused?: boolean;
 }
 
 export interface MailChoice {

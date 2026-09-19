@@ -426,8 +426,39 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .empty-state svg { width:40px;height:40px;margin:0 auto 20px; }
 .catalog-header-bar { display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:#e1e9dc;border:1px solid #c5d3bf;border-radius:4px;margin-bottom:16px;gap:12px;flex-wrap:wrap; }
 .catalog-header-stats { display:flex;align-items:center;gap:10px;flex-wrap:wrap; }
+.catalog-category-filter-group { display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap; }
+.catalog-category-tab { font:600 11px/1.2 var(--font-ui);padding:3px 9px;border-radius:3px;border:1px solid transparent;cursor:pointer;background:#d7e0d3;color:#355342;transition:all .15s ease; }
+.catalog-category-tab:hover { background:#c6d5c1; }
+.catalog-category-tab.is-active { background:#2f4b50;color:#fff9e9;border-color:#223b3e; }
+.catalog-category-tab.ready-tab { background:#ccdcce;color:#274d30; }
+.catalog-category-tab.ready-tab:hover { background:#bcd2be; }
+.catalog-category-tab.ready-tab.is-active { background:#244d2c;color:#f3faee;border-color:#1c3d22; }
+.catalog-category-tab.active-tab { background:#ccdcce;color:#2f4e39; }
+.catalog-category-tab.active-tab:hover { background:#bcd2be; }
+.catalog-category-tab.active-tab.is-active { background:#254a48;color:#eef8f6;border-color:#1b3937; }
+.catalog-category-tab.sunset-tab { background:#e1dbcf;color:#615849; }
+.catalog-category-tab.sunset-tab:hover { background:#d4ccbe; }
+.catalog-category-tab.sunset-tab.is-active { background:#544c40;color:#fbf8f2;border-color:#3d362c; }
 .catalog-stat-tag { font-size:11px;color:#2f4e39;background:#ccdcce;padding:2px 8px;border-radius:3px;font-weight:600; }
 .catalog-expand-all-btn { font-size:11px;padding:3px 10px; }
+.catalog-section { margin-bottom:26px; }
+.catalog-section-header { display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:#e5eee0;border:1px solid #c9d8c3;border-left:4px solid #3c6e48;border-radius:4px;margin-bottom:14px;gap:10px;flex-wrap:wrap; }
+.catalog-section.catalog-section-active .catalog-section-header { border-left-color:#2b5855; }
+.catalog-section.catalog-section-sunset .catalog-section-header { background:#eae4db;border-color:#d4cdbf;border-left-color:#7d7567; }
+.catalog-section-title-wrap { display:flex;align-items:center;gap:9px;flex-wrap:wrap; }
+.catalog-section-tag { font:700 11px/1 var(--font-ui);text-transform:uppercase;letter-spacing:.08em; }
+.catalog-section-tag.ready { color:#26552e; }
+.catalog-section-tag.active { color:#1f4c49; }
+.catalog-section-tag.sunset { color:#5e5647; }
+.catalog-section-count { font:600 11px var(--font-mono);background:#d5e4d2;color:#285231;padding:2px 7px;border-radius:3px; }
+.catalog-section.catalog-section-active .catalog-section-count { background:#cde4de;color:#1e4c49; }
+.catalog-section.catalog-section-sunset .catalog-section-count { background:#dfd8cb;color:#574e40; }
+.catalog-section-meta { font-size:11px;color:#59715f; }
+.catalog-section.catalog-section-sunset .catalog-section-meta { color:#756d5e; }
+.catalog-section-header-actions { display:flex;align-items:center;gap:10px; }
+.catalog-section-collapse-btn { font-size:11px;font-weight:600;color:#4c4538;background:#e0dacd;border:1px solid #c2baa9;padding:3px 8px;border-radius:3px;cursor:pointer;line-height:1.2;transition:all .15s ease; }
+.catalog-section-collapse-btn:hover { background:#d4cdbf;border-color:#ada392; }
+.catalog-empty-category { padding:24px 20px;text-align:center;color:#617568;background:#f3f6ee;border:1px dashed #c8d5c4;border-radius:4px;margin-bottom:18px;font-size:12px; }
 .product-sheet { margin-bottom:28px; }
 .product-sheet.is-collapsed { margin-bottom:10px;background:#f6f9f3;border:1px solid #d4e0cf;border-radius:4px;padding:10px 14px; }
 .product-sheet.is-collapsed>header { margin-bottom:0; }

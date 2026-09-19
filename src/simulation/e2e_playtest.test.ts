@@ -74,7 +74,7 @@ describe("End-to-End Playtest Verification", () => {
       state = applyCommand(state, { type: "tickDay" })!;
     }
     expect(state.products[0]?.status).toBe("ready");
-    expect(state.clock.pauseReasons).toContain("productReady");
+    expect(state.clock.pauseReasons).not.toContain("productReady");
 
     // Strategic Model Check on Ready Product (metamind-34b vs claudius-instant)
     const instant = modelById["claudius-instant"]!;

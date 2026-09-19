@@ -4,7 +4,7 @@ import { events } from "../data/events";
 import { NEWS_CHAINS, type NewsChain, type NewsStage } from "../data/news";
 import { modelById, models } from "../data/models";
 import { reconcileTutorial, recordTutorialEvent, updateUnlocks } from "./tutorial";
-import { isMinorFee, setPause } from "./pause";
+import { isLifeOrDeathEvent, isMinorFee, setPause } from "./pause";
 import { specialProjects } from "../data/specialProjects";
 import { techById } from "../data/technologies";
 import { applyMarketEntryResults } from "../market/marketMap";
@@ -47,7 +47,6 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
         p.points.research += 12;
       }
     }
-    setPause(state, "productReady", true);
     state.news.unshift({
       id: uid(r, "news"),
       at: { ...state.clock.date },
@@ -55,7 +54,7 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
       body: "Development finished. Launch points can be spent and the product can enter the market.",
       tone: "hype",
       createdTick: state.clock.tick,
-      impact: "Open Products to configure the launch. Simulation paused for launch setup.",
+      impact: "Open Products to configure the launch.",
       read: false,
       source: "Studio",
       category: "internal",
@@ -344,8 +343,14 @@ function maybeEvents(state: GameState, r: Rng): void {
   }
   if (isMinorFee(mail, state) || isMinorFee(mail)) {
     mail.autoChargeDays = BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS;
+    mail.deadlineDays = BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS;
     if (mail.impact) {
       mail.impact += ` · Auto-charges in ${mail.autoChargeDays} days if not contested.`;
+    }
+  } else if (mail.requiresResponse) {
+    mail.deadlineDays = BALANCE.DECISION_EVENT_DEADLINE_DAYS;
+    if (mail.impact) {
+      mail.impact += ` · Response deadline: ${mail.deadlineDays} days.`;
     }
   }
   if (!mail.recipient) {
@@ -376,6 +381,7 @@ function maybeEvents(state: GameState, r: Rng): void {
       skillNeed: ev.crisis.need,
       skillVal: 0,
       dueWeeks: ev.crisis.dueWeeks,
+      dueDays: ev.crisis.dueWeeks * 7,
       successEffects: scaleEffects(state, ev.crisis.success, severity, r),
       failureEffects: scaleEffects(state, ev.crisis.failure, severity, r),
       successBody: ev.crisis.successBody,
@@ -496,57 +502,160 @@ function checkEndings(state: GameState): void {
   setPause(state, "ended", true);
 }
 
-export function processMinorFeeAutoCharges(state: GameState, r: Rng): void {
+export function processEventDeadlines(state: GameState, r: Rng): void {
   for (const mail of state.inbox) {
     if (!mail.requiresResponse || mail.autoCharged) continue;
-    if (!isMinorFee(mail, state) && !isMinorFee(mail) && !mail.autoChargeDays) continue;
+    if (
+      mail.eventId === "acquisition-inbound" ||
+      mail.from === "macrosoft" ||
+      mail.choices?.some((c) => c.effects?.some((e) => e.type === "ending" && e.value === "acquisition"))
+    ) {
+      continue;
+    }
 
-    const chargeDays = mail.autoChargeDays ?? BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS;
+    const isFee = isMinorFee(mail, state) || isMinorFee(mail) || Boolean(mail.autoChargeDays);
+    const deadlineDays =
+      mail.deadlineDays ??
+      mail.autoChargeDays ??
+      (isFee ? BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS : BALANCE.DECISION_EVENT_DEADLINE_DAYS);
     if (mail.createdTick === undefined) {
       mail.createdTick = state.clock.tick;
     }
     const elapsed = state.clock.tick - mail.createdTick;
-    if (elapsed >= chargeDays) {
-      const payChoice =
-        mail.choices?.find(
-          (c) =>
-            c.id === "pay" ||
-            (c.label.toLowerCase().startsWith("pay") &&
-              c.effects?.some((e) => e.type === "cash" && Number(e.value) < 0))
-        ) ?? mail.choices?.[0];
+    if (elapsed >= deadlineDays) {
+      if (isFee) {
+        const payChoice =
+          mail.choices?.find(
+            (c) =>
+              c.id === "pay" ||
+              (c.label.toLowerCase().startsWith("pay") &&
+                c.effects?.some((e) => e.type === "cash" && Number(e.value) < 0))
+          ) ?? mail.choices?.[0];
 
-      if (payChoice) {
-        if (payChoice.effects) {
-          applyEffects(state, payChoice.effects);
+        if (payChoice) {
+          if (payChoice.effects) {
+            applyEffects(state, payChoice.effects);
+          }
+          mail.requiresResponse = false;
+          mail.choices = undefined;
+          mail.autoCharged = true;
+
+          const cashEffect = payChoice.effects?.find(
+            (e) => e.type === "cash" && typeof e.value === "number"
+          );
+          const chargedAmount = cashEffect ? Math.abs(Number(cashEffect.value)) : 0;
+          const formattedAmount = chargedAmount > 0 ? `$${chargedAmount.toLocaleString()}` : "fee";
+
+          mail.impact = `Auto-charged ${formattedAmount} after ${deadlineDays} days without response.`;
+          mail.body = `${mail.body}\n\n[Auto-Charged: ${formattedAmount} debited automatically after ${deadlineDays} days with no contest or payment.]`;
+
+          state.news.unshift({
+            id: uid(r, "news"),
+            at: { ...state.clock.date },
+            headline: `Auto-debit: ${mail.subject}`,
+            body: `An unaddressed invoice from ${mail.from} (${formattedAmount}) reached payment terms (${deadlineDays} days) and was debited automatically.`,
+            tone: "neutral",
+            createdTick: state.clock.tick,
+            impact: `Cash debited: -${formattedAmount}`,
+            read: false,
+            source: "Accounting",
+            category: "ledger",
+          });
+        }
+      } else if (mail.choices && mail.choices.length > 0) {
+        const fallbackChoice =
+          mail.choices.find(
+            (c) =>
+              c.id === "let-go" ||
+              c.id === "quiet" ||
+              c.id === "accept-churn" ||
+              c.id === "ship-without-it" ||
+              c.id === "no" ||
+              c.id === "refuse" ||
+              c.id === "fight"
+          ) ?? mail.choices[mail.choices.length - 1]!;
+
+        if (fallbackChoice.effects) {
+          applyEffects(state, fallbackChoice.effects);
         }
         mail.requiresResponse = false;
         mail.choices = undefined;
         mail.autoCharged = true;
 
-        const cashEffect = payChoice.effects?.find(
-          (e) => e.type === "cash" && typeof e.value === "number"
-        );
-        const chargedAmount = cashEffect ? Math.abs(Number(cashEffect.value)) : 0;
-        const formattedAmount = chargedAmount > 0 ? `$${chargedAmount.toLocaleString()}` : "fee";
-
-        mail.impact = `Auto-charged ${formattedAmount} after ${chargeDays} days without response.`;
-        mail.body = `${mail.body}\n\n[Auto-Charged: ${formattedAmount} debited automatically after ${chargeDays} days with no contest or payment.]`;
+        mail.impact = `Decision deadline expired after ${deadlineDays} days. Default action applied: ${fallbackChoice.label}.`;
+        mail.body = `${mail.body}\n\n[Decision Deadline Expired: ${deadlineDays} days passed with no response. Default action applied: ${fallbackChoice.label}.]`;
 
         state.news.unshift({
           id: uid(r, "news"),
           at: { ...state.clock.date },
-          headline: `Auto-debit: ${mail.subject}`,
-          body: `An unaddressed invoice from ${mail.from} (${formattedAmount}) reached payment terms (${chargeDays} days) and was debited automatically.`,
+          headline: `Decision Expired: ${mail.subject}`,
+          body: `The decision window closed with no response. Default action was applied: ${fallbackChoice.label}.`,
           tone: "neutral",
           createdTick: state.clock.tick,
-          impact: `Cash debited: -${formattedAmount}`,
+          impact: fallbackChoice.consequences?.join(" · ") ?? "Decision window closed.",
           read: false,
-          source: "Accounting",
-          category: "ledger",
+          source: mail.from,
+          category: "internal",
         });
       }
     }
   }
+}
+
+export function processMinorFeeAutoCharges(state: GameState, r: Rng): void {
+  processEventDeadlines(state, r);
+}
+
+export function checkDeadlineAutopause(state: GameState): boolean {
+  if (!state.settings.pauseOnEvents || state.pendingMentor || state.marketBattle || state.marketResult) {
+    return false;
+  }
+
+  // 1. Check inbox life-or-death decision events
+  for (const mail of state.inbox) {
+    if (!mail.requiresResponse || mail.autoCharged || mail.deadlinePaused) continue;
+    if (!isLifeOrDeathEvent(mail, state)) continue;
+
+    const deadlineDays =
+      mail.deadlineDays ??
+      mail.autoChargeDays ??
+      (isMinorFee(mail, state) || isMinorFee(mail)
+        ? BALANCE.MINOR_FEE_AUTO_CHARGE_DAYS
+        : BALANCE.DECISION_EVENT_DEADLINE_DAYS);
+    const createdTick = mail.createdTick ?? state.clock.tick;
+    const elapsed = state.clock.tick - createdTick;
+    const daysRemaining = deadlineDays - elapsed;
+
+    if (daysRemaining === 1) {
+      mail.deadlinePaused = true;
+      if (!state.clock.prePauseSpeed) {
+        state.clock.prePauseSpeed = state.clock.speed > 0 ? state.clock.speed : 1;
+      }
+      setPause(state, "event", true);
+      state.clock.reasonPaused = `Critical event deadline tomorrow: ${mail.subject}`;
+      return true;
+    }
+  }
+
+  // 2. Check active crisis tasks
+  for (const task of state.tasks) {
+    if (task.type !== "crisis" || task.deadlinePaused) continue;
+    const isResolved = (task.skillVal ?? 0) >= (task.skillNeed ?? 1);
+    if (isResolved) continue;
+
+    const daysRemaining = task.dueDays ?? ((task.dueWeeks ?? 1) * 7);
+    if (daysRemaining === 1) {
+      task.deadlinePaused = true;
+      if (!state.clock.prePauseSpeed) {
+        state.clock.prePauseSpeed = state.clock.speed > 0 ? state.clock.speed : 1;
+      }
+      setPause(state, "event", true);
+      state.clock.reasonPaused = `Crisis deadline tomorrow: ${task.name}`;
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function tickDay(state: GameState): GameState {
@@ -557,7 +666,6 @@ export function tickDay(state: GameState): GameState {
     draft.clock.tick += 1;
     tickSocial(draft, r);
     releaseExpiredProviderOutages(draft, r);
-    processMinorFeeAutoCharges(draft, r);
     draft.hiring.cooldownDays = Math.max(0, draft.hiring.cooldownDays - 1);
     draft.funding.cooldownDays = Math.max(0, draft.funding.cooldownDays - 1);
 
@@ -565,12 +673,18 @@ export function tickDay(state: GameState): GameState {
     consumeTrainingCompute(draft, allocation);
     for (const task of [...draft.tasks]) {
       const done = developTask(draft, task, allocation);
-      if (task.type === "crisis" && isWeekStart(draft.clock.date)) {
-        task.dueWeeks = (task.dueWeeks ?? 1) - 1;
-        task.progress += 1;
+      if (task.type === "crisis") {
+        task.dueDays = (task.dueDays ?? ((task.dueWeeks ?? 1) * 7)) - 1;
+        task.dueWeeks = Math.max(0, Math.ceil(task.dueDays / 7));
+        if (isWeekStart(draft.clock.date)) {
+          task.progress += 1;
+        }
       }
       if (done) finishTask(draft, task, r);
     }
+
+    processEventDeadlines(draft, r);
+    checkDeadlineAutopause(draft);
 
     for (const w of draft.employees) {
       updateBurnout(draft, r, w);

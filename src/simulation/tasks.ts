@@ -81,7 +81,7 @@ export function developTask(state: GameState, task: Task, allocation?: ReturnTyp
   }
 
   if (task.type === "crisis") {
-    return (task.skillVal ?? 0) >= (task.skillNeed ?? 1) || (task.dueWeeks ?? 99) <= 0;
+    return (task.skillVal ?? 0) >= (task.skillNeed ?? 1) || (task.dueDays !== undefined ? task.dueDays <= 0 : (task.dueWeeks ?? 99) <= 0);
   }
   return task.progress >= task.requiredProgress;
 }

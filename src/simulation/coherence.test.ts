@@ -24,7 +24,7 @@ function startNamedProduct(state: GameState, a: string, b: string): GameState {
 }
 
 describe("product completion pause", () => {
-  it("sets productReady pause when a product finishes, and clears it on market launch", () => {
+  it("does not pause when a product finishes, and enters market on launch", () => {
     let g = boot(12);
     g = startNamedProduct(g, "chat", "writing");
     const task = g.tasks[0]!;
@@ -33,8 +33,7 @@ describe("product completion pause", () => {
       g = applyCommand(g, { type: "tickDay" })!;
     }
     expect(g.products[0]?.status).toBe("ready");
-    expect(g.clock.pauseReasons).toContain("productReady");
-    expect(g.clock.paused).toBe(true);
+    expect(g.clock.pauseReasons).not.toContain("productReady");
 
     g = applyCommand(g, { type: "enterMarket", productId: g.products[0]!.id })!;
     expect(g.clock.pauseReasons).not.toContain("productReady");
