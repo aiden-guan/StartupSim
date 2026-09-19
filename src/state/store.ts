@@ -10,7 +10,8 @@ import { currentTutorialSlide } from "../simulation/tutorial";
 import type { TutorialAction } from "../data/onboarding";
 import { migrateGameState } from "./migrate";
 import { writeSave } from "./save";
-import { audio } from "../audio/Audio";
+import { deriveFeedbackEvents } from "../feedback/feedbackEvents";
+import { presentFeedback } from "../feedback/FeedbackDirector";
 import { isLifeOrDeathEvent } from "../simulation/pause";
 import { achievementById, type AchievementDef } from "../data/achievements";
 import { saveLifetimeAchievement } from "../simulation/achievements";
@@ -239,22 +240,7 @@ export const useGame = create<AppState>((set, get) => ({
       }
     }
     set(patch);
-    if (patch.recentAchievement) {
-      audio.play("complete", next?.settings);
-    }
-    if (next && prev && next.products.some((p) => p.status === "ready") && !prev.products.some((p) => p.status === "ready")) {
-      audio.play("complete", next.settings);
-    }
-    if (next && prev && next.stats.researchCompleted > prev.stats.researchCompleted) audio.play("success", next.settings);
-    if (next && prev && next.employees.some(e=>e.burnoutDays > 0 && !prev.employees.find(p=>p.id===e.id)?.burnoutDays)) audio.play("warn", next.settings);
-    if (next && (cmd.type === "assign" || cmd.type === "unassign" || cmd.type === "startProduct")) audio.play("click", next.settings);
-    if (next && prev && cmd.type === "hire") audio.play(next.employees.length > prev.employees.length ? "success" : "warn", next.settings);
-    if (next && (cmd.type === "upgradeOffice" || (cmd.type === "debug" && cmd.action === "office"))) audio.play("notify", next.settings);
-    if (next && (cmd.type === "fire" || cmd.type === "dilute")) audio.play("warn", next.settings);
-    if (next && cmd.type === "acceptOffer") audio.play("success", next.settings);
-    if (next && prev && next.inbox.filter((m) => !m.read).length > prev.inbox.filter((m) => !m.read).length) {
-      audio.play("notify", next.settings);
-    }
+    if (next) presentFeedback(deriveFeedbackEvents(prev, next, cmd), next.settings);
     if (
       next &&
       prev &&

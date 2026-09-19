@@ -1,4 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { overviewShot, useCameraDirector } from "../../game3d/camera/cameraStore";
+import { subscribeFeedback } from "../../feedback/FeedbackDirector";
+import type { FeedbackEvent } from "../../feedback/feedbackEvents";
+import { feedbackMotionPolicy } from "../../feedback/feedbackPolicy";
 import { useGame } from "../../state/store";
 
 export function FeelLayer() {
@@ -8,6 +12,42 @@ export function FeelLayer() {
   const setOfficeCaption = useGame((s) => s.setOfficeCaption);
   const setDrawer = useGame((s) => s.setDrawer);
   const isPaused = useGame((s) => s.game?.clock.paused ?? false);
+  const reducedMotion = useGame((s) => s.game?.settings.reducedMotion ?? false);
+  const graphics = useGame((s) => s.game?.settings.graphics ?? "high");
+  const [presentation, setPresentation] = useState<FeedbackEvent | null>(null);
+
+  useEffect(() => subscribeFeedback((event) => {
+    if (event.tier < 3 || event.type === "office.upgraded" || event.type === "crisis.started") return;
+    if (!event.label) return;
+    setPresentation((current) => current && current.tier > event.tier ? current : event);
+  }), []);
+
+  useEffect(() => {
+    if (!presentation) return;
+    const timer = window.setTimeout(() => setPresentation(null), presentation.tier >= 5 ? 2300 : 1650);
+    return () => window.clearTimeout(timer);
+  }, [presentation]);
+
+  useEffect(() => subscribeFeedback((event) => {
+    const policy = feedbackMotionPolicy(event, { reducedMotion, graphics });
+    if (!policy.camera) return;
+    const game = useGame.getState().game;
+    if (!game) return;
+    // Wait until the new office level has committed its normal camera goal.
+    window.requestAnimationFrame(() => {
+      if (useGame.getState().screen !== "playing") return;
+      const director = useCameraDirector.getState();
+      const original = director.goal;
+      const orbit = director.orbitEnabled;
+      const shot = overviewShot(game.company.officeLevel);
+      director.setGoal({ ...shot, position: shot.position.map((axis) => axis * 1.12) as [number, number, number], duration: .85, mode: "FOCUS" });
+      const shown = useCameraDirector.getState().goal;
+      window.setTimeout(() => {
+        if (useCameraDirector.getState().goal !== shown) return;
+        useCameraDirector.setState({ goal: { ...original, duration: .8 }, orbitEnabled: orbit });
+      }, policy.durationMs);
+    });
+  }), [reducedMotion, graphics]);
 
   useEffect(() => {
     if (!eventFrame || (eventFrame.surface !== "gameplay" && eventFrame.surface !== "social")) return;
@@ -113,11 +153,17 @@ export function FeelLayer() {
         </div>
       ) : null}
       {officeCaption ? (
-        <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-[#1b2230]/45">
+        <div className="office-reveal pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-[#1b2230]/25">
           <div className="text-center text-paper">
             <div className="font-mono text-[11px] uppercase tracking-[0.4em] text-gold">Office</div>
             <div className="mt-2 font-display text-4xl">{officeCaption}</div>
           </div>
+        </div>
+      ) : null}
+      {presentation && !officeCaption && !eventFrame?.requiresResponse ? (
+        <div key={`${presentation.type}-${presentation.id ?? presentation.label}`} className={`feel-presentation feel-tier-${presentation.tier}`} role="status" aria-live="polite">
+          <span>{presentation.type === "milestone" ? "Company milestone" : presentation.type === "product.ready" ? "Product ready" : presentation.type === "funding.closed" ? "Term sheet signed" : "Compounding"}</span>
+          <strong>{presentation.label}</strong>
         </div>
       ) : null}
     </>

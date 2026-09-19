@@ -9,6 +9,7 @@ import type { GameState } from "../simulation/types";
 import { useGame } from "../state/store";
 import { money } from "./format";
 import { GameButton } from "./shared/controls";
+import { useAnimatedMetric } from "./feel/useAnimatedMetric";
 
 const TIER_CONFIG: Record<StartupTierId, { color: string; bg: string; border: string }> = {
   hectocorn: { color: "text-amber-200", bg: "bg-amber-400/15", border: "border-amber-300/70" },
@@ -36,6 +37,7 @@ export function EndScreen({ game }: { game: GameState }) {
   const bestMonth = [...game.history].sort((a, b) => b.revenue - a.revenue)[0];
   const operatingYears = Math.max(1, game.clock.date.year - 2022);
   const founderOwnership = Math.max(0, game.company.ownership.founder * 100);
+  const animatedRevenue = useAnimatedMetric(breakdown.totalScore, game.settings.reducedMotion, 1, 250, true);
 
   // Initial callsign derived from founder name
   const defaultCallsign = game.founder.name
@@ -70,7 +72,7 @@ export function EndScreen({ game }: { game: GameState }) {
   }
 
   return (
-    <div className="panel-scroll h-full min-h-0 overflow-y-auto overscroll-contain bg-[#efe8dc] text-[#1b2230]">
+    <div className={`end-screen panel-scroll h-full min-h-0 overflow-y-auto overscroll-contain bg-[#efe8dc] text-[#1b2230] ${game.settings.reducedMotion ? "reduced-motion" : ""}`}>
       <div className="mx-auto max-w-3xl px-6 py-14 pb-24">
         {/* Postmortem Eyebrow & Ending Title */}
         <div>
@@ -92,7 +94,7 @@ export function EndScreen({ game }: { game: GameState }) {
               </span>
               <div className="mt-1 flex items-baseline gap-3">
                 <span className="font-mono text-4xl font-extrabold tracking-tight text-[#ffc58a] sm:text-5xl">
-                  {money(breakdown.totalScore)}
+                  {money(animatedRevenue)}
                 </span>
               </div>
               <p className="mt-2 max-w-md text-xs leading-relaxed text-[#9aa3b2]">

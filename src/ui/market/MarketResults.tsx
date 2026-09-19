@@ -2,6 +2,12 @@ import type { GameState } from "../../simulation/types";
 import { useGame } from "../../state/store";
 import { money, pct } from "../format";
 import { GameIcon } from "../shared/Icons";
+import { useAnimatedMetric } from "../feel/useAnimatedMetric";
+
+function ResultNumber({ value, format, delay, reducedMotion }: { value: number; format: (value: number) => string; delay: number; reducedMotion: boolean }) {
+  const display = useAnimatedMetric(value, reducedMotion, .01, delay, true);
+  return <>{format(display)}</>;
+}
 
 export function MarketResults({ game }: { game: GameState }) {
   const r = game.marketResult!;
@@ -31,7 +37,7 @@ export function MarketResults({ game }: { game: GameState }) {
       : "WEAK ENTRY";
 
   return (
-    <main className="market-results">
+    <main className={`market-results ${game.settings.reducedMotion ? "reduced-motion" : ""}`}>
       <article>
         <span className="eyebrow">
           Launch report / {game.company.name}
@@ -86,7 +92,7 @@ export function MarketResults({ game }: { game: GameState }) {
 
         {/* Big penetration share number */}
         <div className="result-share">
-          <strong>{pct(r.share)}</strong>
+          <strong aria-label={pct(r.share)}><ResultNumber value={r.share} format={pct} delay={340} reducedMotion={game.settings.reducedMotion} /></strong>
           <span>Market Penetration · Rival {r.rivalName ?? "Competitor"}: {pct(r.rivalShare ?? 0)}</span>
         </div>
 
@@ -98,11 +104,15 @@ export function MarketResults({ game }: { game: GameState }) {
           </div>
           <div>
             <span>Customers</span>
-            <strong>{Math.round(r.users).toLocaleString()}</strong>
+            <strong aria-label={Math.round(r.users).toLocaleString()}><ResultNumber value={r.users} format={(value) => Math.round(value).toLocaleString()} delay={80} reducedMotion={game.settings.reducedMotion} /></strong>
           </div>
           <div>
             <span>Revenue / week</span>
-            <strong>{money(r.revenue)}</strong>
+            <strong aria-label={money(r.revenue)}><ResultNumber value={r.revenue} format={money} delay={210} reducedMotion={game.settings.reducedMotion} /></strong>
+          </div>
+          <div>
+            <span>Company valuation</span>
+            <strong aria-label={money(game.company.valuation)}><ResultNumber value={game.company.valuation} format={money} delay={470} reducedMotion={game.settings.reducedMotion} /></strong>
           </div>
           <div>
             <span>Inference / week</span>

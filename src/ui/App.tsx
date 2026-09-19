@@ -23,6 +23,7 @@ import { RevealCaption } from "./onboarding/RevealCaption";
 import { SetupOverlay } from "./onboarding/SetupOverlay";
 import { TitleOverlay } from "./onboarding/TitleOverlay";
 import { audio } from "../audio/Audio";
+import { selectMusicState } from "../audio/musicState";
 import { startMarketSession, applyMarketEntryResults } from "../market/marketMap";
 import { applyCommand } from "../simulation/commands";
 import { createNewGame } from "../simulation/newGame";
@@ -66,18 +67,33 @@ function useTutorialCamera() {
   }, [pending, slideId, officeLevel]);
 }
 
-function useAmbient() {
+function useAudioScene() {
   const screen = useGame((s) => s.screen);
-  const level = useGame((s) => s.game?.company.officeLevel ?? 0);
+  const game = useGame((s) => s.game);
+  const level = game?.company.officeLevel ?? 0;
+  const valuation = Math.max(game?.company.valuation ?? 0, game?.stats.peakValuation ?? 0);
+  const critical = useGame((s) => Boolean(s.eventFrame?.critical));
   const settings = useGame((s) => s.game?.settings);
-  const mute = settings?.mute;
-  const master = settings?.masterVolume;
-  const amb = settings?.ambientVolume;
   useEffect(() => {
-    const kind = screen === "title" || level <= 0 ? "apartment" : level >= 3 ? "lab" : "office";
-    audio.setAmbient(kind, settings ?? { mute: false, masterVolume: 0.7, ambientVolume: 0.28 });
-    return () => audio.setAmbient(null);
-  }, [screen, level, mute, master, amb, settings]);
+    audio.configure(settings);
+  }, [settings?.mute, settings?.masterVolume, settings?.sfxVolume, settings?.musicVolume, settings?.ambientVolume]);
+  useEffect(() => {
+    audio.setMusicState(selectMusicState(game, screen, critical));
+    audio.setAmbient(screen === "market" || screen === "ended" ? null : level <= 0 ? "apartment" : level >= 3 ? "lab" : "office");
+  }, [screen, level, valuation, critical, game?.endingId]);
+  useEffect(() => {
+    const unlock = () => audio.unlock();
+    const visibility = () => document.hidden ? audio.pause() : audio.resume();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      document.removeEventListener("visibilitychange", visibility);
+      audio.setAmbient(null);
+    };
+  }, []);
 }
 
 export function App() {
@@ -92,7 +108,7 @@ export function App() {
   const dismissLaunchAllSummary = useGame((s) => s.dismissLaunchAllSummary);
   useSimClock();
   useTutorialCamera();
-  useAmbient();
+  useAudioScene();
   const drawer = useGame(s=>s.drawer);
   const slide = game ? currentTutorialSlide(game) : null;
   useEffect(()=>{
@@ -241,7 +257,7 @@ export function App() {
 
   return (
     <div
-      className="relative h-full bg-[#cbb9a1]"
+      className={`relative h-full bg-[#cbb9a1] ${game?.settings.reducedMotion ? "game-reduced-motion" : ""}`}
       style={{ transform: uiScale === 1 ? undefined : `scale(${uiScale})`, transformOrigin: "top left", width: uiScale === 1 ? undefined : `${100 / uiScale}%`, height: uiScale === 1 ? undefined : `${100 / uiScale}%` }}
     >
       <WorldCanvas />

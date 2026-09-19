@@ -115,7 +115,7 @@ function Scene() {
         <ExteriorEnvironment level={level} locationId={view?.activeLocationId ?? null} transitTier={view?.transitTier ?? -1} reducedMotion={reduced} quality={quality} />
       )}
       {screen === 'playing' && view&&<DynamicEnvironment state={view.environment} quality={quality}/>}
-      {screen === 'playing' && showcasedProduct && <ProductShowcase product={showcasedProduct} level={level} onOpen={() => setDrawer('products')} />}
+      {screen === 'playing' && showcasedProduct && <ProductShowcase product={showcasedProduct} level={level} reducedMotion={reduced} quality={quality} onOpen={() => setDrawer('products')} />}
       {screen === "title" ? (
         <>
           <group position={[-2.35, 0, -1.35]}>

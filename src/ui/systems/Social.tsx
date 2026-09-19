@@ -3,6 +3,12 @@ import { ACTOR_BY_ID } from "../../data/social";
 import { formatDate } from "../../simulation/date";
 import type { GameState, SocialDm, SocialPost } from "../../simulation/types";
 import { useGame } from "../../state/store";
+import { useAnimatedMetric } from "../feel/useAnimatedMetric";
+
+function SocialCount({ value, reducedMotion }: { value: number; reducedMotion: boolean }) {
+  const display = useAnimatedMetric(value, reducedMotion, 10);
+  return <span aria-label={value.toLocaleString()}>{Math.round(display).toLocaleString()}</span>;
+}
 
 export function SocialPanel({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
@@ -154,11 +160,11 @@ export function SocialPanel({ game }: { game: GameState }) {
                         title="Like post"
                       >
                         <span className="text-[#c45b38]">♥</span>
-                        <span>{post.likes ?? 0}</span>
+                        <SocialCount value={post.likes ?? 0} reducedMotion={game.settings.reducedMotion} />
                       </button>
                       <span className="inline-flex items-center gap-1 text-[#657662]">
                         <span>🔁</span>
-                        <span>{post.reposts ?? 0}</span>
+                        <SocialCount value={post.reposts ?? 0} reducedMotion={game.settings.reducedMotion} />
                       </span>
                     </div>
                     {post.milestoneId && (

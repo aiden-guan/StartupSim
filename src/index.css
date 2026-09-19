@@ -1296,5 +1296,68 @@ button:active:not(:disabled) { transform:translateY(1px); }
   .achievement-grid { grid-template-columns:1fr; }
   .achievement-sheet-footer { align-items:flex-start;flex-direction:column;padding:12px 18px; }
   .achievement-footer-close { width:100%; }
-  .achievement-toast { top:10px; }
+.achievement-toast { top:10px; }
+}
+
+/* Game feel: small physical responses, with one-shot rewards for state changes. */
+.game-btn,.primary-action,.game-dock button,.worker-assignment,.catalog-category-tab,.choice-row button {
+  transition: transform 140ms var(--ease-game), filter 140ms var(--ease-game), background-color 140ms var(--ease-game), border-color 140ms var(--ease-game);
+}
+.game-btn:not(:disabled):active,.primary-action:not(:disabled):active,.game-dock button:not(:disabled):active,.worker-assignment:not(:disabled):active,.catalog-category-tab:not(:disabled):active,.choice-row button:not(:disabled):active {
+  transform: scale(.985);filter:brightness(.96);
+}
+.game-btn:not(:disabled):hover,.primary-action:not(:disabled):hover,.worker-assignment:not(:disabled):hover { filter:brightness(1.045); }
+.product-sheet.is-ready { animation:product-resolve .65s var(--ease-game) both; }
+.product-sheet.is-ready .ready-stamp { animation:ready-stamp-in .38s var(--ease-game) .17s both; }
+.product-sheet.launch-preparing { position:relative;box-shadow:0 0 0 2px #be794a,0 8px 30px #2c43332a; }
+.product-sheet.launch-preparing::after { content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#bd7144;transform-origin:left;animation:launch-fill .95s linear both; }
+.launch-skip { font:10px var(--font-mono);text-transform:uppercase;letter-spacing:.12em;color:#6b785e;text-decoration:underline;text-underline-offset:3px; }
+.progress-row.is-ready .progress-track i { animation:ready-bar .48s var(--ease-game) both; }
+.research-node.researched { transition:background-color .35s,border-color .35s,box-shadow .35s; }
+.research-node.researched:not(.selected) { box-shadow:0 0 0 1px #8faf8240,0 4px 12px #2d493620; }
+.research-node.just-unlocked { animation:research-unlock .75s var(--ease-game) both; }
+.research-edge.just-unlocked { stroke-dasharray:320;animation:research-edge-draw .7s ease-out both; }
+.hire-result:not(.failed) { animation:hire-stamp .42s var(--ease-game) both; }
+.funding-receipt { margin:0 0 16px;padding:16px 18px;background:#e6eadb;border-left:4px solid #66856d;box-shadow:0 4px 14px #24383516;animation:hire-stamp .46s var(--ease-game) both; }
+.funding-receipt span { display:block;color:#5f795f;font:9px var(--font-mono);letter-spacing:.16em;text-transform:uppercase; }
+.funding-receipt strong { display:block;margin-top:4px;color:#29453b;font:23px var(--font-display); }
+.funding-receipt p { margin-top:5px;color:#4d6254;font-size:11px; }
+@keyframes hire-stamp { from { opacity:0;transform:translateY(5px); } 60% { opacity:1;transform:translateY(-1px); } to { opacity:1;transform:none; } }
+@keyframes research-unlock { 0% { filter:brightness(1); } 45% { filter:brightness(1.12);box-shadow:0 0 0 4px #93bd8a55; } 100% { filter:none; } }
+@keyframes research-edge-draw { from { stroke-dashoffset:320; } to { stroke-dashoffset:0; } }
+.feel-presentation { pointer-events:none;position:absolute;z-index:31;top:22%;left:50%;width:min(470px,calc(100vw - 40px));padding:20px 26px;background:#f4eee2f0;border-top:3px solid #b47b4a;box-shadow:0 10px 38px #1b223040;text-align:center;transform:translateX(-50%);animation:feel-presentation-in 1.65s var(--ease-game) both; }
+.feel-presentation span { display:block;color:#925e3f;font:9px var(--font-mono);letter-spacing:.2em;text-transform:uppercase; }
+.feel-presentation strong { display:block;margin-top:6px;color:#1b2230;font:26px/1.15 var(--font-display); }
+.feel-presentation.feel-tier-5 { border-top-color:#c9a227;animation-duration:2.3s; }
+.office-reveal { animation:office-reveal-in .7s var(--ease-game) both; }
+.office-reveal>div { padding:16px 28px;background:#1b2230aa;box-shadow:0 10px 35px #10192335; }
+.market-results .result-share,.market-results .result-ledger>div { animation:result-ledger-in .48s var(--ease-game) both; }
+.market-results .result-share { animation-delay:.12s; }
+.market-results .result-ledger>div:nth-child(1) { animation-delay:.3s; }
+.market-results .result-ledger>div:nth-child(2) { animation-delay:.42s; }
+.market-results .result-ledger>div:nth-child(3) { animation-delay:.54s; }
+.market-results .result-ledger>div:nth-child(4) { animation-delay:.66s; }
+.market-results .result-ledger>div:nth-child(n+5) { animation-delay:.75s; }
+.market-node-fill { transition:fill .42s var(--ease-game),stroke .42s var(--ease-game); }
+.market-capture-flow { pointer-events:none;stroke-dasharray:7 220;animation:market-flow .85s ease-out both; }
+@keyframes market-flow { from { opacity:0;stroke-dashoffset:80; } 24% { opacity:.9; } to { opacity:0;stroke-dashoffset:0; } }
+@keyframes product-resolve { from { border-color:#8aa489;filter:saturate(.85); } 55% { border-color:#6b9a78;filter:saturate(1.07); } to { filter:none; } }
+@keyframes ready-stamp-in { from { opacity:0;transform:translateY(4px) scale(1.05); } to { opacity:1;transform:none; } }
+@keyframes ready-bar { from { transform:scaleX(.94);transform-origin:left; } to { transform:scaleX(1);transform-origin:left; } }
+@keyframes launch-fill { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+@keyframes feel-presentation-in { 0% { opacity:0;transform:translate(-50%,9px) scale(.985); } 18%,75% { opacity:1;transform:translate(-50%,0) scale(1); } 100% { opacity:0;transform:translate(-50%,-5px) scale(1); } }
+@keyframes office-reveal-in { from { opacity:0; } to { opacity:1; } }
+@keyframes result-ledger-in { from { opacity:0;transform:translateY(7px); } to { opacity:1;transform:none; } }
+.game-reduced-motion .product-sheet.is-ready,.game-reduced-motion .product-sheet.is-ready .ready-stamp,.game-reduced-motion .progress-row.is-ready .progress-track i,.game-reduced-motion .feel-presentation,.game-reduced-motion .office-reveal,.game-reduced-motion .hire-result,.game-reduced-motion .funding-receipt,.game-reduced-motion .research-node.just-unlocked,.game-reduced-motion .research-edge.just-unlocked,.market-results.reduced-motion .result-share,.market-results.reduced-motion .result-ledger>div { animation:none; }
+.game-reduced-motion .game-btn:active,.game-reduced-motion .primary-action:active,.game-reduced-motion .game-dock button:active,.game-reduced-motion .worker-assignment:active { transform:none; }
+.market-mode.reduced-motion .market-capture-flow { display:none; }
+.end-screen>div>div:first-child { animation:ending-title-in .7s var(--ease-game) both; }
+.end-screen>div>div:nth-child(2) { animation:ending-ledger-in .85s var(--ease-game) .18s both; }
+@keyframes ending-title-in { from { opacity:0;transform:translateY(9px); } to { opacity:1;transform:none; } }
+@keyframes ending-ledger-in { from { opacity:0;transform:translateY(12px); } to { opacity:1;transform:none; } }
+.end-screen.reduced-motion>div>div:first-child,.end-screen.reduced-motion>div>div:nth-child(2) { animation:none; }
+@media (max-width:1550px) { .hud-growth-secondary { display:none; } }
+@media (max-width:1150px) { .hud-growth { display:none; } }
+@media (prefers-reduced-motion:reduce) {
+  .game-btn:active,.primary-action:active,.game-dock button:active,.worker-assignment:active,.catalog-category-tab:active,.choice-row button:active { transform:none !important; }
 }

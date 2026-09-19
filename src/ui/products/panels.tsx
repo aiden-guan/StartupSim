@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { audio } from '../../audio/Audio';
 import { BALANCE } from '../../config/balance';
 import { models, modelById } from '../../data/models';
 import { calculateModelImpact, calculateWeeklyProductInference } from '../../simulation/modelImpact';
@@ -498,6 +499,13 @@ function ProductCard({
   onEditNameChange,
   onSaveEdit,
 }: ProductCardProps) {
+  const [launching, setLaunching] = useState(false);
+  const launchPending = useRef(false);
+  const launchTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (launchTimer.current !== null) window.clearTimeout(launchTimer.current);
+    launchPending.current = false;
+  }, []);
   const costs = launchCosts(p);
   const ready = p.status === 'ready';
   const isLive = p.status === 'active' || p.status === 'mature' || p.status === 'declining';
@@ -509,8 +517,39 @@ function ProductCard({
     ? 'Sunset'
     : p.status;
 
+  const finishLaunch = () => {
+    if (!launchPending.current) return;
+    if (launchTimer.current !== null) window.clearTimeout(launchTimer.current);
+    launchTimer.current = null;
+    launchPending.current = false;
+    const current = useGame.getState().game;
+    setLaunching(false);
+    if (current && current.meta.runId === game.meta.runId && current.products.some(product => product.id === p.id && product.status === 'ready')) {
+      useGame.getState().dispatch({ type: 'enterMarket', productId: p.id });
+    }
+  };
+  useEffect(() => {
+    if (!launching) return;
+    const skip = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') finishLaunch();
+    };
+    window.addEventListener('keydown', skip);
+    return () => window.removeEventListener('keydown', skip);
+  }, [launching]);
+  const enterMarket = () => {
+    if (launchPending.current) return;
+    launchPending.current = true;
+    if (game.settings.reducedMotion) {
+      finishLaunch();
+      return;
+    }
+    setLaunching(true);
+    audio.playSfx('ui.select', game.settings);
+    launchTimer.current = window.setTimeout(finishLaunch, 950);
+  };
+
   return (
-    <article className={`product-sheet ${isExpanded ? 'is-expanded' : 'is-collapsed'}`}>
+    <article className={`product-sheet ${isExpanded ? 'is-expanded' : 'is-collapsed'} ${ready ? 'is-ready' : ''} ${launching ? 'launch-preparing' : ''}`}>
       <header data-tutorial={ready ? 'product-ready' : undefined}>
         <div className="product-emblem product-combo-emblem">
           <GameIcon name={p.combo[0]} />
@@ -924,7 +963,7 @@ function ProductCard({
                     }
                     data-tutorial="enter-market"
                     disabled={
-                      game.onboarding.tutorialEnabled &&
+                      launching || game.onboarding.tutorialEnabled &&
                       !game.company.seenMarket &&
                       currentTutorialSlide(game)?.id !== 'enter-market'
                     }
@@ -933,10 +972,11 @@ function ProductCard({
                         ? 'Finish configuring your first launch with the mentor'
                         : 'Play the market-entry mini-game manually'
                     }
-                    onClick={() => dispatch({ type: 'enterMarket', productId: p.id })}
+                    onClick={enterMarket}
                   >
-                    Enter market →
+                    {launching ? 'Preparing launch…' : 'Enter market →'}
                   </GameButton>
+                  {launching && <button type="button" className="launch-skip" onClick={finishLaunch}>Skip</button>}
                 </div>
               </footer>
             </>

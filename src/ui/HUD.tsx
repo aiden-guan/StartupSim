@@ -13,15 +13,19 @@ import { ProgressStack } from './ProgressStack';
 import { NewsFeed } from './NewsFeed';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { getLifetimeAchievements } from '../simulation/achievements';
+import { useAnimatedMetric } from './feel/useAnimatedMetric';
 
-function useAnimatedCash(value:number,reducedMotion:boolean,baseline:number) {
+function useAnimatedCash(value:number,reducedMotion:boolean,baseline:number,tick:number) {
   const previous=useRef(value),frame=useRef(0),[display,setDisplay]=useState(value);
+  const previousTick=useRef(tick);
   const [delta,setDelta]=useState<{value:number;level:'small'|'medium'|'large'}|null>(null);
   useEffect(()=>{
     const from=previous.current,change=value-from;
+    const passive=previousTick.current!==tick;
     previous.current=value;
+    previousTick.current=tick;
     window.cancelAnimationFrame(frame.current);
-    if (!Number.isFinite(change)||Math.abs(change)<1||reducedMotion) {setDisplay(value);setDelta(null);return;}
+    if (!Number.isFinite(change)||Math.abs(change)<Math.max(500,baseline*.02)||passive||reducedMotion) {setDisplay(value);setDelta(null);return;}
     const relative=Math.abs(change)/Math.max(1,Math.abs(from),baseline);
     const level=relative>.35||Math.abs(change)>=1_000_000?'large':relative>.08||Math.abs(change)>=25_000?'medium':'small';
     setDelta({value:change,level});
@@ -34,7 +38,7 @@ function useAnimatedCash(value:number,reducedMotion:boolean,baseline:number) {
     frame.current=window.requestAnimationFrame(animate);
     const timer=window.setTimeout(()=>setDelta(null),level==='large'?1800:1300);
     return()=>{window.cancelAnimationFrame(frame.current);window.clearTimeout(timer);};
-  },[value,reducedMotion,baseline]);
+  },[value,reducedMotion,baseline,tick]);
   return {display,delta};
 }
 
@@ -54,20 +58,29 @@ export function HUD({game}:{game:GameState}) {
   const unreadDms=game.social?.dms?.filter(d=>!d.read).length ?? 0;
   const totalCommsUnread=unreadMail + unreadDms;
   const run=runwayMonths(game);
+  const animatedRun = useAnimatedMetric(Math.min(99, run), game.settings.reducedMotion, .5);
   const ready=game.products.find(p=>p.status==='ready');
   const burnedCount=game.employees.filter(e=>e.burnoutDays>0).length;
   const lowRunway=run<2 && run>0 && game.company.cash<25000;
   const creditDepleted=inferenceCreditDepleted(game);
   const uncoveredInference=uncoveredInferenceDemand(game);
   const burn=monthlyBurn(game);
-  const cash=useAnimatedCash(game.company.cash,game.settings.reducedMotion,burn);
+  const cash=useAnimatedCash(game.company.cash,game.settings.reducedMotion,burn,game.clock.tick);
+  const valuation = useAnimatedMetric(game.company.valuation, game.settings.reducedMotion, 100_000);
+  const users = useAnimatedMetric(game.products.filter(p => p.status === 'active' || p.status === 'mature' || p.status === 'declining').reduce((sum, p) => sum + p.users, 0), game.settings.reducedMotion, 100);
+  const revenue = useAnimatedMetric(game.company.monthlyRevenue, game.settings.reducedMotion, 10_000);
+  const team = useAnimatedMetric(game.employees.length, game.settings.reducedMotion, 1);
   const unlockedAchievements = new Set([...(game.achievements ?? []), ...getLifetimeAchievements()]);
   const unlockedAchievementCount = ACHIEVEMENTS.filter((achievement) => unlockedAchievements.has(achievement.id)).length;
   return <div className="game-hud">
     <header className="hud-bar">
       <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className="brand-square" style={{background:game.company.brand.color}}/><span>{game.company.name}<small>{locations.find(l=>l.id===game.company.activeLocationId)?.name ?? (game.company.officeLevel===0?'Apartment':'Headquarters')}</small></span></button>
       <button className={`hud-stat cash-stat ${cash.delta?`cash-${cash.delta.level} ${cash.delta.value>0?'cash-up':'cash-down'}`:''}`} onClick={()=>setDrawer('finance')} title="Open the ledger for a cash-flow breakdown"><small>Cash</small><strong aria-label={money(game.company.cash)}>{money(cash.display)}</strong>{cash.delta&&<span className="cash-delta">{cash.delta.value>0?'+':''}{money(cash.delta.value)}</span>}</button>
-      <button className="hud-stat" onClick={()=>setDrawer('finance')} title={`Expected net burn ${money(burn)} per month`}><small>Runway</small><strong className={run<3?'warning':''}>{run>=99?'Profitable':`${run.toFixed(1)} months`}</strong></button>
+      <button className="hud-stat" onClick={()=>setDrawer('finance')} title={`Expected net burn ${money(burn)} per month`}><small>Runway</small><strong className={run<3?'warning':''}>{run>=99?'Profitable':`${animatedRun.toFixed(1)} months`}</strong></button>
+      <button className="hud-stat hud-growth" onClick={()=>setDrawer('finance')} title="Company valuation"><small>Valuation</small><strong aria-label={money(game.company.valuation)}>{money(valuation)}</strong></button>
+      <button className="hud-stat hud-growth hud-growth-secondary" onClick={()=>setDrawer('products')} title="Active product users"><small>Users</small><strong aria-label={Math.round(users).toLocaleString()}>{Math.round(users).toLocaleString()}</strong></button>
+      <button className="hud-stat hud-growth hud-growth-secondary" onClick={()=>setDrawer('finance')} title="Revenue this month"><small>Revenue / mo</small><strong aria-label={money(game.company.monthlyRevenue)}>{money(revenue)}</strong></button>
+      <button className="hud-stat hud-growth hud-growth-secondary" onClick={()=>setDrawer('people')} title="Team members"><small>Team</small><strong aria-label={`${game.employees.length} team members`}>{Math.round(team)}</strong></button>
       {burnedCount>0&&<button className="hud-alert-badge" onClick={()=>setDrawer('people')} title={`${burnedCount} team member${burnedCount>1?'s are':' is'} resting due to burnout`}>⚠ {burnedCount} Resting</button>}
       {creditDepleted&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('compute')} title={`API credits depleted · ${money(uncoveredInference)}/week of inference billed to cash`}>⚠ Credits depleted</button>}
       {lowRunway&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('finance')} title="Runway critically low · under 2 months">⚠ Low runway</button>}

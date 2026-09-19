@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { audio } from "../../audio/Audio";
 import { competitors as competitorDefs } from "../../data/competitors";
 import {
   getLegalMoves,
@@ -153,9 +152,6 @@ export function MarketView({ game }: { game: GameState }) {
     const after = useGame.getState().game;
     const result = after?.marketBattle?.lastResolution;
     const summary = result?.summary ?? `Unable to ${TACTICS[selectedTactic].label.toLowerCase()} this segment.`;
-    if (result?.dominated) audio.play("success", game.settings);
-    else if (result && !result.success) audio.play("warn", game.settings);
-    else audio.play("click", game.settings);
     setFeedback(summary);
     enqueueNewMoves(beforeIds);
   }
@@ -166,7 +162,6 @@ export function MarketView({ game }: { game: GameState }) {
     dispatch({ type: "marketEndTurn" });
     const after = useGame.getState().game?.marketBattle;
     const summary = after?.lastRivalMove?.summary ?? "Turn ended. Rival evaluated strategic counter-moves.";
-    audio.play("click", game.settings);
     setFeedback(summary);
     enqueueNewMoves(beforeIds);
   }
@@ -299,8 +294,8 @@ export function MarketView({ game }: { game: GameState }) {
               }
 
               return (
+                <g key={`${edge.a}-${edge.b}-${idx}`}>
                 <line
-                  key={`${edge.a}-${edge.b}-${idx}`}
                   x1={na.x}
                   y1={na.y}
                   x2={nb.x}
@@ -311,6 +306,10 @@ export function MarketView({ game }: { game: GameState }) {
                   strokeLinecap="round"
                   opacity={0.85}
                 />
+                {activeMove?.success && activeMove.side === "player" && (edge.a === activeMove.nodeId || edge.b === activeMove.nodeId) && (
+                  <line className="market-capture-flow" x1={na.x} y1={na.y} x2={nb.x} y2={nb.y} stroke="#d6eac9" strokeWidth="3" strokeLinecap="round" />
+                )}
+                </g>
               );
             })}
 
@@ -413,6 +412,7 @@ export function MarketView({ game }: { game: GameState }) {
 
                   {/* Main Node Background */}
                   <circle
+                    className="market-node-fill"
                     cx="0"
                     cy="0"
                     r={r}

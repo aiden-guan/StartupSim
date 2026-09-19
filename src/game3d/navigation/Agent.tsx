@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Character, type CharacterActivity } from '../characters/Character';
 import { useGame } from '../../state/store';
+import { subscribeFeedback } from '../../feedback/FeedbackDirector';
+import { feedbackMotionPolicy } from '../../feedback/feedbackPolicy';
 import type { OfficeLayout, ActivityPoint } from './layout';
 import { OfficeRuntime, chooseSession, isAtActivityPoint, stateForPoint, type AgentState } from './behavior';
 import { clearRenovationPosition, route } from './path';
@@ -51,6 +53,15 @@ export function EmployeeAgent({agent,layout,reducedMotion,onSelect,runtime}:{age
     else plan(true);
     priorTask.current=agent.taskType;
   },[agent.taskType,agent.burnoutDays]);
+  useEffect(() => subscribeFeedback((event) => {
+    const settings = useGame.getState().game?.settings;
+    if (!settings || agent.burnoutDays > 0 || !feedbackMotionPolicy(event, settings).characterReaction) return;
+    // A stable subset reacts, leaving the office readable and avoiding occupancy changes.
+    const hash = [...agent.id].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    if (hash % (event.tier >= 5 ? 2 : 3) !== 0) return;
+    celebrating.current = event.tier >= 5 ? 2.8 : 1.8;
+    setState('CELEBRATING');
+  }, true), [agent.id, agent.burnoutDays, reducedMotion]);
   useEffect(()=>{
     if(ref.current)ref.current.position.set(...clearRenovationPosition(ref.current.position.toArray(),layout));
     moveTo(point.current);
