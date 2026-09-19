@@ -181,7 +181,6 @@ export const useGame = create<AppState>((set, get) => ({
     }
     if (next && prev) {
       if (next.products.length > prev.products.length) patch.drawer = 'tasks';
-      if (cmd.type === 'startResearch' && next.tasks.length > prev.tasks.length) patch.drawer = 'tasks';
       const ready = next.products.find(p=>p.status==='ready' && prev.products.find(x=>x.id===p.id)?.status==='development');
       const tutorialSlide = currentTutorialSlide(next);
       if (ready && next.onboarding.tutorialEnabled && tutorialSlide?.workspace === 'products') {

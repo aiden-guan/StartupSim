@@ -86,4 +86,23 @@ describe("Product completion screen switching and onboarding", () => {
     expect(useGame.getState().game!.pendingMentor).toBe("designer");
     expect(useGame.getState().drawer).toBe("products");
   });
+
+  it("does not automatically switch drawer to tasks/product lab when purchasing research", () => {
+    const game = createNewGame({
+      founderName: "Sarah",
+      companyName: "HyperScale",
+      cofounderId: "dustin-moskovitz",
+      skipTutorial: true,
+    });
+    game.company.cash = 100_000;
+    game.unlocks.research = true;
+    useGame.getState().loadGame(game);
+    useGame.getState().setDrawer("research");
+    expect(useGame.getState().drawer).toBe("research");
+
+    useGame.getState().dispatch({ type: "startResearch", techId: "prompt-engineering" });
+
+    expect(useGame.getState().drawer).toBe("research");
+    expect(useGame.getState().game?.tasks.some((t) => t.techId === "prompt-engineering")).toBe(true);
+  });
 });
