@@ -43,11 +43,19 @@ export function MentorCard() {
             {identity.mentorName}
           </div>
           <p className="mt-2 font-display text-[17px] leading-snug">{slide.text}</p>
-          <div className="mentor-card-footer mt-3 flex items-center justify-between gap-3">
-            <div className="mentor-progress-label" aria-label={`Step ${index + 1} of ${step.slides.length}`}>
-              {index + 1} / {step.slides.length}
+          <div className="mentor-card-footer mt-3">
+            <div className="mentor-footer-meta">
+              <div className="mentor-progress-label" aria-label={`Step ${index + 1} of ${step.slides.length}`}>
+                {index + 1} / {step.slides.length}
+              </div>
+              {!showNext ? (
+                <span className="mentor-action-status" role="status">
+                  <span className="mentor-action-status-dot" aria-hidden="true" />
+                  <span>Use the highlighted control</span>
+                </span>
+              ) : null}
             </div>
-            <div className="mentor-actions flex items-center gap-2">
+            <div className="mentor-actions">
               {index > 0 ? (
                 <GameButton className="border-[#cfc5b6] text-ink" onClick={() => dispatch({ type: "backMentor" })}>
                   Back
@@ -66,12 +74,7 @@ export function MentorCard() {
                 >
                   Next
                 </GameButton>
-              ) : (
-                <span className="mentor-action-status" role="status">
-                  <span className="mentor-action-status-dot" aria-hidden="true" />
-                  Use the highlighted control
-                </span>
-              )}
+              ) : null}
               <button
                 type="button"
                 className="mentor-skip font-mono text-[10px] uppercase tracking-widest text-muted"
