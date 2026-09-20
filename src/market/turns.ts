@@ -96,6 +96,21 @@ function failCost(state: GameState, rng: Rng): number {
   return Math.min(state.company.cash * 0.08, scaleEventCash(state, BALANCE.MARKET_FAILURE_COST, "minor", rng));
 }
 
+function isGuaranteedOpenPromotion(
+  node: MarketSession["nodes"][number],
+  side: "player" | "rival",
+  action: "expand" | "reinforce" | "contest",
+  tactic?: MarketTactic,
+): boolean {
+  return side === "player"
+    && action === "expand"
+    && (tactic === undefined || tactic === "pitch")
+    && node.playerInfluence === 0
+    && node.rivalInfluence === 0
+    && !node.playerDominated
+    && !node.rivalDominated;
+}
+
 function actionChance(
   state: GameState,
   session: MarketSession,
@@ -130,6 +145,10 @@ function actionChance(
   let attack = breakdown.totalInfluence + power.productQuality + power.momentum * 0.35 + (offices[state.company.officeLevel]?.prestige ?? 0) * 0.02;
   if (tactic === "blitz") attack += 8;
   if (tactic === "poach") attack += 4;
+
+  if (isGuaranteedOpenPromotion(node, side, action, tactic)) {
+    return { chance: 1, breakdown, power };
+  }
 
   let chance = 0.3 + (attack / Math.max(1, attack + defense)) * 0.6;
   if (action === "reinforce") chance = Math.min(0.97, chance + 0.2);
@@ -256,7 +275,7 @@ export function resolveSideAction(
   if (side === "rival" && session.playerDefensivePosture) factors.push({ label: "Defensive posture", weight: 3 });
   factors.sort((a, b) => b.weight - a.weight);
 
-  const success = rng.next() < chance;
+  const success = isGuaranteedOpenPromotion(node, side, action, tactic) || rng.next() < chance;
   if (!success) {
     const cashCost = side === "player" && action !== "reinforce" ? Math.max(0, Math.round(failCost(state, rng))) : 0;
     if (side === "player") {

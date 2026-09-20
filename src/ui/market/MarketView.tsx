@@ -634,7 +634,9 @@ export function MarketView({ game }: { game: GameState }) {
                   }}
                 >
                   <span style={{ display: "block", color: "#486350", fontWeight: 600 }}>
-                    If {TACTICS[selectedTactic].label.toLowerCase()} succeeds · {preview.successChance}% chance:
+                    {preview.successChance === 100
+                      ? `${TACTICS[selectedTactic].label} lands automatically:`
+                      : `If ${TACTICS[selectedTactic].label.toLowerCase()} succeeds · ${preview.successChance}% chance:`}
                   </span>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
                     <span>

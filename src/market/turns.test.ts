@@ -244,6 +244,29 @@ describe("tactical turn-based operations & Ops economy", () => {
     expect(applied.rivalShare).toBe(preview.projectedRivalShare);
   });
 
+  it("always lands Promote in an unclaimed segment", () => {
+    const { state, product } = setup(35);
+    const session = openBattle(state, product, 35);
+    const target = getLegalMoves(session, "player", product.levels.distribution).expand[0]!;
+    const preview = previewSideAction(
+      state,
+      session,
+      "player",
+      "expand",
+      target,
+      product.levels,
+      product.combo,
+      "pitch",
+    )!;
+
+    expect(preview.successChance).toBe(100);
+
+    const result = resolveTacticalAction(state, new FixedRng(0.999999), { nodeId: target, tactic: "pitch" });
+
+    expect(result.ok).toBe(true);
+    expect(result.result?.success).toBe(true);
+  });
+
   it("rejects a move that does not apply to the selected segment without spending Ops", () => {
     const { state, product } = setup(30);
     const session = openBattle(state, product, 30);
