@@ -3,6 +3,8 @@ import { migrateGameState } from "../state/migrate";
 import { createNewGame } from "./newGame";
 import { detectEnding, ENDINGS } from "./endings";
 import { applyCommand } from "./commands";
+import { createProduct } from "./products";
+import { Rng } from "./rng";
 
 describe("automatic endings", () => {
   it("does not end a healthy company just because world AI capability crossed 90", () => {
@@ -22,6 +24,24 @@ describe("automatic endings", () => {
     game.clock.paused = false;
     const advanced = applyCommand(game, { type: "tickDay" })!;
     expect(advanced.endingId).toBeNull();
+  });
+
+  it("keeps infrastructure scale as a continuing milestone", () => {
+    const game = createNewGame({
+      founderName: "Ada",
+      companyName: "Northstar",
+      cofounderId: "reya",
+      seed: 93,
+      skipTutorial: true,
+    });
+    const product = createProduct(game, "chat", "writing", new Rng(93));
+    product.status = "active";
+    product.weeklyRevenue = 2_000_000_000;
+    game.company.cash = 50_000_000_000;
+    game.products.push(product);
+
+    expect(detectEnding(game)?.id).not.toBe("monopoly");
+    expect(applyCommand(game, { type: "tickDay" })?.endingId).toBeNull();
   });
 
   it("reopens saves that were stopped by the retired capability cutoff", () => {

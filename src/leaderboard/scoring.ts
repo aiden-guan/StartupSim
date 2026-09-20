@@ -1,8 +1,13 @@
 import type { GameState } from "../simulation/types.js";
+import { BALANCE } from "../config/balance.js";
 import type { ScoreBreakdown, ScoreTier } from "./types.js";
 
 export function getDaysElapsed(game: GameState): number {
-  const start = { year: 2022, month: 11, day: 1 };
+  const start = {
+    year: BALANCE.START_YEAR,
+    month: BALANCE.START_MONTH,
+    day: BALANCE.START_DAY,
+  };
   const current = game.clock.date;
   const tStart = Date.UTC(start.year, start.month - 1, start.day);
   const tCurrent = Date.UTC(current.year, current.month - 1, current.day);

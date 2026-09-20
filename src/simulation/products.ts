@@ -12,6 +12,13 @@ import { isModelAvailable } from "./effects";
 
 const epsilon = 1e-12;
 
+export function marketScaleMultiplier(state: GameState): number {
+  const startMonth = BALANCE.START_YEAR * 12 + (BALANCE.START_MONTH - 1);
+  const currentMonth = state.clock.date.year * 12 + (state.clock.date.month - 1);
+  const elapsedYears = Math.max(0, (currentMonth - startMonth) / 12);
+  return Math.min(BALANCE.MARKET_SCALE_CAP, Math.pow(BALANCE.MARKET_SCALE_ANNUAL_GROWTH, elapsedYears));
+}
+
 export function recipeNameKey(a: string, b: string): string {
   return [a, b].sort().join(".");
 }
@@ -178,12 +185,13 @@ export function setProductEconomics(
   const infMult = 1 + influencers * 0.45;
   const disc = product.newDiscovery ? BALANCE.NEW_PRODUCT_MULTIPLIER : 1;
   const loc = 1 + state.company.locations.length * BALANCE.LOCATION_MULTIPLIER;
-  const base = capturedIncome.reduce((s, t) => s + shareToRevenue(t.income, product), 0);
+  const marketScale = marketScaleMultiplier(state);
+  const base = capturedIncome.reduce((s, t) => s + shareToRevenue(t.income, product), 0) * marketScale;
   const trust = Math.max(0.6, state.company.trust / 70);
 
   const users = Math.max(
     0,
-    Math.round((product.marketShare / 100) * 12_000 * (1 + product.levels.deployment * 0.12) * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand),
+    Math.round((product.marketShare / 100) * 12_000 * marketScale * (1 + product.levels.deployment * 0.12) * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand),
   );
   product.users = users;
 

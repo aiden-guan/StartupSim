@@ -33,7 +33,7 @@ describe("finance tracking", () => {
     expect(monthlyArr(game)).toBeCloseTo(4_330, 5);
     expect(forecast.inference).toBeCloseTo(866, 5);
     expect(forecast.productOperations).toBeCloseTo(216.5, 5);
-    expect(monthlyBurn(game)).toBe(0);
+    expect(monthlyBurn(game)).toBeCloseTo(402.5, 5);
   });
 
   it("records the usage consumed before weekly product aging", () => {
@@ -63,7 +63,7 @@ describe("finance tracking", () => {
     const operatingNet = breakdown.revenue - breakdown.inference - breakdown.productOperations - breakdown.payroll - breakdown.office - breakdown.fixedCompute - breakdown.companyOperations;
 
     expect(next.clock.date).toEqual({ year: 2022, month: 12, day: 1 });
-    expect(next.company.lastMonthlyCashChange).toBe(-7_600);
+    expect(next.company.lastMonthlyCashChange).toBe(-8_650);
     expect(next.company.lastMonthlyCashChange! - operatingNet).toBe(-5_000);
     expect(next.company.cashAtLastStatement).toBe(next.company.cash);
   });

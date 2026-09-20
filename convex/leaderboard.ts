@@ -43,12 +43,10 @@ function isSafeEntry(entry: LeaderboardEntry): boolean {
     finite(entry.cash) &&
     finite(entry.arr) &&
     entry.arr >= 0 &&
-    Number.isInteger(entry.year) &&
+    Number.isSafeInteger(entry.year) &&
     entry.year >= 2022 &&
-    entry.year <= 2100 &&
-    Number.isInteger(entry.daysElapsed) &&
+    Number.isSafeInteger(entry.daysElapsed) &&
     entry.daysElapsed >= 1 &&
-    entry.daysElapsed <= 9125 &&
     Number.isInteger(entry.productsCount) &&
     entry.productsCount >= 0 &&
     entry.productsCount <= 1000 &&

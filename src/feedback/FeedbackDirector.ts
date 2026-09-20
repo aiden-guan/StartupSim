@@ -17,8 +17,9 @@ export const FEEDBACK_SOUND_MAP: Partial<Record<FeedbackKind, SfxId>> = {
   "ui.select": "ui.select", assignment: "ui.click", "product.started": "ui.select",
   "product.ready": "product.ready", "product.launching": "product.launch", "product.launched": "market.capture", "launch.result": "market.capture",
   "research.started": "ui.select", "research.completed": "research", "employee.hired": "people.stamp",
-  // Burnout is a routine operational warning; reserve the error cue for critical incidents.
-  "employee.fired": "money.spend", "employee.burnout": "message", "funding.closed": "business.major",
+  // Burnout is surfaced in the team UI, but should not interrupt play with a notification beep.
+  // Reserve audio warnings for critical incidents.
+  "employee.fired": "money.spend", "funding.closed": "business.major",
   "office.upgraded": "business.major", "location.opened": "business.major", "market.move": "ui.click",
   "market.captured": "market.capture", "market.rival": "market.rival", "crisis.started": "crisis",
   "message.received": "message", "social.received": "message", "achievement.unlocked": "product.ready",

@@ -138,6 +138,6 @@ export function minSalaryFor(worker: Employee, state: GameState): number {
         ? 1.15
         : 1;
   const self = workerSelfBonus(worker, "minSalary") || 1;
-  const base = 55_000 + employeeScore(worker) * 4_200;
+  const base = BALANCE.BASE_EMPLOYEE_SALARY + employeeScore(worker) * BALANCE.SALARY_PER_SCORE;
   return Math.round(base * econ * self * state.world.talentCostIndex * Math.max(0.6, 1 - perkCut) * (1 + state.company.prestige / 400));
 }

@@ -129,7 +129,7 @@ function finishTask(state: GameState, task: Task, r: Rng): void {
 export function buildPoachMail(state: GameState, r: Rng, mail: Mail): Mail | null {
   const employee = r.pick(state.employees.filter((worker) => worker.role === "employee"));
   if (!employee) return null;
-  const offer = Math.round(Math.max(employee.salary * 1.38, employee.salary + 60_000) / 1_000) * 1_000;
+  const offer = Math.round(Math.max(employee.salary * BALANCE.POACH_PREMIUM, employee.salary + BALANCE.POACH_MIN_RAISE) / 1_000) * 1_000;
   const increase = offer - employee.salary;
   const currentBurn = Math.max(1, monthlyBurn(state));
   const nextBurn = currentBurn + increase / 12;
@@ -491,7 +491,7 @@ export function checkOnboarding(state: GameState): void {
   reconcileTutorial(state);
 }
 
-const TERMINAL = new Set(["bankruptcy", "board-out", "automated-ceo", "safety-crisis", "monopoly"]);
+const TERMINAL = new Set(["bankruptcy", "board-out", "automated-ceo", "safety-crisis"]);
 
 function checkEndings(state: GameState): void {
   if (state.endingId) return;

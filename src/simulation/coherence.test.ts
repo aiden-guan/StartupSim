@@ -4,7 +4,7 @@ import { officeAnnualBurden, offices } from "../data/offices";
 import { applyCommand } from "./commands";
 import { allocateTrainingCompute, availableTrainingCompute, consumeTrainingCompute, inferenceCreditDepleted, leftoverCapacityDaily, rentedGpusNeededForTraining, taskComputeDemand, uncoveredInferenceDemand } from "./compute";
 import { candidateQualityScore, generateEmployee, generateSkills } from "./candidates";
-import { monthlyRent } from "./derived";
+import { monthlyRent, OWNED_COMPUTE_UNIT_COST } from "./derived";
 import { companyStage, scaleEventCash } from "./eventEconomy";
 import { createNewGame } from "./newGame";
 import { Rng } from "./rng";
@@ -182,11 +182,11 @@ describe("owned compute purchases", () => {
 
     const bought = applyCommand(g, { type: "buyCluster", units: 16 })!;
     expect(bought.compute.ownedCluster).toBe(16);
-    expect(bought.company.cash).toBe(400_000);
+    expect(bought.company.cash).toBe(2_000_000 - 16 * OWNED_COMPUTE_UNIT_COST);
 
     const declined = applyCommand(bought, { type: "buyCluster", units: 64 })!;
     expect(declined.compute.ownedCluster).toBe(16);
-    expect(declined.company.cash).toBe(400_000);
+    expect(declined.company.cash).toBe(2_000_000 - 16 * OWNED_COMPUTE_UNIT_COST);
   });
 
   it("rejects malformed owned-capacity pack sizes", () => {

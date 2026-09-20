@@ -53,8 +53,8 @@ describe("semantic feedback derivation", () => {
     expect(feedbackMotionPolicy({ type: "funding.closed", tier: 4 }, { reducedMotion: true, graphics: "low" }).characterReaction).toBe(false);
   });
 
-  it("keeps routine burnout warnings off the critical error cue", () => {
-    expect(FEEDBACK_SOUND_MAP["employee.burnout"]).toBe("message");
+  it("keeps routine burnout warnings silent", () => {
+    expect(FEEDBACK_SOUND_MAP["employee.burnout"]).toBeUndefined();
     expect(FEEDBACK_SOUND_MAP["crisis.started"]).toBe("crisis");
   });
 });

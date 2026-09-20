@@ -1,4 +1,5 @@
 import { offices } from "../data/offices.js";
+import { locations } from "../data/locations.js";
 import { BALANCE } from "../config/balance.js";
 import { isServiceProductStatus, type FinancialBreakdown, type GameState } from "./types.js";
 import { monthlyArr } from "./conditions.js";
@@ -7,8 +8,10 @@ export { monthlyArr };
 
 export const RENTED_GPU_WEEKLY_COVERAGE = 800;
 export const OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE = 120;
-export const RENTED_GPU_MONTHLY_COST = 2_400;
-export const OWNED_COMPUTE_UNIT_COST = 100_000;
+export const DATA_CENTER_WEEKLY_COVERAGE = 12_000_000;
+export const RENTED_GPU_MONTHLY_COST = 3_000;
+export const OWNED_COMPUTE_UNIT_COST = 125_000;
+export const DATA_CENTER_MONTHLY_COST = 10_000_000;
 export const OWNED_COMPUTE_PURCHASE_OPTIONS = [4, 16, 64] as const;
 export const MAX_RENTED_GPUS = 10_000;
 
@@ -18,14 +21,18 @@ export function monthlyPayroll(state: GameState): number {
 
 export function monthlyRent(state: GameState): number {
   const office = offices[state.company.officeLevel];
-  return office?.rent ?? 2200;
+  const locationRent = state.company.locations.reduce(
+    (sum, id) => sum + (locations.find((location) => location.id === id)?.rent ?? 0),
+    0,
+  );
+  return (office?.rent ?? BALANCE.APARTMENT_RENT) + locationRent;
 }
 
 export function inferenceCoverage(state: GameState): number {
-  return state.compute.rentedGpus * RENTED_GPU_WEEKLY_COVERAGE + state.compute.ownedCluster * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE + state.compute.dataCenters * 4000;
+  return state.compute.rentedGpus * RENTED_GPU_WEEKLY_COVERAGE + state.compute.ownedCluster * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE + state.compute.dataCenters * DATA_CENTER_WEEKLY_COVERAGE;
 }
 export function fixedComputeCost(state: GameState): number {
-  return state.compute.rentedGpus * RENTED_GPU_MONTHLY_COST + state.compute.reservedCapacity * 6500 + state.compute.dataCenters * 180000 + state.compute.monthlyCloudBill;
+  return state.compute.rentedGpus * RENTED_GPU_MONTHLY_COST + state.compute.reservedCapacity * 8_000 + state.compute.dataCenters * DATA_CENTER_MONTHLY_COST + state.compute.monthlyCloudBill;
 }
 export function monthlyCompute(state: GameState): number {
   const weekly = state.products.filter((p) => isServiceProductStatus(p.status)).reduce((sum, p) => sum + p.weeklyInference, 0);

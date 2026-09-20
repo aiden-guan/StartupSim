@@ -14,6 +14,7 @@ import { calculateModelImpact, calculateWeeklyProductInference } from "./modelIm
 import {
   buyLaunchStat,
   canAffordStat,
+  marketScaleMultiplier,
   refundLaunchStat,
 } from "./products";
 import { launchStrength } from "../market/marketMap";
@@ -99,11 +100,13 @@ export function calculateCandidateEconomics(
     : null;
 
   const demand = marketDemandMultiplier(state, mockProduct) * (modelImpact?.demandMultiplier ?? 1);
+  const marketScale = marketScaleMultiplier(state);
   const scaleMult = 1 + levels.deployment * 0.15;
   const estUsers = Math.max(
     100,
     Math.round(
       7_000 *
+        marketScale *
         pricing.userMultiplier *
         strategy.volumeMultiplier *
         strategy.rampMultiplier *
@@ -133,6 +136,7 @@ export function calculateCandidateEconomics(
   const baseRevenue =
     2.8 *
     0.6 *
+    marketScale *
     (BALANCE.BASE_REVENUE_PER_SHARE + BALANCE.EXTRA_REVENUE_PER_DIFFICULTY * (product.difficulty - 2)) *
     product.revenueScore *
     (product.recipeId === "generic" ? 0.7 : 1.15);

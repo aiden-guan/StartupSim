@@ -218,7 +218,7 @@ export function createNewGame(input: NewGameInput): GameState {
       dataCenters: 0,
       customChips: 0,
       energyContracts: 0,
-      monthlyCloudBill: 400,
+      monthlyCloudBill: 650,
       trainingReserved: 0,
     },
     providerOutages: [],

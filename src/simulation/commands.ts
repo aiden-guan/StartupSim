@@ -2,10 +2,10 @@ import { isLifeOrDeathEvent, setPause, syncPause } from "./pause";
 import type { TutorialAction } from "../data/onboarding";
 import { produce } from "immer";
 import { BALANCE } from "../config/balance";
-import { recruitingChannels } from "../data/recruiting";
+import { recruitingChannels, recruitingCost } from "../data/recruiting";
 import { offices } from "../data/offices";
 import { perks } from "../data/perks";
-import { promos } from "../data/promos";
+import { promotionCost, promos } from "../data/promos";
 import { specialProjects } from "../data/specialProjects";
 import { technologies, techById } from "../data/technologies";
 import { lobbies } from "../data/lobbies";
@@ -610,9 +610,9 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       case "recruit": {
         if (!draft.unlocks.hiring) break;
         const ch = recruitingChannels.find((c) => c.id === command.channelId);
-        if (!ch || draft.company.cash < ch.cost || draft.hiring.cooldownDays > 0) break;
+        if (!ch || draft.company.cash < recruitingCost(ch, draft.company.officeLevel) || draft.hiring.cooldownDays > 0) break;
         if (ch.robots && !draft.company.technologies.includes("agents")) break;
-        draft.company.cash -= ch.cost;
+        draft.company.cash -= recruitingCost(ch, draft.company.officeLevel);
         draft.hiring.channelId = ch.id;
         const n = r.int(2, 5);
         draft.hiring.candidates = [];
@@ -817,8 +817,8 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       }
       case "startPromo": {
         const promo = promos.find((p) => p.id === command.promoId);
-        if (!promo || draft.company.cash < promo.cost) break;
-        draft.company.cash -= promo.cost;
+        if (!promo || draft.company.cash < promotionCost(promo, draft.company.officeLevel)) break;
+        draft.company.cash -= promotionCost(promo, draft.company.officeLevel);
         draft.tasks.push(
           makeTask(r, {
             type: "promo",
@@ -1001,14 +1001,14 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         bot.department = command.kind === "sales" ? "sales" : command.kind;
         draft.employees.push(bot);
         draft.stats.aiWorkersDeployed += 1;
-        draft.compute.monthlyCloudBill += 1_200;
+        draft.compute.monthlyCloudBill += BALANCE.AI_WORKER_MONTHLY_COST;
         unlockAchievement(draft, "synthetic-workforce");
         break;
       }
       case "acquire": {
         const c = draft.competitors.find((x) => x.id === command.competitorId);
         if (!c || c.disabled) break;
-        const price = Math.max(2_000_000, c.funding * 0.4);
+        const price = Math.max(BALANCE.ACQUISITION_MIN_COST, c.funding * BALANCE.ACQUISITION_FUNDING_RATIO);
         if (draft.company.cash < price) break;
         draft.company.cash -= price;
         c.disabled = true;

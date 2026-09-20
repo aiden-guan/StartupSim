@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { offices } from "../../data/offices";
 import { perks } from "../../data/perks";
-import { promos } from "../../data/promos";
+import { promotionCost, promos } from "../../data/promos";
 import type { GameState } from "../../simulation/types";
 import { useGame } from "../../state/store";
 import { promotionEffort } from "../../visuals/registry";
@@ -47,9 +47,10 @@ export function CulturePromotionPanel({ game }: { game: GameState }) {
         : "";
 
   const selectedPromo = promos.find((item) => item.id === promoId) ?? promos[0]!;
+  const selectedPromoCost = promotionCost(selectedPromo, game.company.officeLevel);
   const selectedTask = game.tasks.find((task) => task.promoId === selectedPromo.id);
   const activePromoTasks = useMemo(() => game.tasks.filter((task) => task.type === "promo"), [game.tasks]);
-  const promoReason = game.company.cash < selectedPromo.cost ? `Need ${money(selectedPromo.cost - game.company.cash)} more` : "";
+  const promoReason = game.company.cash < selectedPromoCost ? `Need ${money(selectedPromoCost - game.company.cash)} more` : "";
 
   return <div className="culture-workspace">
     <nav className="culture-mode-tabs" aria-label="Culture and promotion modes">
@@ -99,9 +100,10 @@ export function CulturePromotionPanel({ game }: { game: GameState }) {
         <div className="promotion-catalog">
           {promos.map((promo) => {
             const task = game.tasks.find((item) => item.promoId === promo.id);
+            const cost = promotionCost(promo, game.company.officeLevel);
             return <button key={promo.id} className={promo.id === selectedPromo.id ? "selected" : ""} aria-pressed={promo.id === selectedPromo.id} onClick={() => setPromoId(promo.id)}>
               <span className="catalog-illustration"><CatalogGlyph kind="promo" id={promo.id} /></span>
-              <strong>{promo.name}</strong><small>{promotionEffort(promo.requiredProgress)} · {money(promo.cost)}</small>
+              <strong>{promo.name}</strong><small>{promotionEffort(promo.requiredProgress)} · {money(cost)}</small>
               <span className="catalog-footer">{task ? `${Math.min(100, task.progress / task.requiredProgress * 100).toFixed(0)}% in progress` : promo.description}</span>
             </button>;
           })}
@@ -112,7 +114,7 @@ export function CulturePromotionPanel({ game }: { game: GameState }) {
         <MiniaturePreview item={{ kind: "promo", id: selectedPromo.id }} label={`${selectedPromo.name} campaign miniature`} />
         <p className="detail-copy">{selectedPromo.description}</p>
         <div className="campaign-loop" aria-label="Campaign gameplay loop"><span>Launch</span><i>→</i><span>Assign staff</span><i>→</i><span>Complete</span><i>→</i><span>Gain hype</span></div>
-        {selectedTask ? <div className="active-campaign-detail"><div className="progress-label"><span>Campaign progress</span><strong>{Math.min(100, selectedTask.progress / selectedTask.requiredProgress * 100).toFixed(0)}%</strong></div><div className="progress-track"><i style={{ width: `${Math.min(100, selectedTask.progress / selectedTask.requiredProgress * 100)}%` }} /></div><GameButton className="detail-action" tone="primary" onClick={() => useGame.getState().setDrawer("tasks")}>Assign staff in Product lab →</GameButton></div> : <><div className="promo-outcome"><span><small>Launch cost</small><strong>{money(selectedPromo.cost)}</strong></span><span><small>Team effort</small><strong>{promotionEffort(selectedPromo.requiredProgress).replace(" campaign", "")}</strong></span><span><small>Outcome</small><strong>Company hype ↑</strong></span></div>{promoReason && <p className="inline-requirement">{promoReason}</p>}<GameButton className="detail-action" tone="primary" disabled={!!promoReason} title={promoReason || `Launch ${selectedPromo.name}`} onClick={() => dispatch({ type: "startPromo", promoId: selectedPromo.id })}>Start campaign · {money(selectedPromo.cost)}</GameButton></>}
+        {selectedTask ? <div className="active-campaign-detail"><div className="progress-label"><span>Campaign progress</span><strong>{Math.min(100, selectedTask.progress / selectedTask.requiredProgress * 100).toFixed(0)}%</strong></div><div className="progress-track"><i style={{ width: `${Math.min(100, selectedTask.progress / selectedTask.requiredProgress * 100)}%` }} /></div><GameButton className="detail-action" tone="primary" onClick={() => useGame.getState().setDrawer("tasks")}>Assign staff in Product lab →</GameButton></div> : <><div className="promo-outcome"><span><small>Launch cost</small><strong>{money(selectedPromoCost)}</strong></span><span><small>Team effort</small><strong>{promotionEffort(selectedPromo.requiredProgress).replace(" campaign", "")}</strong></span><span><small>Outcome</small><strong>Company hype ↑</strong></span></div>{promoReason && <p className="inline-requirement">{promoReason}</p>}<GameButton className="detail-action" tone="primary" disabled={!!promoReason} title={promoReason || `Launch ${selectedPromo.name}`} onClick={() => dispatch({ type: "startPromo", promoId: selectedPromo.id })}>Start campaign · {money(selectedPromoCost)}</GameButton></>}
       </aside>
     </div>}
   </div>;

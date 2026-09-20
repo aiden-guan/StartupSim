@@ -13,7 +13,6 @@ import { DepartingAgent, EmployeeAgent } from "./navigation/Agent";
 import { selectWorldView } from "./selectWorldView";
 import { useGame } from "../state/store";
 import { DEFAULT_BRAND } from "../simulation/newGame";
-import { CrowdSilhouettes } from "./props/Crowd";
 import { DynamicEnvironment } from './environment/DynamicEnvironment';
 import { installedFacilities } from "./facilities/facilityZones";
 import { ExteriorEnvironment } from "./exterior/ExteriorEnvironment";
@@ -141,9 +140,6 @@ function Scene() {
       {screen === "playing" && view
         ? departures.map((d) => <DepartingAgent key={d.id} look={d.look} robot={d.robot} layout={layout} id={d.id} runtime={runtime} />)
         : null}
-      {screen === "playing" && view && view.hiddenCount > 0 && quality !== "low" ? (
-        <CrowdSilhouettes count={view.hiddenCount} layout={layout} cool={level >= 3} />
-      ) : null}
     </>
   );
 }

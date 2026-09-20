@@ -1,4 +1,5 @@
 import { offices } from "../data/offices";
+import { BALANCE } from "../config/balance";
 import type { Effect, GameState } from "./types";
 import { monthlyArr } from "./conditions";
 import { monthlyBurn } from "./derived";
@@ -33,7 +34,7 @@ export function companyScaleIndex(state: GameState): number {
     monthlyArr(state) * 9 +
     state.employees.length * 75_000 +
     Math.max(0, state.company.valuation) * 0.018 +
-    (office?.rent ?? 2200) * 7
+    (office?.rent ?? BALANCE.APARTMENT_RENT) * 7
   );
 }
 

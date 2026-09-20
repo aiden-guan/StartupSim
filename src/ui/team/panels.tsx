@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { recruitingChannels } from '../../data/recruiting';
+import { recruitingChannels, recruitingCost } from '../../data/recruiting';
 import { offices } from '../../data/offices';
 import { traitById } from '../../data/traits';
 import type { Employee, GameState } from '../../simulation/types';
@@ -96,8 +96,8 @@ export function HiringPanel({game}:{game:GameState}) {
   return <div className="hiring-workspace"><div className="workspace-intro"><div><span className="eyebrow">Recruiting</span><h3>Find a teammate.</h3></div><span>{game.employees.length} / {offices[game.company.officeLevel]?.capacity} seats</span></div>{full&&<p className="inline-warning">Office full. Expand headquarters before making another hire.</p>}
     {result&&<div className={`hire-result ${result.accepted?'':'failed'}`} role="status">{result.accepted?<><strong>{result.name} accepted.</strong><span>{result.role} · {money(result.salary??0)} / year. They start now and can be assigned.</span></>:<><strong>{result.name} declined.</strong><span>{result.reason??'They accepted another offer.'}</span></>}</div>}
     <div className="recruiting-layout"><aside className="recruiting-channels"><span className="eyebrow">Recruiting channels</span>{recruitingChannels.filter(c=>!c.robots||game.company.technologies.includes('agents')).map(c=>{
-      const reason=game.hiring.cooldownDays>0?`Available in ${game.hiring.cooldownDays} days`:game.company.cash<c.cost?`Need ${money(c.cost-game.company.cash)} more`:'';
-      return <button key={c.id} className={game.hiring.channelId===c.id?'selected':''} data-tutorial={c.id==='network'?'recruit-network':undefined} disabled={!!reason} title={reason||c.description} onClick={()=>dispatch({type:'recruit',channelId:c.id})}><RecruitingIcon id={c.id}/><span><strong>{c.name}<b>{money(c.cost)}</b></strong><small>{reason||c.description}</small><em>{c.qualityLabel}</em><span className="channel-quality">{c.eliteLabel} · {c.experience}</span></span></button>;
+      const cost=recruitingCost(c,game.company.officeLevel),reason=game.hiring.cooldownDays>0?`Available in ${game.hiring.cooldownDays} days`:game.company.cash<cost?`Need ${money(cost-game.company.cash)} more`:'';
+      return <button key={c.id} className={game.hiring.channelId===c.id?'selected':''} data-tutorial={c.id==='network'?'recruit-network':undefined} disabled={!!reason} title={reason||c.description} onClick={()=>dispatch({type:'recruit',channelId:c.id})}><RecruitingIcon id={c.id}/><span><strong>{c.name}<b>{money(cost)}</b></strong><small>{reason||c.description}</small><em>{c.qualityLabel}</em><span className="channel-quality">{c.eliteLabel} · {c.experience}</span></span></button>;
     })}</aside><div className="candidate-stack">{!game.hiring.candidates.length&&<div className="empty-state"><h3>No candidates yet.</h3><p>{game.stats.employeesHired?'Assign the new hire to a project.':'Choose a recruiting channel.'}</p>{game.stats.employeesHired>0&&<GameButton onClick={()=>useGame.getState().setDrawer('tasks')}>View projects →</GameButton>}</div>}{game.hiring.candidates.map((c,i)=>{
       const salary=offers[c.employee.id]??c.minSalary;
       const busy=pending===c.employee.id;

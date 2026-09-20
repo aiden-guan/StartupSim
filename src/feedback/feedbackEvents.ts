@@ -20,8 +20,8 @@ export interface FeedbackEvent {
 }
 
 const milestoneBands = {
-  revenue: [1, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000],
-  valuation: [1_000_000, 10_000_000, 100_000_000, 1_000_000_000, 10_000_000_000],
+  revenue: [1, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000, 10_000_000_000, 100_000_000_000, 1_000_000_000_000],
+  valuation: [1_000_000, 10_000_000, 100_000_000, 1_000_000_000, 10_000_000_000, 100_000_000_000, 1_000_000_000_000],
   users: [1_000, 10_000, 100_000, 1_000_000, 10_000_000],
   team: [10, 50, 100],
   products: [1, 5, 10],
@@ -32,6 +32,7 @@ function crossed(before: number, after: number, bands: readonly number[]): numbe
 }
 
 function compact(value: number): string {
+  if (value >= 1_000_000_000_000) return `$${value / 1_000_000_000_000}T`;
   if (value >= 1_000_000_000) return `$${value / 1_000_000_000}B`;
   if (value >= 1_000_000) return `$${value / 1_000_000}M`;
   if (value >= 1_000) return `$${value / 1_000}K`;

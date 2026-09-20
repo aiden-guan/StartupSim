@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BALANCE } from "../config/balance";
 import { applyCommand } from "../simulation/commands";
 import { createNewGame } from "../simulation/newGame";
 import { createProduct } from "../simulation/products";
@@ -300,7 +301,7 @@ describe("tactical turn-based operations & Ops economy", () => {
 
     const res = resolveTacticalAction(state, new FixedRng(0), { nodeId: target, tactic: "blitz" });
     expect(res.ok).toBe(true);
-    expect(state.company.cash).toBe(8500); // Spent $1,500
+    expect(state.company.cash).toBe(10_000 - BALANCE.PR_BLITZ_COST); // Spent the PR Blitz price
     expect(state.company.hype).toBe(initialHype + 2);
     expect(session.playerOps).toBe(1); // Spent 2 Ops (3 - 2 = 1)
     expect(res.result?.tactic).toBe("blitz");

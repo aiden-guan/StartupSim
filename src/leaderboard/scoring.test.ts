@@ -1,7 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { calculateScoreFromComponents, computeScoreTier } from "./scoring";
+import { createNewGame } from "../simulation/newGame";
+import { calculateScoreFromComponents, computeScoreTier, getDaysElapsed } from "./scoring";
 
 describe("Leaderboard Scoring System", () => {
+  it("calculates elapsed days from the configured simulation start date", () => {
+    const game = createNewGame({
+      founderName: "Test Founder",
+      companyName: "Test Company",
+      cofounderId: "dustin-moskovitz",
+      seed: 1,
+      skipTutorial: true,
+    });
+
+    expect(getDaysElapsed(game)).toBe(1);
+    game.clock.date = { year: 2022, month: 12, day: 1 };
+    expect(getDaysElapsed(game)).toBe(1);
+    game.clock.date = { year: 2022, month: 12, day: 2 };
+    expect(getDaysElapsed(game)).toBe(2);
+  });
+
   it("assigns internal storage tiers from lifetime revenue", () => {
     expect(computeScoreTier(15_000_000_000)).toBe("SSS");
     expect(computeScoreTier(1_500_000_000)).toBe("SS");

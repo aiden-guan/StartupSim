@@ -1,3 +1,4 @@
+import { BALANCE } from "../config/balance.js";
 import { monthlyArr } from "./conditions.js";
 import { grossMargin, monthlyBurn } from "./derived.js";
 import type { GameState } from "./types.js";
@@ -43,9 +44,6 @@ export function detectEnding(state: GameState): { id: string; note: string } | n
   if (state.stats.scandals >= 3 && state.company.trust < 16) {
     return { id: "safety-crisis", note: ENDINGS["safety-crisis"].line };
   }
-  if (arr > 8_000_000_000) {
-    return { id: "monopoly", note: ENDINGS.monopoly.line };
-  }
   if (state.world.regulation >= 88 && arr < 2_000_000) {
     return { id: "regulated", note: ENDINGS.regulated.line };
   }
@@ -73,7 +71,7 @@ export function detectEnding(state: GameState): { id: string; note: string } | n
   if (state.economy === "creditCrunch" && grossMargin(state) < 0 && arr > 0) {
     return { id: "commoditization", note: ENDINGS.commoditization.line };
   }
-  if (state.company.cash > 8_000_000 && !state.board && grossMargin(state) > 0.2) {
+  if (state.company.cash > BALANCE.QUIET_PROFIT_CASH && !state.board && grossMargin(state) > 0.2) {
     return { id: "quiet-profit", note: ENDINGS["quiet-profit"].line };
   }
   if (state.company.acquisitions.length >= 3) {

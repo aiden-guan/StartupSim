@@ -158,6 +158,7 @@ function ProjectCard({ game, project }: { game: GameState; project: (typeof spec
   const requirements = describeProjectRequirements(project);
   const effects = describeProjectEffects(project);
   const purpose = effects.length ? project.description : "Project initiative";
+  const isTerminalProject = project.id === "automate-ceo";
   const reason = complete ? "Project completed" : task ? "Assign a team from Tasks" : missing.length ? `Requires ${missing.length} research prerequisite${missing.length > 1 ? "s" : ""}` : !affordable ? `Need ${money(project.cost - game.company.cash)} more` : undefined;
 
   return (
@@ -171,11 +172,12 @@ function ProjectCard({ game, project }: { game: GameState; project: (typeof spec
         {task ? <ProgressMeter progress={task.progress} required={task.requiredProgress} label="Project progress" /> : null}
         <InsightList label="Requires" lines={requirements} />
         <InsightList label={effects.length ? "Effects" : "Outcome"} lines={effects.length ? effects : [NO_ACTIVE_OUTCOME]} />
+        {isTerminalProject ? <p className="expansion-ending-warning"><strong>Endgame warning:</strong> when this project completes, the game ends with the “Replaced” outcome.</p> : null}
         <div className="expansion-actions">
           {task ? (
             <DetailAction onClick={() => useGame.getState().setDrawer("tasks")} title="Open Tasks to assign this project">Assign team →</DetailAction>
           ) : (
-            <DetailAction disabled={complete || Boolean(missing.length) || !affordable} title={reason ?? `Start ${project.name}`} onClick={() => dispatch({ type: "startProject", projectId: project.id })}>
+            <DetailAction disabled={complete || Boolean(missing.length) || !affordable} title={isTerminalProject ? "Starting this project commits the company to the Replaced ending" : reason ?? `Start ${project.name}`} onClick={() => dispatch({ type: "startProject", projectId: project.id })}>
               {complete ? "Completed" : `Start project · ${money(project.cost)}`}
             </DetailAction>
           )}

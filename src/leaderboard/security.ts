@@ -157,7 +157,7 @@ export function validateRunIntegrity(sub: LeaderboardSubmission): ValidationResu
 
   // 2. Temporal invariants
   const days = sub.clock?.daysElapsed;
-  if (typeof days !== "number" || days < 1 || days > 365 * 25) {
+  if (!Number.isSafeInteger(days) || days < 1) {
     return { valid: false, reason: `Invalid elapsed days count: ${days}` };
   }
 

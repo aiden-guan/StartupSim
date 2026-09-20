@@ -1169,6 +1169,8 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .expansion-progress-label strong { color:#9d633f; }
 .expansion-progress-track { height:6px;overflow:hidden;background:#d9dfd2;border:1px solid #c7d0c1; }
 .expansion-progress-track i { display:block;height:100%;background:#6d9873;transition:width .3s var(--ease-game); }
+.expansion-ending-warning { margin:0;padding:9px 10px;border-left:2px solid #b85f3d;background:#f1e2d6;color:#7d4d3b;font-size:10px;line-height:1.5; }
+.expansion-ending-warning strong { color:#9b4f32;font:8px var(--font-mono);letter-spacing:.08em;text-transform:uppercase; }
 .expansion-actions { display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px; }
 .expansion-action { min-width:0; }
 .expansion-action-note { color:#8c6349;font-size:9px;line-height:1.4; }

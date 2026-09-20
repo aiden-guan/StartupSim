@@ -6,7 +6,7 @@ import { primitiveById } from "../data/primitives";
 import { PRICING_MODELS } from "../data/pricing";
 import { GTM_STRATEGIES } from "../data/gtm";
 import type { GameState, LaunchLevels, Product } from "../simulation/types";
-import { launchCosts, requiredFor } from "../simulation/products";
+import { launchCosts, marketScaleMultiplier, requiredFor } from "../simulation/products";
 import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from "../simulation/gtm";
 import type { Rng } from "../simulation/rng";
 import { uid } from "../simulation/rng";
@@ -1088,13 +1088,14 @@ export function calculateMarketEntryResult(
     worldInferenceCostIndex: state.world.inferenceCostIndex,
   }) : null;
   const demand = marketDemandMultiplier(state, product) * (modelImpact?.demandMultiplier ?? 1);
+  const marketScale = marketScaleMultiplier(state);
 
   // Economics: Users
   const rawUsers = segments.reduce((sum, seg) => {
     return sum + seg.userPotential * (seg.playerShare / 100);
   }, 0);
   const scaleMult = 1 + product.levels.deployment * 0.15;
-  const users = Math.max(0, Math.round(rawUsers * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand * scaleMult * userOutcomeMult));
+  const users = Math.max(0, Math.round(rawUsers * marketScale * pricing.userMultiplier * strategy.volumeMultiplier * strategy.rampMultiplier * execution * demand * scaleMult * userOutcomeMult));
 
   // Inference cost
   const pa = primitiveById[product.combo[0]];
@@ -1123,7 +1124,7 @@ export function calculateMarketEntryResult(
         product.revenueScore *
         (product.recipeId === "generic" ? 0.7 : 1.15)
     );
-  }, 0);
+  }, 0) * marketScale;
 
   const hypeMult = 1 + Math.max(0, Math.sqrt(state.company.hype) * BALANCE.HYPE_MULTIPLIER_SCALE);
   const disc = product.newDiscovery ? BALANCE.NEW_PRODUCT_MULTIPLIER : 1;

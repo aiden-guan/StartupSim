@@ -1,3 +1,4 @@
+import { BALANCE } from "../config/balance";
 import { competitors as competitorDefs } from "../data/competitors";
 import { GTM_STRATEGIES } from "../data/gtm";
 import { offices } from "../data/offices";
@@ -92,7 +93,7 @@ function summarize(result: Omit<MarketActionResult, "summary"> & { nodeName: str
 }
 
 function failCost(state: GameState, rng: Rng): number {
-  return Math.min(state.company.cash * 0.08, scaleEventCash(state, 1_400, "minor", rng));
+  return Math.min(state.company.cash * 0.08, scaleEventCash(state, BALANCE.MARKET_FAILURE_COST, "minor", rng));
 }
 
 function actionChance(
@@ -350,8 +351,8 @@ export function resolveTacticalAction(
   if (session.playerOps < cost) {
     return { ok: false, reason: `Not enough Ops (${session.playerOps}/${cost} required)` };
   }
-  if (input.tactic === "blitz" && state.company.cash < 1500) {
-    return { ok: false, reason: "Insufficient cash ($1,500 required for PR Blitz)" };
+  if (input.tactic === "blitz" && state.company.cash < BALANCE.PR_BLITZ_COST) {
+    return { ok: false, reason: `Insufficient cash ($${BALANCE.PR_BLITZ_COST.toLocaleString()} required for PR Blitz)` };
   }
 
   session.busy = true;
@@ -383,7 +384,7 @@ export function resolveTacticalAction(
     }
 
     if (input.tactic === "blitz") {
-      state.company.cash -= 1500;
+      state.company.cash -= BALANCE.PR_BLITZ_COST;
       state.company.hype = Math.max(0, state.company.hype + 2);
     }
 
@@ -404,7 +405,7 @@ export function resolveTacticalAction(
     res.opsCost = cost;
 
     if (input.tactic === "blitz") {
-      res.cashCost += 1500;
+      res.cashCost += BALANCE.PR_BLITZ_COST;
     }
 
     if (input.tactic === "fortify" && res.success) {
