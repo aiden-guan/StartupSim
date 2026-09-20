@@ -1,7 +1,18 @@
-# Compounding audio drafts
+# Compounding audio runtime assets
 
-These are original, locally rendered sound drafts. `scripts/render_audio.py` contains every note and texture; no third-party samples or commercial recordings are used.
+The six authored MP3 tracks in `music/` are the primary soundtrack and follow the physical office progression:
 
-`music/` contains six synchronized 16-second loops. `src/audio/musicState.ts` mixes them by company stage; `src/audio/Audio.ts` crossfades the layers, ducks them under major cues, and keeps music, ambience, and effects on separate volume buses. `sfx/` contains short cues for UI, money, research, products, people, market moves, messages, and major business moments.
+| Stage | Runtime asset | Source |
+| --- | --- | --- |
+| Apartment | `compounding.mp3` | `01 - Compounding.mp3` |
+| First real office | `first-real-office.mp3` | `02 - First Real Office.mp3` |
+| Startup HQ | `scale-up-velocity.mp3` | `03 - Scale-Up Velocity.mp3` |
+| AI lab | `compounding-intelligence.mp3` | `04 - Compounding Intelligence.mp3` |
+| Campus | `compounding-the-future.mp3` | `05 - Compounding the Future.mp3` |
+| Global headquarters | `global-headquarters.mp3` | `06 - Compounding Global Headquarter.mp3` |
 
-The current files are mono 22.05 kHz PCM WAVs because a compressed encoder was unavailable on this host. The full set is about 4.5 MB. They work as browser assets but should receive final sound design, mastering, and compressed Ogg/MP3 exports before a production audio release. When replacing them, keep the six music loops equal in duration and tempo, then update the asset extension in `src/audio/Audio.ts`. Missing or undecodable files fall back to a quiet procedural cue where appropriate; gameplay never waits on audio.
+Runtime music is MP3 at 48 kHz / 160 kbps. The files were offline loudness-compensated around -18 LUFS with true-peak headroom, and their natural trailing silence was trimmed before a 2.5-second tail-to-intro crossfade was baked into each file. `src/audio/musicState.ts` supplies the loop bounds used by Web Audio.
+
+The authored positive cue is `sfx/completion.mp3`, a 1.60-second normalized one-shot from `Create_a_premium,_hi_#4-1789878874655.mp3`. The previous repeated `CompletionSFX` source is no longer used. `sfx/error.mp3` is the normalized short warning cue from `ErrorSFX.mp3`. Routine interactions continue to use the existing WAV cues and procedural fallback.
+
+Missing or undecodable assets fail quietly; gameplay does not wait for audio. The Web Audio master, music, SFX, and ambient buses remain independently controlled by the settings panel.

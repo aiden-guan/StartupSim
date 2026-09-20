@@ -1,34 +1,46 @@
 import type { GameState, ScreenId } from "../simulation/types";
 
-export type MusicState = "title" | "apartment" | "early" | "growth" | "scale" | "hypergrowth" | "market" | "crisis" | "ending";
-export type MusicStem = "pad" | "pulse" | "bass" | "lead" | "market" | "tension";
+/** The six authored songs follow the physical company stage, not valuation alone. */
+export type MusicStage = "apartment" | "office" | "scaleup" | "lab" | "campus" | "global";
+export type MusicState = MusicStage;
 
-export const MUSIC_STEMS: MusicStem[] = ["pad", "pulse", "bass", "lead", "market", "tension"];
-
-export function selectMusicState(game: GameState | null, screen: ScreenId, critical = false): MusicState {
-  if (screen === "title" || !game) return "title";
-  if (screen === "ended" || game.endingId) return "ending";
-  if (screen === "market") return "market";
-  if (critical) return "crisis";
-  if (game.company.officeLevel <= 0) return "apartment";
-  const valuation = Math.max(game.company.valuation, game.stats.peakValuation);
-  if (game.company.officeLevel >= 5 || valuation >= 1_000_000_000) return "hypergrowth";
-  if (game.company.officeLevel >= 3 || valuation >= 100_000_000) return "scale";
-  if (game.company.officeLevel >= 2 || valuation >= 10_000_000) return "growth";
-  return "early";
+export interface MusicTrack {
+  file: string;
+  /** Linear compensation retained as a final safety trim after offline mastering. */
+  gain: number;
+  /** The processed runtime asset crossfades its tail into its opening; loop from this point. */
+  loopStart: number;
+  loopEnd: number;
 }
 
-export const MUSIC_MIX: Record<MusicState, Record<MusicStem, number>> = {
-  title:       { pad: 0.42, pulse: 0,    bass: 0,    lead: 0,    market: 0,    tension: 0 },
-  apartment:   { pad: 0.52, pulse: 0,    bass: 0,    lead: 0,    market: 0,    tension: 0 },
-  early:       { pad: 0.58, pulse: 0.20, bass: 0,    lead: 0,    market: 0,    tension: 0 },
-  growth:      { pad: 0.64, pulse: 0.28, bass: 0.31, lead: 0,    market: 0,    tension: 0 },
-  scale:       { pad: 0.69, pulse: 0.36, bass: 0.42, lead: 0.22, market: 0,    tension: 0 },
-  hypergrowth: { pad: 0.72, pulse: 0.42, bass: 0.48, lead: 0.38, market: 0,    tension: 0 },
-  market:      { pad: 0.25, pulse: 0,    bass: 0.20, lead: 0,    market: 0.58, tension: 0 },
-  crisis:      { pad: 0.24, pulse: 0,    bass: 0.12, lead: 0,    market: 0,    tension: 0.48 },
-  ending:      { pad: 0.75, pulse: 0.16, bass: 0.32, lead: 0.50, market: 0,    tension: 0 },
+export const MUSIC_STAGES: readonly MusicStage[] = ["apartment", "office", "scaleup", "lab", "campus", "global"];
+
+export const MUSIC_TRACKS: Record<MusicStage, MusicTrack> = {
+  apartment: { file: "compounding.mp3", gain: 1, loopStart: 2.5, loopEnd: 177.84 },
+  office: { file: "first-real-office.mp3", gain: 1, loopStart: 2.5, loopEnd: 118.8 },
+  scaleup: { file: "scale-up-velocity.mp3", gain: 1, loopStart: 2.5, loopEnd: 180.048 },
+  lab: { file: "compounding-intelligence.mp3", gain: 1, loopStart: 2.5, loopEnd: 118.78 },
+  // This short source measured about 1 dB louder after loop preparation; keep the stage trim explicit.
+  campus: { file: "compounding-the-future.mp3", gain: 0.88, loopStart: 2.5, loopEnd: 29.76 },
+  global: { file: "global-headquarters.mp3", gain: 1, loopStart: 2.5, loopEnd: 29.46 },
 };
+
+function stageForOfficeLevel(officeLevel: number): MusicStage {
+  const level = Math.max(0, Math.min(MUSIC_STAGES.length - 1, Math.floor(officeLevel)));
+  return MUSIC_STAGES[level] ?? "apartment";
+}
+
+/**
+ * Selects only the song that belongs to the physical office tier.
+ * Title/setup, market, crisis, and ending are contexts layered over that same stage.
+ */
+export function selectMusicState(game: GameState | null, _screen: ScreenId, _critical = false): MusicState {
+  return stageForOfficeLevel(game?.company.officeLevel ?? 0);
+}
+
+export function musicStateChanged(previous: MusicState, next: MusicState): boolean {
+  return previous !== next;
+}
 
 export function channelGains(settings: Pick<GameState["settings"], "mute" | "masterVolume" | "sfxVolume" | "musicVolume" | "ambientVolume">) {
   const master = settings.mute ? 0 : Math.max(0, Math.min(1, settings.masterVolume));

@@ -32,6 +32,7 @@ import { createEnvironmentPreviewGame } from '../game3d/environment/devEnvironme
 import { createProduct } from "../simulation/products";
 import { Rng } from "../simulation/rng";
 import { WorldQaToolbar } from "./visuals/WorldQaToolbar";
+import { AudioQaToolbar } from "./visuals/AudioQaToolbar";
 import { LaunchAllSummaryPopup } from "./products/LaunchAllSummaryPopup";
 
 function useTutorialCamera() {
@@ -71,16 +72,14 @@ function useAudioScene() {
   const screen = useGame((s) => s.screen);
   const game = useGame((s) => s.game);
   const level = game?.company.officeLevel ?? 0;
-  const valuation = Math.max(game?.company.valuation ?? 0, game?.stats.peakValuation ?? 0);
-  const critical = useGame((s) => Boolean(s.eventFrame?.critical));
   const settings = useGame((s) => s.game?.settings);
   useEffect(() => {
     audio.configure(settings);
   }, [settings?.mute, settings?.masterVolume, settings?.sfxVolume, settings?.musicVolume, settings?.ambientVolume]);
   useEffect(() => {
-    audio.setMusicState(selectMusicState(game, screen, critical));
+    audio.setMusicState(selectMusicState(game, screen));
     audio.setAmbient(screen === "market" || screen === "ended" ? null : level <= 0 ? "apartment" : level >= 3 ? "lab" : "office");
-  }, [screen, level, valuation, critical, game?.endingId]);
+  }, [screen, level]);
   useEffect(() => {
     const unlock = () => audio.unlock();
     const visibility = () => document.hidden ? audio.pause() : audio.resume();
@@ -117,6 +116,7 @@ export function App() {
   },[screen,revealPlaying,slide?.id,slide?.workspace,drawer]);
   const uiScale = game?.settings.uiScale ?? 1;
   const worldQaEnabled = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("world");
+  const audioQaEnabled = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("audio") === "1";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -286,6 +286,7 @@ export function App() {
       <DebugPanel />
       {launchAllSummary ? <LaunchAllSummaryPopup summary={launchAllSummary} onClose={dismissLaunchAllSummary} /> : null}
       {worldQaEnabled ? <WorldQaToolbar /> : null}
+      {audioQaEnabled ? <AudioQaToolbar /> : null}
       <Analytics />
     </div>
   );

@@ -1,21 +1,41 @@
 import { describe, expect, it } from "vitest";
 import { createNewGame } from "../simulation/newGame";
-import { channelGains, MUSIC_MIX, selectMusicState } from "./musicState";
+import { channelGains, MUSIC_STAGES, MUSIC_TRACKS, musicStateChanged, selectMusicState } from "./musicState";
 
 const game = () => createNewGame({ founderName: "Ada", companyName: "Compounding", cofounderId: "dustin-moskovitz", skipTutorial: true, seed: 42 });
 
 describe("adaptive music", () => {
-  it("selects apartment, market, crisis, scale and ending scenes", () => {
+  it("maps each physical office tier to the intended authored track", () => {
     const state = game();
     expect(selectMusicState(state, "playing")).toBe("apartment");
-    expect(selectMusicState(state, "market")).toBe("market");
-    expect(selectMusicState(state, "playing", true)).toBe("crisis");
-    state.company.officeLevel = 4;
-    expect(selectMusicState(state, "playing")).toBe("scale");
+    for (const [level, stage] of MUSIC_STAGES.entries()) {
+      state.company.officeLevel = level;
+      expect(selectMusicState(state, "playing")).toBe(stage);
+      expect(selectMusicState(state, "market")).toBe(stage);
+      expect(selectMusicState(state, "playing", true)).toBe(stage);
+    }
+    state.company.officeLevel = 5;
     state.endingId = "ipo";
-    expect(selectMusicState(state, "ended")).toBe("ending");
-    expect(MUSIC_MIX.apartment.pulse).toBe(0);
-    expect(MUSIC_MIX.scale.pulse).toBeGreaterThan(0);
+    expect(selectMusicState(state, "ended")).toBe("global");
+    expect(selectMusicState(null, "title")).toBe("apartment");
+  });
+
+  it("uses explicit normalized tracks with clean loop bounds", () => {
+    expect(MUSIC_TRACKS.apartment.file).toBe("compounding.mp3");
+    expect(MUSIC_TRACKS.office.file).toBe("first-real-office.mp3");
+    expect(MUSIC_TRACKS.scaleup.file).toBe("scale-up-velocity.mp3");
+    expect(MUSIC_TRACKS.lab.file).toBe("compounding-intelligence.mp3");
+    expect(MUSIC_TRACKS.campus.file).toBe("compounding-the-future.mp3");
+    expect(MUSIC_TRACKS.global.file).toBe("global-headquarters.mp3");
+    for (const stage of MUSIC_STAGES) {
+      expect(MUSIC_TRACKS[stage].loopStart).toBeGreaterThan(0);
+      expect(MUSIC_TRACKS[stage].loopEnd).toBeGreaterThan(MUSIC_TRACKS[stage].loopStart);
+    }
+  });
+
+  it("does not treat a same-stage update as a music transition", () => {
+    expect(musicStateChanged("apartment", "apartment")).toBe(false);
+    expect(musicStateChanged("apartment", "office")).toBe(true);
   });
 
   it("keeps bus volumes independent behind the common master and mute", () => {
