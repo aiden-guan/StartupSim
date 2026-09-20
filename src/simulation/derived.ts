@@ -8,6 +8,9 @@ export { monthlyArr };
 export const RENTED_GPU_WEEKLY_COVERAGE = 800;
 export const OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE = 120;
 export const RENTED_GPU_MONTHLY_COST = 2_400;
+export const OWNED_COMPUTE_UNIT_COST = 100_000;
+export const OWNED_COMPUTE_PURCHASE_OPTIONS = [4, 16, 64] as const;
+export const MAX_RENTED_GPUS = 10_000;
 
 export function monthlyPayroll(state: GameState): number {
   return state.employees.reduce((s, w) => s + w.salary / 12, 0);

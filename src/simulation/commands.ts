@@ -33,7 +33,7 @@ import type { DelegationStrategy, DepartmentId, GameState, HexPos, LaunchStat, P
 import { createNewGame, normalizeCompanyBrand, type NewGameInput } from "./newGame";
 import { tickDay, checkOnboarding } from "./tick";
 import { employeeScore, minSalaryFor } from "./workers";
-import { valuationOf } from "./derived";
+import { MAX_RENTED_GPUS, OWNED_COMPUTE_UNIT_COST, valuationOf } from "./derived";
 import { detectEnding } from "./endings";
 import { applyAdvanceMentor, applyBackMentor, finishMentorStep, skipTutorial, recordTutorialEvent, currentTutorialSlide } from "./tutorial";
 import { checkAchievements, isEduardoSaverin, unlockAchievement } from "./achievements";
@@ -95,7 +95,7 @@ export type GameCommand =
   | { type: "generateFunding" }
   | { type: "acceptOffer"; offerId: string }
   | { type: "rentGpus"; count: number }
-  | { type: "buyCluster" }
+  | { type: "buyCluster"; units?: number }
   | { type: "setCompanyModel"; modelId: string }
   | { type: "setAutomation"; department: DepartmentId; percent: number }
   | { type: "deployAiWorker"; kind: "engineering" | "support" | "sales" | "research" }
@@ -963,14 +963,18 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         break;
       }
       case "rentGpus":
-        if (Number.isFinite(command.count)) draft.compute.rentedGpus = Math.min(10000, Math.max(0, Math.floor(command.count)));
+        if (Number.isFinite(command.count)) draft.compute.rentedGpus = Math.min(MAX_RENTED_GPUS, Math.max(0, Math.floor(command.count)));
         break;
-      case "buyCluster":
-        if (draft.company.cash < 400_000) break;
-        draft.company.cash -= 400_000;
-        draft.compute.ownedCluster += 4;
+      case "buyCluster": {
+        const units = Number.isFinite(command.units) ? Math.floor(command.units!) : 4;
+        if (units <= 0 || units % 4 !== 0) break;
+        const cost = units * OWNED_COMPUTE_UNIT_COST;
+        if (draft.company.cash < cost) break;
+        draft.company.cash -= cost;
+        draft.compute.ownedCluster += units;
         unlockAchievement(draft, "sovereign-compute");
         break;
+      }
       case "setCompanyModel":
         if (isModelAvailable(draft, command.modelId) && (draft.ownedModels.includes(command.modelId) || models.some((m) => m.id === command.modelId && m.provider !== "You"))) {
           draft.currentModelId = command.modelId;

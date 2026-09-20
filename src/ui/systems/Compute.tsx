@@ -4,7 +4,7 @@ import { calculateModelImpact } from "../../simulation/modelImpact";
 import type { DepartmentId, GameState } from "../../simulation/types";
 import { isModelAvailable, providerForModel } from "../../simulation/effects";
 import { useGame } from "../../state/store";
-import { fixedComputeCost, inferenceCoverage, monthlyCompute, OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE, RENTED_GPU_MONTHLY_COST, RENTED_GPU_WEEKLY_COVERAGE } from "../../simulation/derived";
+import { fixedComputeCost, inferenceCoverage, monthlyCompute, MAX_RENTED_GPUS, OWNED_COMPUTE_PURCHASE_OPTIONS, OWNED_COMPUTE_UNIT_COST, OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE, RENTED_GPU_MONTHLY_COST, RENTED_GPU_WEEKLY_COVERAGE } from "../../simulation/derived";
 import { allocateTrainingCompute, availableTrainingCompute, rentedGpusNeededForTraining, weeklyInferenceDemand } from "../../simulation/compute";
 import { modelTags } from "../../visuals/registry";
 import { compact, modelPricePerMTok, money } from "../format";
@@ -15,6 +15,11 @@ import { ModelGlyph } from "../visuals/ModelGlyph";
 
 const DEPTS: DepartmentId[] = ["engineering", "support", "sales", "marketing", "finance", "recruiting", "legal", "research", "management"];
 const SERVICE_PRODUCT_STATUSES = new Set(["active", "mature", "declining"]);
+const RENTED_GPU_ADJUSTMENTS = [-100, -10, -1, 1, 10, 100] as const;
+
+function ownedComputeCost(units: number): number {
+  return units * OWNED_COMPUTE_UNIT_COST;
+}
 
 export function ComputePanel({ game }: { game: GameState }) {
   const dispatch = useGame((state) => state.dispatch);
@@ -30,6 +35,7 @@ export function ComputePanel({ game }: { game: GameState }) {
   const inferenceShortfall = Math.max(0, demand - coverage);
   const rentedGpuCost = game.compute.rentedGpus * RENTED_GPU_MONTHLY_COST;
   const rentedGpuCoverage = game.compute.rentedGpus * RENTED_GPU_WEEKLY_COVERAGE;
+  const ownedPurchaseOptions = OWNED_COMPUTE_PURCHASE_OPTIONS.map((units) => ({ units, cost: ownedComputeCost(units) }));
   const computeUnits = (value: number) => `${compact(value)} units`;
   const trainingHeadline = training.demand <= 0 ? "No active training" : training.blocked ? "Work is blocked" : training.ratio < 1 ? `${trainingPercent}% training speed` : "Training fully covered";
   const trainingDescription = training.demand <= 0 ? "Start a product or research project to use training capacity." : training.blocked ? "Active product and research work cannot advance until capacity is available." : training.ratio < 1 ? "Your active work is sharing too little capacity. Add GPUs to bring it back to full speed." : "All active product and research work has enough capacity to run at full speed.";
@@ -39,6 +45,7 @@ export function ComputePanel({ game }: { game: GameState }) {
   const visibleModels = models.filter((model) => model.provider !== "You" || game.ownedModels.includes(model.id));
   const selected = visibleModels.find((model) => model.id === selectedId) ?? visibleModels.find((model) => model.id === game.currentModelId) ?? visibleModels[0]!;
   const selectedAvailable = isModelAvailable(game, selected.id);
+  const adjustRentedGpus = (delta: number) => dispatch({ type: "rentGpus", count: Math.max(0, Math.min(MAX_RENTED_GPUS, game.compute.rentedGpus + delta)) });
 
   return <div className="compute-console">
     <div className="workspace-intro">
@@ -56,9 +63,9 @@ export function ComputePanel({ game }: { game: GameState }) {
     <div className="compute-metrics" aria-label="Compute costs"><div><small>API credits</small><strong>{compact(game.compute.apiCredits)}</strong><span>credits left</span></div><div><small>Fixed cost / month</small><strong>{money(fixedComputeCost(game))}</strong><span>GPU rent + cloud</span></div><div><small>Total compute / month</small><strong>{money(monthlyCompute(game))}</strong><span>fixed + hosted inference</span></div></div>
     <section className="capacity-sources">
       <div className="capacity-sources-heading"><div><span className="eyebrow">Capacity sources</span><h3>Add headroom</h3></div><p>Rent flexible capacity for active work. Buy owned units when you want permanent inference coverage.</p></div>
-      <div className="capacity-source-row"><div className="capacity-source-copy"><h4>Rented GPUs</h4><p>Each GPU adds {money(RENTED_GPU_WEEKLY_COVERAGE)}/week of inference coverage. Any unused coverage trains models.</p><small>{money(rentedGpuCoverage)}/week covered · {money(rentedGpuCost)}/month rental</small></div><div className="capacity-stepper"><button aria-label="Rent fewer GPUs" disabled={game.compute.rentedGpus === 0} onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus - 1 })}>−</button><label><span>GPUs rented</span><input aria-label="Rented GPUs" type="number" min="0" max="10000" step="1" inputMode="numeric" value={game.compute.rentedGpus} onChange={(event) => dispatch({ type: "rentGpus", count: Math.max(0, Math.min(10000, Math.floor(Number(event.target.value) || 0))) })} /></label><button aria-label="Rent more GPUs" onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus + 1 })}>+</button></div></div>
+      <div className="capacity-source-row"><div className="capacity-source-copy"><h4>Rented GPUs</h4><p>Each GPU adds {money(RENTED_GPU_WEEKLY_COVERAGE)}/week of inference coverage. Any unused coverage trains models.</p><small>{money(rentedGpuCoverage)}/week covered · {money(rentedGpuCost)}/month rental</small></div><div className="capacity-stepper" role="group" aria-label="Adjust rented GPUs"><span className="capacity-control-label">GPUs rented</span><div className="capacity-stepper-controls"><div className="capacity-stepper-side" role="group" aria-label="Decrease rented GPUs">{RENTED_GPU_ADJUSTMENTS.filter((step) => step < 0).map((step) => { const amount = Math.abs(step); return <button key={step} className="capacity-step-button" aria-label={`Rent ${amount} fewer GPUs`} disabled={game.compute.rentedGpus < amount} onClick={() => adjustRentedGpus(step)}>−{amount}</button>; })}</div><output className="capacity-stepper-value" aria-live="polite" aria-label="Rented GPUs">{game.compute.rentedGpus}</output><div className="capacity-stepper-side" role="group" aria-label="Increase rented GPUs">{RENTED_GPU_ADJUSTMENTS.filter((step) => step > 0).map((step) => <button key={step} className="capacity-step-button" aria-label={`Rent ${step} more GPUs`} disabled={game.compute.rentedGpus + step > MAX_RENTED_GPUS} onClick={() => adjustRentedGpus(step)}>+{step}</button>)}</div></div></div></div>
       {gpusNeeded > 0 && <p className="capacity-recommendation"><strong>About {gpusNeeded} more rented GPU{gpusNeeded === 1 ? "" : "s"}</strong> would bring active training to full speed at today&apos;s demand. This is a recurring {money(gpusNeeded * RENTED_GPU_MONTHLY_COST)}/month commitment.</p>}
-      <div className="capacity-source-row"><div className="capacity-source-copy"><h4>Owned capacity</h4><p>{game.compute.ownedCluster} units owned. Four units add {money(4 * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE)}/week of coverage with no monthly rental.</p><small>{money(game.compute.ownedCluster * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE)}/week current coverage · one-time purchase</small></div><div className="cluster-action"><GameButton tone="primary" disabled={game.company.cash < 400_000} title={game.company.cash < 400_000 ? `Need ${money(400_000 - game.company.cash)} more` : "Add four owned compute units"} onClick={() => dispatch({ type: "buyCluster" })}>Buy 4 units · $400k</GameButton><small>{game.company.cash < 400_000 ? `Need ${money(400_000 - game.company.cash)} more cash` : `Adds ${money(4 * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE)}/week coverage`}</small></div></div>
+      <div className="capacity-source-row"><div className="capacity-source-copy"><h4>Owned capacity</h4><p>{game.compute.ownedCluster} units owned. Every four units add {money(4 * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE)}/week of coverage with no monthly rental.</p><small>{money(game.compute.ownedCluster * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE)}/week current coverage · one-time purchase</small></div><div className="cluster-action"><div className="cluster-purchase-options" role="group" aria-label="Buy owned capacity">{ownedPurchaseOptions.map(({ units, cost }) => { const canAfford = game.company.cash >= cost; return <GameButton key={units} className="cluster-purchase-option" tone="plain" disabled={!canAfford} title={canAfford ? `Buy ${units} units for ${money(cost)}` : `Need ${money(cost - game.company.cash)} more cash`} aria-label={canAfford ? `Buy ${units} owned capacity units for ${money(cost)}` : `Cannot afford ${units} owned capacity units; need ${money(cost - game.company.cash)} more cash`} onClick={() => dispatch({ type: "buyCluster", units })}><strong>+{units} units</strong><small>{money(cost)}</small></GameButton>; })}</div><small>Choose a pack you can cover with cash.</small></div></div>
     </section>
 
     <details className="compute-advanced-section">

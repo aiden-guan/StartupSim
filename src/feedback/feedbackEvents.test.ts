@@ -4,6 +4,7 @@ import { applyCommand } from "../simulation/commands";
 import { createNewGame } from "../simulation/newGame";
 import { deriveFeedbackEvents } from "./feedbackEvents";
 import { feedbackMotionPolicy } from "./feedbackPolicy";
+import { FEEDBACK_SOUND_MAP } from "./FeedbackDirector";
 
 const fresh = () => createNewGame({ founderName: "Ada", companyName: "Compounding", cofounderId: "dustin-moskovitz", skipTutorial: true, seed: 41 });
 
@@ -50,5 +51,10 @@ describe("semantic feedback derivation", () => {
     expect(feedbackMotionPolicy(event, { reducedMotion: false, graphics: "high" }).camera).toBe(true);
     expect(feedbackMotionPolicy(event, { reducedMotion: true, graphics: "high" }).camera).toBe(false);
     expect(feedbackMotionPolicy({ type: "funding.closed", tier: 4 }, { reducedMotion: true, graphics: "low" }).characterReaction).toBe(false);
+  });
+
+  it("keeps routine burnout warnings off the critical error cue", () => {
+    expect(FEEDBACK_SOUND_MAP["employee.burnout"]).toBe("message");
+    expect(FEEDBACK_SOUND_MAP["crisis.started"]).toBe("crisis");
   });
 });

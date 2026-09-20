@@ -175,6 +175,30 @@ describe("compute constraints", () => {
   });
 });
 
+describe("owned compute purchases", () => {
+  it("buys a requested pack only when the company can cover its full cost", () => {
+    let g = boot(15);
+    g.company.cash = 2_000_000;
+
+    const bought = applyCommand(g, { type: "buyCluster", units: 16 })!;
+    expect(bought.compute.ownedCluster).toBe(16);
+    expect(bought.company.cash).toBe(400_000);
+
+    const declined = applyCommand(bought, { type: "buyCluster", units: 64 })!;
+    expect(declined.compute.ownedCluster).toBe(16);
+    expect(declined.company.cash).toBe(400_000);
+  });
+
+  it("rejects malformed owned-capacity pack sizes", () => {
+    const g = boot(15);
+    g.company.cash = 2_000_000;
+
+    const unchanged = applyCommand(g, { type: "buyCluster", units: 5 })!;
+    expect(unchanged.compute.ownedCluster).toBe(g.compute.ownedCluster);
+    expect(unchanged.company.cash).toBe(g.company.cash);
+  });
+});
+
 describe("rest assignment", () => {
   it("keeps the assignment, stops contribution, and resumes after rest", () => {
     let g = boot(14);
