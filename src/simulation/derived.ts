@@ -5,6 +5,10 @@ import { monthlyArr } from "./conditions.js";
 
 export { monthlyArr };
 
+export const RENTED_GPU_WEEKLY_COVERAGE = 800;
+export const OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE = 120;
+export const RENTED_GPU_MONTHLY_COST = 2_400;
+
 export function monthlyPayroll(state: GameState): number {
   return state.employees.reduce((s, w) => s + w.salary / 12, 0);
 }
@@ -15,10 +19,10 @@ export function monthlyRent(state: GameState): number {
 }
 
 export function inferenceCoverage(state: GameState): number {
-  return state.compute.rentedGpus * 800 + state.compute.ownedCluster * 120 + state.compute.dataCenters * 4000;
+  return state.compute.rentedGpus * RENTED_GPU_WEEKLY_COVERAGE + state.compute.ownedCluster * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE + state.compute.dataCenters * 4000;
 }
 export function fixedComputeCost(state: GameState): number {
-  return state.compute.rentedGpus * 2400 + state.compute.reservedCapacity * 6500 + state.compute.dataCenters * 180000 + state.compute.monthlyCloudBill;
+  return state.compute.rentedGpus * RENTED_GPU_MONTHLY_COST + state.compute.reservedCapacity * 6500 + state.compute.dataCenters * 180000 + state.compute.monthlyCloudBill;
 }
 export function monthlyCompute(state: GameState): number {
   const weekly = state.products.filter((p) => isServiceProductStatus(p.status)).reduce((sum, p) => sum + p.weeklyInference, 0);

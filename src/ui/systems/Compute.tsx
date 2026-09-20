@@ -4,16 +4,14 @@ import { calculateModelImpact } from "../../simulation/modelImpact";
 import type { DepartmentId, GameState } from "../../simulation/types";
 import { isModelAvailable, providerForModel } from "../../simulation/effects";
 import { useGame } from "../../state/store";
-import { fixedComputeCost, inferenceCoverage, monthlyCompute } from "../../simulation/derived";
-import { allocateTrainingCompute, leftoverCapacityDaily, weeklyInferenceDemand } from "../../simulation/compute";
+import { fixedComputeCost, inferenceCoverage, monthlyCompute, OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE, RENTED_GPU_MONTHLY_COST, RENTED_GPU_WEEKLY_COVERAGE } from "../../simulation/derived";
+import { allocateTrainingCompute, availableTrainingCompute, rentedGpusNeededForTraining, weeklyInferenceDemand } from "../../simulation/compute";
 import { modelTags } from "../../visuals/registry";
-import { modelPricePerMTok, money } from "../format";
+import { compact, modelPricePerMTok, money } from "../format";
 import { GameButton } from "../shared/controls";
 import { CompanyMark } from "../visuals/CompanyMark";
 import { MiniaturePreview } from "../visuals/MiniaturePreview";
 import { ModelGlyph } from "../visuals/ModelGlyph";
-import { deriveEnvironmentVisualState } from "../../game3d/environment/environmentVisualState";
-import { computeRackLayout, requestedComputeRacks } from "../../game3d/environment/computeLayout";
 
 const DEPTS: DepartmentId[] = ["engineering", "support", "sales", "marketing", "finance", "recruiting", "legal", "research", "management"];
 const SERVICE_PRODUCT_STATUSES = new Set(["active", "mature", "declining"]);
@@ -23,17 +21,24 @@ export function ComputePanel({ game }: { game: GameState }) {
   const [selectedId, setSelectedId] = useState(game.currentModelId);
   const demand = weeklyInferenceDemand(game);
   const coverage = inferenceCoverage(game);
-  const load = coverage > 0 ? Math.min(100, demand / coverage * 100) : 0;
   const training = allocateTrainingCompute(game);
-  const leftover = leftoverCapacityDaily(game);
+  const trainingCapacity = availableTrainingCompute(game);
+  const trainingPercent = training.demand > 0 ? Math.min(100, Math.round(trainingCapacity / training.demand * 100)) : 100;
+  const trainingShortfall = Math.max(0, training.demand - trainingCapacity);
+  const gpusNeeded = rentedGpusNeededForTraining(game);
+  const inferencePercent = demand > 0 ? Math.min(100, Math.round(coverage / demand * 100)) : coverage > 0 ? 100 : 0;
+  const inferenceShortfall = Math.max(0, demand - coverage);
+  const rentedGpuCost = game.compute.rentedGpus * RENTED_GPU_MONTHLY_COST;
+  const rentedGpuCoverage = game.compute.rentedGpus * RENTED_GPU_WEEKLY_COVERAGE;
+  const computeUnits = (value: number) => `${compact(value)} units`;
+  const trainingHeadline = training.demand <= 0 ? "No active training" : training.blocked ? "Work is blocked" : training.ratio < 1 ? `${trainingPercent}% training speed` : "Training fully covered";
+  const trainingDescription = training.demand <= 0 ? "Start a product or research project to use training capacity." : training.blocked ? "Active product and research work cannot advance until capacity is available." : training.ratio < 1 ? "Your active work is sharing too little capacity. Add GPUs to bring it back to full speed." : "All active product and research work has enough capacity to run at full speed.";
   const outage = game.providerOutages.find((item) => item.untilTick > game.clock.tick);
   const affectedProducts = outage ? game.products.filter((product) => SERVICE_PRODUCT_STATUSES.has(product.status) && providerForModel(product.modelId) === outage.provider) : [];
   const outageDays = outage ? Math.max(1, outage.untilTick - game.clock.tick) : 0;
   const visibleModels = models.filter((model) => model.provider !== "You" || game.ownedModels.includes(model.id));
   const selected = visibleModels.find((model) => model.id === selectedId) ?? visibleModels.find((model) => model.id === game.currentModelId) ?? visibleModels[0]!;
   const selectedAvailable = isModelAvailable(game, selected.id);
-  const visualState = deriveEnvironmentVisualState(game);
-  const rackPlan = computeRackLayout(game.company.officeLevel, requestedComputeRacks(visualState));
 
   return <div className="compute-console">
     <div className="workspace-intro">
@@ -41,13 +46,23 @@ export function ComputePanel({ game }: { game: GameState }) {
       <span className={`system-online ${outage ? "disrupted" : ""}`}>{outage ? `● ${outage.provider} disruption` : "● Systems online"}</span>
     </div>
     {outage && <section className="provider-outage-banner" role="status"><CompanyMark name={outage.provider} /><div><span className="eyebrow">Active gameplay event</span><strong>{outage.provider} is unavailable</strong><p>{affectedProducts.length ? `${affectedProducts.length} active product${affectedProducts.length > 1 ? "s are" : " is"} exposed. Revenue is reduced until you migrate or service returns.` : "No active product is currently exposed. The provider remains unavailable for new selections."}</p><small>{outageDays} days remaining · choose a fallback in the Inbox event</small></div></section>}
-    <section className="capacity-display" data-tutorial="compute-capacity"><div className="rack-graphic">{Array.from({ length: 5 }, (_, index) => <div key={index}><i /><i /><span /></div>)}</div><div><span className="eyebrow">Self-hosted inference</span><strong>{money(coverage)}<small>equivalent API cost covered / week</small></strong><div className="progress-track"><i style={{ width: `${load}%` }} /></div><p>{coverage ? `${Math.round(load)}% capacity in use` : "Using hosted APIs · no dedicated GPUs"} · {money(Math.max(0, demand - coverage))}/week served by APIs</p><small className="compute-footprint-note">Office footprint · {rackPlan.shown} of {rackPlan.requested} rack{rackPlan.requested === 1 ? "" : "s"} shown{rackPlan.overflow ? ` · ${rackPlan.overflow} stays off-floor` : ""}</small></div></section>
-    <div className="compute-metrics">{[["API credits", money(game.compute.apiCredits)], ["Training budget / day", money(game.compute.apiCredits + leftover)], ["Training demand / day", money(training.demand)], ["Fixed cloud / month", money(fixedComputeCost(game))], ["Total compute / month", money(monthlyCompute(game))]].map(([label, value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}</div>
-    {training.blocked && <p className="inline-warning">Blocked by compute. Product and research work cannot advance until you rent GPUs, buy a cluster, or restore API credits.</p>}
-    {training.demand > 0 && !training.blocked && training.ratio < 1 && <p className="inline-warning">Training compute is oversubscribed. Development is running at {Math.round(training.ratio * 100)}% speed. Add capacity or pause a project.</p>}
-    <div className="gpu-controls"><div><h4>Rent GPU capacity</h4><p>Each GPU covers $800 of weekly inference and leftover capacity can train models. Unused racks still cost money.</p></div><div className="stepper"><button aria-label="Rent fewer GPUs" disabled={game.compute.rentedGpus === 0} onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus - 1 })}>−</button><output>{game.compute.rentedGpus}</output><button aria-label="Rent more GPUs" onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus + 1 })}>+</button></div></div>
-    <div className="cluster-row"><p>Owned cluster · {game.compute.ownedCluster} units<br /><small>Four units add $480/week of coverage with no rental charge.</small></p><GameButton disabled={game.company.cash < 400_000} title={game.company.cash < 400_000 ? `Need ${money(400_000 - game.company.cash)} more` : "Add four owned compute units"} onClick={() => dispatch({ type: "buyCluster" })}>Buy cluster · $400k</GameButton></div>
+    <section className={`compute-health ${training.blocked ? "is-blocked" : training.ratio < 1 ? "is-throttled" : "is-ready"}`} data-tutorial="compute-capacity">
+      <header className="compute-health-header"><div><span className="eyebrow">Capacity status</span><h3>{trainingHeadline}</h3><p>{trainingDescription}</p></div><strong className="compute-health-mark">{training.demand > 0 ? `${trainingPercent}%` : "Ready"}</strong></header>
+      <div className="compute-health-grid">
+        <div className="compute-health-metric"><div className="compute-health-metric-header"><span>Training today</span><strong>{training.demand > 0 ? compact(trainingCapacity) : "—"}<small>{training.demand > 0 ? ` / ${compact(training.demand)} units` : " no active demand"}</small></strong></div><div className="progress-track"><i style={{ width: `${training.demand > 0 ? trainingPercent : 0}%` }} /></div><small>{training.demand > 0 ? `${computeUnits(trainingShortfall)} short` : "No active projects"}</small></div>
+        <div className="compute-health-metric"><div className="compute-health-metric-header"><span>Inference coverage</span><strong>{money(coverage)}<small> / week</small></strong></div><div className="progress-track"><i style={{ width: `${inferencePercent}%` }} /></div><small>{demand <= 0 ? "No live products" : inferenceShortfall > 0 ? `${money(inferenceShortfall)}/week uses hosted APIs` : `${money(Math.max(0, coverage - demand))}/week headroom`}</small></div>
+      </div>
+    </section>
+    <div className="compute-metrics" aria-label="Compute costs"><div><small>API credits</small><strong>{compact(game.compute.apiCredits)}</strong><span>credits left</span></div><div><small>Fixed cost / month</small><strong>{money(fixedComputeCost(game))}</strong><span>GPU rent + cloud</span></div><div><small>Total compute / month</small><strong>{money(monthlyCompute(game))}</strong><span>fixed + hosted inference</span></div></div>
+    <section className="capacity-sources">
+      <div className="capacity-sources-heading"><div><span className="eyebrow">Capacity sources</span><h3>Add headroom</h3></div><p>Rent flexible capacity for active work. Buy owned units when you want permanent inference coverage.</p></div>
+      <div className="capacity-source-row"><div className="capacity-source-copy"><h4>Rented GPUs</h4><p>Each GPU adds {money(RENTED_GPU_WEEKLY_COVERAGE)}/week of inference coverage. Any unused coverage trains models.</p><small>{money(rentedGpuCoverage)}/week covered · {money(rentedGpuCost)}/month rental</small></div><div className="capacity-stepper"><button aria-label="Rent fewer GPUs" disabled={game.compute.rentedGpus === 0} onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus - 1 })}>−</button><label><span>GPUs rented</span><input aria-label="Rented GPUs" type="number" min="0" max="10000" step="1" inputMode="numeric" value={game.compute.rentedGpus} onChange={(event) => dispatch({ type: "rentGpus", count: Math.max(0, Math.min(10000, Math.floor(Number(event.target.value) || 0))) })} /></label><button aria-label="Rent more GPUs" onClick={() => dispatch({ type: "rentGpus", count: game.compute.rentedGpus + 1 })}>+</button></div></div>
+      {gpusNeeded > 0 && <p className="capacity-recommendation"><strong>About {gpusNeeded} more rented GPU{gpusNeeded === 1 ? "" : "s"}</strong> would bring active training to full speed at today&apos;s demand. This is a recurring {money(gpusNeeded * RENTED_GPU_MONTHLY_COST)}/month commitment.</p>}
+      <div className="capacity-source-row"><div className="capacity-source-copy"><h4>Owned capacity</h4><p>{game.compute.ownedCluster} units owned. Four units add {money(4 * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE)}/week of coverage with no monthly rental.</p><small>{money(game.compute.ownedCluster * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE)}/week current coverage · one-time purchase</small></div><div className="cluster-action"><GameButton tone="primary" disabled={game.company.cash < 400_000} title={game.company.cash < 400_000 ? `Need ${money(400_000 - game.company.cash)} more` : "Add four owned compute units"} onClick={() => dispatch({ type: "buyCluster" })}>Buy 4 units · $400k</GameButton><small>{game.company.cash < 400_000 ? `Need ${money(400_000 - game.company.cash)} more cash` : `Adds ${money(4 * OWNED_COMPUTE_UNIT_WEEKLY_COVERAGE)}/week coverage`}</small></div></div>
+    </section>
 
+    <details className="compute-advanced-section">
+      <summary><span>Default model</span><small>{selected.name} · {selected.provider}</small></summary>
     <section className="model-selector">
       <div className="choice-section-heading"><div><span className="eyebrow">Default for new products</span><h3>Choose your model.</h3></div><p>Provider identity, operating cost, and the strongest tradeoffs first. Exact model stats remain one layer deeper.</p></div>
       <div className="model-choice-layout">
@@ -68,16 +83,16 @@ export function ComputePanel({ game }: { game: GameState }) {
                 <MiniaturePreview item={{ kind: "model", id: selected.id }} label={`${selected.name} model miniature`} />
                 <div className="model-strengths">{modelTags(selected).map((tag) => <span key={tag}>{tag}</span>)}</div>
                 <p>{selected.open ? "Open weights: gives you hosting independence and a 10% self-hosting token cost discount." : selected.capability >= 9 ? "Frontier intelligence: highest market quality and demand conversion, priced for work that justifies premium compute." : selected.speed >= 8 ? "High velocity: accelerates product development speed and keeps runtime fast." : "A balanced hosted model for reliable everyday product workloads."}</p>
-                <div className="model-strategic-impact" style={{ margin: '10px 0', padding: '10px', background: '#eef2e7', borderRadius: 6, fontSize: 11 }}>
-                  <span className="eyebrow" style={{ display: 'block', marginBottom: 6 }}>Strategic profile</span>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', lineHeight: 1.4 }}>
+                <div className="model-strategic-impact">
+                  <span className="eyebrow model-strategic-label">Strategic profile</span>
+                  <div className="model-strategic-grid">
                     <div><strong>Dev speed:</strong> {devPct >= 0 ? `+${devPct}%` : `${devPct}%`}</div>
                     <div><strong>Baseline demand:</strong> {capPct >= 0 ? `+${capPct}%` : `${capPct}%`}</div>
                     <div><strong>Reliability:</strong> {selected.reliability}/10 ({(impact.reliabilityContribution * 100).toFixed(0)} pts)</div>
                     <div><strong>Effective token:</strong> {modelPricePerMTok(impact.effectiveTokenPrice)}/M</div>
                   </div>
-                  {impact.strengths.length > 0 && <div style={{ marginTop: 6, color: '#3d6148' }}>✓ {impact.strengths[0]}</div>}
-                  {impact.tradeoffs.length > 0 && <div style={{ marginTop: 2, color: '#8f4f38' }}>⚠ {impact.tradeoffs[0]}</div>}
+                  {impact.strengths.length > 0 && <div className="model-strength-callout positive">✓ {impact.strengths[0]}</div>}
+                  {impact.tradeoffs.length > 0 && <div className="model-strength-callout negative">⚠ {impact.tradeoffs[0]}</div>}
                 </div>
                 <div className="model-summary"><span><small>Cost</small><strong>{modelPricePerMTok(selected.costPerMTok)} / MTok</strong></span><span><small>Best fit</small><strong>{modelTags(selected)[0]}</strong></span></div>
                 <details className="advanced-details"><summary>Compare exact stats</summary><dl>{[["Capability", selected.capability], ["Speed", selected.speed], ["Reliability", selected.reliability], ["Context", selected.context], ["Safety", selected.safety]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value} / 10</dd></div>)}</dl></details>
@@ -89,6 +104,7 @@ export function ComputePanel({ game }: { game: GameState }) {
         </aside>
       </div>
     </section>
-    {game.unlocks.automation && <section><h4 className="console-heading">Department automation</h4><div className="automation-grid">{DEPTS.map((department) => <label key={department}>{department}<output>{game.company.automation[department]}%</output><input aria-label={`${department} automation`} type="range" min="0" max="100" step="10" value={game.company.automation[department]} onChange={(event) => dispatch({ type: "setAutomation", department, percent: Number(event.target.value) })} /></label>)}</div><div className="choice-row">{(["engineering", "support", "sales", "research"] as const).map((kind) => <GameButton key={kind} onClick={() => dispatch({ type: "deployAiWorker", kind })}>Deploy {kind} agent</GameButton>)}</div></section>}
+    </details>
+    {game.unlocks.automation && <details className="compute-advanced-section"><summary><span>Department automation</span><small>{Object.values(game.company.automation).filter((value) => value > 0).length} departments configured</small></summary><section><div className="automation-grid">{DEPTS.map((department) => <label key={department}>{department}<output>{game.company.automation[department]}%</output><input aria-label={`${department} automation`} type="range" min="0" max="100" step="10" value={game.company.automation[department]} onChange={(event) => dispatch({ type: "setAutomation", department, percent: Number(event.target.value) })} /></label>)}</div><div className="choice-row">{(["engineering", "support", "sales", "research"] as const).map((kind) => <GameButton key={kind} onClick={() => dispatch({ type: "deployAiWorker", kind })}>Deploy {kind} agent</GameButton>)}</div></section></details>}
   </div>;
 }

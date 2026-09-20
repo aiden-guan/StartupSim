@@ -42,13 +42,10 @@ export function MentorCard() {
           <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-copper">
             {identity.mentorName}
           </div>
-          <div className="font-mono text-[10px] text-muted">{identity.mentorTitle}</div>
-          <p className="mt-2 font-display text-[17px] leading-snug">“{slide.text}”</p>
+          <p className="mt-2 font-display text-[17px] leading-snug">{slide.text}</p>
           <div className="mentor-card-footer mt-3 flex items-center justify-between gap-3">
-            <div className="mentor-progress flex gap-1" aria-label={`Step ${index + 1} of ${step.slides.length}`}>
-              {step.slides.map((s, i) => (
-                <span key={s.id} className={`h-1.5 w-1.5 rounded-full ${i === index ? "bg-copper" : "bg-[#cfc5b6]"}`} />
-              ))}
+            <div className="mentor-progress-label" aria-label={`Step ${index + 1} of ${step.slides.length}`}>
+              {index + 1} / {step.slides.length}
             </div>
             <div className="mentor-actions flex items-center gap-2">
               {index > 0 ? (
@@ -72,7 +69,7 @@ export function MentorCard() {
               ) : (
                 <span className="mentor-action-status" role="status">
                   <span className="mentor-action-status-dot" aria-hidden="true" />
-                  Waiting for your action
+                  Use the highlighted control
                 </span>
               )}
               <button

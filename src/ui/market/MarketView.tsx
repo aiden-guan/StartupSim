@@ -25,9 +25,9 @@ const TRAIT_INFO: Record<MarketTrait, { icon: string; label: string; desc: strin
 type PlayerTactic = Extract<MarketTactic, "pitch" | "fortify" | "poach">;
 
 const TACTICS: Record<PlayerTactic, { label: string; icon: string; description: string }> = {
-  pitch: { label: "Promote", icon: "↗", description: "Build a foothold in a connected open segment." },
-  fortify: { label: "Reinforce", icon: "◆", description: "Deepen your share and protect an existing foothold." },
-  poach: { label: "Poach", icon: "⇄", description: "Challenge a rival-held segment and take their customers." },
+  pitch: { label: "Promote", icon: "↗", description: "Find a connected opening." },
+  fortify: { label: "Reinforce", icon: "◆", description: "Protect your foothold." },
+  poach: { label: "Poach", icon: "⇄", description: "Challenge a rival hold." },
 };
 
 function tacticForMove(canReinforce: boolean, canContest: boolean): PlayerTactic {
@@ -51,7 +51,7 @@ function visibleMoveLabel(entry: MarketLogEntry): string {
 export function MarketView({ game }: { game: GameState }) {
   const session = game.marketBattle!;
   const dispatch = useGame((s) => s.dispatch);
-  const [feedback, setFeedback] = useState<string>("Select a market segment and deploy tactical operations.");
+  const [feedback, setFeedback] = useState<string>("Select a segment.");
   const [selectedTactic, setSelectedTactic] = useState<PlayerTactic>("pitch");
   const [moveReveals, setMoveReveals] = useState<MarketLogEntry[]>([]);
 
@@ -175,7 +175,7 @@ export function MarketView({ game }: { game: GameState }) {
       {/* Top Header */}
       <header className="market-header">
         <div>
-          <span className="eyebrow">Market Entry · Customer War Map</span>
+          <span className="eyebrow">Market entry</span>
           <h1>{product.name}</h1>
         </div>
 
@@ -207,7 +207,7 @@ export function MarketView({ game }: { game: GameState }) {
             <strong style={{ color: "#e4a880" }}>{overall.rival}%</strong>
           </span>
           <span>
-            <small>Turns Window</small>
+            <small>Turns left</small>
             <strong>
               {session.turnsLeft} <em>/ {session.totalTurns}</em>
             </strong>
@@ -721,22 +721,21 @@ export function MarketView({ game }: { game: GameState }) {
             {feedback}
           </p>
 
-          {/* Tactical Combat Feed */}
+          {/* Tactical Combat Feed: useful on demand, but not another always-on wall of text. */}
           {session.actionLog && session.actionLog.length > 0 && (
-            <div className="market-feed" role="log" aria-label="Tactical Battle Feed">
-              <div className="market-feed-title">
-                <span>Tactical Event Feed</span>
-                <span>Turn {session.turn}</span>
+            <details className="market-feed" role="log" aria-label="Tactical battle feed">
+              <summary>Recent moves · {session.actionLog.length}</summary>
+              <div className="market-feed-body">
+                {session.actionLog.slice(0, 4).map((entry) => (
+                  <div key={entry.id} className="market-feed-item">
+                    <span className={`market-feed-tag ${entry.side}`}>
+                      {entry.side === "player" ? "YOU" : entry.side === "rival" ? "RIVAL" : "NETWORK"}
+                    </span>
+                    <span>{entry.summary}</span>
+                  </div>
+                ))}
               </div>
-              {session.actionLog.slice(0, 4).map((entry) => (
-                <div key={entry.id} className="market-feed-item">
-                  <span className={`market-feed-tag ${entry.side}`}>
-                    {entry.side === "player" ? "YOU" : entry.side === "rival" ? "RIVAL" : "NETWORK"}
-                  </span>
-                  <span>{entry.summary}</span>
-                </div>
-              ))}
-            </div>
+            </details>
           )}
 
           {/* Strategic End Turn Button */}
@@ -752,17 +751,15 @@ export function MarketView({ game }: { game: GameState }) {
           </button>
           <small style={{ fontSize: 9, color: "#62796c", display: "block", marginTop: 5, lineHeight: 1.4 }}>
             {playerOps > 0
-              ? "Ending turn with remaining Ops carries over 1 Ops to next round and grants all held markets +25% defense against rival attacks."
-              : "Concludes your turn and lets the competitor execute their strategic counter-moves."}
+              ? "Unused Ops carry over and held segments gain defense."
+              : "End the turn to let the rival move."}
           </small>
 
           {/* Market Strategy Rules Compact Help */}
-          <div className="market-help">
-            <b>Three moves, one market</b>
-            <p>
-              Promote into open connected segments, reinforce footholds you already hold, and poach rival-held segments. Platform Hubs add +1 Ops per turn.
-            </p>
-          </div>
+          <details className="market-help">
+            <summary>How the market works</summary>
+            <p>Promote into open connected segments, reinforce footholds, or poach rival-held segments. Platform Hubs add Ops.</p>
+          </details>
         </aside>
       </div>
     </main>

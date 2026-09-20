@@ -200,7 +200,7 @@ export function TasksPanel({game}:{game:GameState}) {
       </div><div className="project-time"><strong>{estimate.days===null?'No team assigned':`~${estimate.days} days`}</strong><small>{estimate.days===null?'Assign people below to begin':'At the current team’s pace'}</small></div></div>
         <div data-tutorial="task-progress"><div className="progress-label"><span>{Math.min(100,task.progress/task.requiredProgress*100).toFixed(0)}% complete</span><span>{estimate.daily.toFixed(1)} progress / day</span></div><div className="progress-track"><i style={{width:`${Math.min(100,task.progress/task.requiredProgress*100)}%`}}/></div></div>
         <div className="team-efficiency"><span>Team efficiency <strong>{pct(estimate.efficiency*100)}</strong></span><span>Coordination overhead −{Math.round((1-estimate.efficiency)*100)}%</span></div>
-        {estimate.computeBlocked&&<div className="no-team-alert" role="status"><strong>Blocked by compute</strong><span>{computeBlockReason(game,task)??`${task.name} cannot advance until you buy GPU capacity or restore API credits.`}</span><GameButton onClick={()=>useGame.getState().setDrawer('compute')}>Open compute →</GameButton></div>}
+        {estimate.computeBlocked&&<div className="no-team-alert" role="status"><strong>Blocked by compute</strong><span>{computeBlockReason(game,task)??`${task.name} cannot advance until you rent GPUs or buy owned capacity.`}</span><GameButton onClick={()=>useGame.getState().setDrawer('compute')}>Open compute →</GameButton></div>}
         {estimate.workers.length===0?<div className="no-team-alert" role="alert"><strong>⚠ NO TEAM ASSIGNED</strong><span>Progress is halted. Assign available teammates below to begin development.</span></div>:<div className="team-active-note"><span>Assigned team: <strong>{estimate.workers.filter(w=>w.burnoutDays<=0).length} active</strong>{estimate.resting?` · ${estimate.workers.filter(w=>w.burnoutDays>0).length} resting`:''} · {estimate.days===null?'waiting':`~${estimate.days} days remaining`}</span></div>}
         <ProjectStaffing game={game} task={task}/>
         {estimate.workers.length>0&&<div className="skill-contributions">{relevantSkillsFor(task).filter(s=>s!=='productivity').map(skill=><span key={skill}>{skill}<b>{estimate.workers.reduce((s,w)=>s+(w.burnoutDays?0:w.skills[skill]),0).toFixed(1)}</b></span>)}</div>}
@@ -500,6 +500,7 @@ function ProductCard({
   onSaveEdit,
 }: ProductCardProps) {
   const [launching, setLaunching] = useState(false);
+  const [showAdvancedLaunch, setShowAdvancedLaunch] = useState(false);
   const launchPending = useRef(false);
   const launchTimer = useRef<number | null>(null);
   useEffect(() => () => {
@@ -657,7 +658,7 @@ function ProductCard({
                 <span style={{ fontSize: 11, color: '#546957', fontWeight: 500 }}>
                   {game.settings?.autoDelegate && game.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE
                     ? 'Hands-off mode: Optimize will configure and launch into market'
-                    : 'Autofills optimal points, model, business, and GTM for review'}
+                    : 'Auto-fills the rest for review'}
                 </span>
               </div>
               <div className="launch-points">
@@ -745,6 +746,12 @@ function ProductCard({
                   </div>
                 );
               })()}
+              <details className="launch-advanced" open={showAdvancedLaunch} onToggle={(event) => setShowAdvancedLaunch(event.currentTarget.open)}>
+                <summary>
+                  <span>Advanced launch settings</span>
+                  <small>Business model · AI model · GTM · forecast</small>
+                </summary>
+                <div className="launch-advanced-body">
               <div className="launch-options">
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -770,7 +777,7 @@ function ProductCard({
                   </div>
                 </div>
                 <div>
-                  <span className="eyebrow">Powered by AI Model</span>
+                  <span className="eyebrow">AI model</span>
                   <div className="choice-row">
                     {models
                       .filter(m => game.ownedModels.includes(m.id))
@@ -871,7 +878,7 @@ function ProductCard({
                 <div className="gtm-heading">
                   <div>
                     <span className="eyebrow">Go-to-market strategy</span>
-                    <h4>Choose a strategy your company can execute.</h4>
+                    <h4>Choose a go-to-market strategy.</h4>
                   </div>
                   <small>Options depend on the product and market.</small>
                 </div>
@@ -950,10 +957,11 @@ function ProductCard({
                   </div>
                 );
               })()}
+                </div>
+              </details>
               <footer className="launch-footer">
                 <span>Time pauses during the market launch.</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <LaunchAutomationControlGroup game={game} product={p} dispatch={dispatch} />
                   <GameButton
                     tone={
                       game.settings?.autoDelegate &&

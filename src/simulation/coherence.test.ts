@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { recruitingChannels } from "../data/recruiting";
 import { officeAnnualBurden, offices } from "../data/offices";
 import { applyCommand } from "./commands";
-import { allocateTrainingCompute, consumeTrainingCompute, inferenceCreditDepleted, leftoverCapacityDaily, taskComputeDemand } from "./compute";
+import { allocateTrainingCompute, availableTrainingCompute, consumeTrainingCompute, inferenceCreditDepleted, leftoverCapacityDaily, rentedGpusNeededForTraining, taskComputeDemand, uncoveredInferenceDemand } from "./compute";
 import { candidateQualityScore, generateEmployee, generateSkills } from "./candidates";
 import { monthlyRent } from "./derived";
 import { companyStage, scaleEventCash } from "./eventEconomy";
@@ -134,6 +134,44 @@ describe("compute constraints", () => {
     expect(g.tasks.some((t, i) => t.progress > before[i]! ) || progressed).toBe(true);
     consumeTrainingCompute(g, restored);
     expect(g.compute.apiCredits).toBeLessThan(50_000);
+  });
+
+  it("calculates the rented GPU count needed to restore full training speed", () => {
+    let g = boot(13);
+    g = startNamedProduct(g, "chat", "writing");
+    const task = g.tasks[0]!;
+    g = applyCommand(g, { type: "assign", taskId: task.id, workerId: g.employees[0]!.id })!;
+    g = structuredClone(g);
+    g.compute.apiCredits = 0;
+    g.compute.rentedGpus = 0;
+    g.compute.ownedCluster = 0;
+    g.compute.dataCenters = 0;
+
+    const needed = rentedGpusNeededForTraining(g);
+    expect(needed).toBeGreaterThan(0);
+    g.compute.rentedGpus = needed;
+
+    expect(allocateTrainingCompute(g).ratio).toBe(1);
+    expect(rentedGpusNeededForTraining(g)).toBe(0);
+  });
+
+  it("reserves API credits for uncovered inference before training uses them", () => {
+    let g = boot(13);
+    g = startNamedProduct(g, "chat", "writing");
+    const task = g.tasks[0]!;
+    g = applyCommand(g, { type: "assign", taskId: task.id, workerId: g.employees[0]!.id })!;
+    g = structuredClone(g);
+    g.products[0]!.status = "active";
+    g.products[0]!.weeklyInference = 5_000;
+    g.compute.apiCredits = 4_000;
+    g.compute.rentedGpus = 0;
+    g.compute.ownedCluster = 0;
+    g.compute.dataCenters = 0;
+
+    expect(uncoveredInferenceDemand(g)).toBe(5_000);
+    expect(availableTrainingCompute(g)).toBe(0);
+    consumeTrainingCompute(g, allocateTrainingCompute(g));
+    expect(g.compute.apiCredits).toBe(4_000);
   });
 });
 

@@ -15,7 +15,7 @@ function run(seed=11) {
   const next=()=>send({type:'advanceMentor'});
   const id=()=>currentTutorialSlide(game)?.id;
   const start=()=>{
-    for(let i=0;i<4;i++)next();
+    for(let i=0;i<1;i++)next();
     expect(id()).toBe('open-lab');
     send({type:'tutorialEvent',action:'openedProductLab'});next();
     send({type:'selectPrimitive',slot:'a',primitive:'chat'});
@@ -60,7 +60,7 @@ describe('guided first company',()=>{
     const productId=r.game.products[0]!.id;
     r.send({type:'enterMarket',productId});
     expect(r.game.marketBattle).toBeNull();
-    for(let i=0;i<4;i++)r.next();
+    for(let i=0;i<1;i++)r.next();
     expect(r.id()).toBe('spend-points');
     r.send({type:'buyStat',productId,stat:'capability'});
     expect(r.id()).toBe('spend-points');
@@ -73,7 +73,7 @@ describe('guided first company',()=>{
     expect(r.game.clock.tick).toBe(tick);
     expect(r.game.marketBattle?.turnsLeft).toBe(10);
     r.reload();expect(r.id()).toBe('market-yours');
-    for(let i=0;i<8;i++)r.next();
+    for(let i=0;i<3;i++)r.next();
     expect(r.game.pendingMentor).toBeNull();
     r.send({type:'marketCapture'});
     for(let i=0;i<10 && r.game.marketBattle;i++)r.send({type:'marketEndTurn'});
@@ -123,7 +123,7 @@ describe('guided first company',()=>{
 
   it('reloads every introductory phase and Back never re-creates a product',()=>{
     const r=run();
-    for(let n=0;n<4;n++){r.next();r.reload();}
+    for(let n=0;n<1;n++){r.next();r.reload();}
     r.send({type:'tutorialEvent',action:'openedProductLab'});r.next();
     r.send({type:'selectPrimitive',slot:'a',primitive:'chat'});r.reload();
     expect(r.id()).toBe('choose-writing');
@@ -174,11 +174,11 @@ describe('guided first company',()=>{
     const r = run(42);
     r.ready();
     const productId = r.game.products[0]!.id;
-    for (let i = 0; i < 4; i++) r.next();
+    for (let i = 0; i < 1; i++) r.next();
     spendAllLaunchPoints(r, productId);
     r.send({ type: 'enterMarket', productId });
     expect(r.game.marketBattle).not.toBeNull();
-    for (let i = 0; i < 8; i++) r.next(); // clear mentor explanation slides
+    for (let i = 0; i < 3; i++) r.next(); // clear the market tutorial
 
     // Select and expand into a market node
     const sessionBefore = r.game.marketBattle!;
@@ -228,10 +228,10 @@ describe('guided first company',()=>{
     const r = run(19);
     r.ready();
     const productId = r.game.products[0]!.id;
-    for (let i = 0; i < 4; i++) r.next();
+    for (let i = 0; i < 1; i++) r.next();
     spendAllLaunchPoints(r, productId);
     r.send({ type: 'enterMarket', productId });
-    for (let i = 0; i < 8; i++) r.next();
+    for (let i = 0; i < 3; i++) r.next();
     for (let i = 0; i < 10 && r.game.marketBattle; i++) r.send({ type: 'marketEndTurn' });
     r.send({ type: 'continueMarketResults' });
     expect(r.id()).toBe('revenue-first');
@@ -322,7 +322,7 @@ describe('guided first company',()=>{
 
   it('primitives slide auto-advances when selecting chat directly without next button', () => {
     const r = run();
-    for (let i = 0; i < 4; i++) r.next();
+    for (let i = 0; i < 1; i++) r.next();
     expect(r.id()).toBe('open-lab');
     r.send({ type: 'tutorialEvent', action: 'openedProductLab' });
     expect(r.id()).toBe('primitives');
@@ -352,7 +352,7 @@ describe('guided first company',()=>{
     const r = run();
     r.ready();
     const productId = r.game.products[0]!.id;
-    for (let i = 0; i < 4; i++) r.next();
+    for (let i = 0; i < 1; i++) r.next();
     expect(r.id()).toBe('spend-points');
 
     // Buying one stat uses some points, but remaining points can still afford stats
@@ -375,4 +375,3 @@ describe('guided first company',()=>{
     expect(r.id()).toBe('enter-market');
   });
 });
-

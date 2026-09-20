@@ -24,7 +24,7 @@ function itemsFrom(game: GameState): FeedItem[] {
     id: item.id,
     kind: "news" as const,
     at: item.at,
-    source: item.source ?? "The Wire",
+    source: item.source ?? "Updates",
     headline: item.headline,
     preview: item.body,
     body: item.body,
@@ -55,7 +55,9 @@ export function NewsFeed({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const setDrawer = useGame((s) => s.setDrawer);
   const [openId, setOpenId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  // News is useful context, but it should not compete with the next decision
+  // every time the player returns to the office.
+  const [collapsed, setCollapsed] = useState(true);
   const root = useRef<HTMLDivElement>(null);
   const feed = itemsFrom(game);
   const unread = feed.filter((item) => item.unread).length;
@@ -85,13 +87,13 @@ export function NewsFeed({ game }: { game: GameState }) {
   return (
     <aside className={`news-feed ${collapsed ? "collapsed" : ""}`} ref={root} aria-label="World feed">
       <header className="news-feed-head">
-        <span className="news-feed-title"><span className="eyebrow">The Wire</span>{!collapsed ? <small>Live</small> : null}</span>
+        <span className="news-feed-title"><span className="eyebrow">Updates</span>{!collapsed ? <small>{unread ? `${unread} new` : "Quiet"}</small> : null}</span>
         <button
           type="button"
           className="news-feed-toggle"
           aria-expanded={!collapsed}
           aria-controls="world-feed-list"
-          aria-label={collapsed ? "Expand The Wire" : "Collapse The Wire"}
+          aria-label={collapsed ? "Expand updates" : "Collapse updates"}
           onClick={() => {
             setCollapsed((value) => !value);
             setOpenId(null);

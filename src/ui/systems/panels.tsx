@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { offices } from "../../data/offices";
 import { formatDate } from "../../simulation/date";
 import type { GameState, GameplayEventKind } from "../../simulation/types";
@@ -10,6 +10,7 @@ import { competitors as competitorDefs } from "../../data/competitors";
 import { CharacterPortrait } from "../shared/CharacterPortrait";
 import { lookFromSeed } from "../../simulation/look";
 import { CompanyMark } from "../visuals/CompanyMark";
+import { BrandStudio } from "../visuals/BrandStudio";
 import { archetypeLabel, worldConditionLabel } from "../../visuals/registry";
 import { isLifeOrDeathEvent, isMinorFee } from "../../simulation/pause";
 import { BALANCE } from "../../config/balance";
@@ -333,6 +334,7 @@ export function InboxPanel({ game }: { game: GameState }) {
 export function CompanyPanel({ game }: { game: GameState }) {
   const dispatch = useGame((s) => s.dispatch);
   const loadGame = useGame((s) => s.loadGame);
+  const [brandStudioOpen, setBrandStudioOpen] = useState(false);
   const office = offices[game.company.officeLevel];
   const next = offices[game.company.officeLevel + 1];
   const upgradeReason = !next ? '' : game.company.cash < next.cost ? `Need ${money(next.cost - game.company.cash)} more` : '';
@@ -342,6 +344,30 @@ export function CompanyPanel({ game }: { game: GameState }) {
       <div className="font-mono text-[10px] uppercase text-[#9aa3b2]">
         {office?.name} · cap {office?.capacity} · {game.employees.length} people · rent {money(office?.rent ?? 0)}/mo
       </div>
+      <section className="company-identity-card">
+        <div className="company-identity-header">
+          <div>
+            <span className="eyebrow">Company identity</span>
+            <strong>{game.company.brand.tagline || "Ideas with room to compound."}</strong>
+          </div>
+          <button type="button" className="company-identity-toggle" onClick={() => setBrandStudioOpen((open) => !open)} aria-expanded={brandStudioOpen}>
+            {brandStudioOpen ? "Close studio" : "Brand studio"}
+          </button>
+        </div>
+        {brandStudioOpen ? (
+          <BrandStudio
+            compact
+            brand={game.company.brand}
+            companyName={game.company.name}
+            onChange={(patch) => dispatch({ type: "setBrand", patch })}
+          />
+        ) : (
+          <div className="company-identity-strip" style={{ "--brand-primary": game.company.brand.color, "--brand-secondary": game.company.brand.secondaryColor } as CSSProperties}>
+            <span className={`brand-square brand-square-${game.company.brand.mark} brand-pattern-${game.company.brand.pattern}`} />
+            <span><small>Current system</small><strong>{game.company.brand.mark} · {game.company.brand.pattern}</strong></span>
+          </div>
+        )}
+      </section>
       <p className="text-xs text-[#56665e]">{office?.description}</p>
       {office && (
         <div className="office-benefits">

@@ -29,7 +29,7 @@ export function Apartment({onObject,perks=[],brand,standingDesks=false,employeeC
       <Bevel position={[0,-.82,.094]} size={[2.86,.065,.29]} color="#ede6d7" radius={.013}/>
     </group>
     </group>}/>
-    <BrandSign position={[-1.5,2.12,-4.88]} color={brand.color} mark={brand.mark} width={1.6}/>
+    <BrandSign position={[-1.5,2.12,-4.88]} color={brand.color} secondaryColor={brand.secondaryColor} mark={brand.mark} pattern={brand.pattern} width={1.6}/>
     {apartmentLayout.points.filter(p=>p.kind==='desk').slice(0,employeeCount).map((point,i)=>{
       const [x,,z]=point.position;
       return <group key={point.id}>

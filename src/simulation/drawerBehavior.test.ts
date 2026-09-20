@@ -56,7 +56,7 @@ describe("Product completion screen switching and onboarding", () => {
     useGame.getState().loadGame(game);
 
     // Progress through tutorial steps
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 1; i++) {
       useGame.getState().dispatch({ type: "advanceMentor" });
     }
     useGame.getState().dispatch({ type: "tutorialEvent", action: "openedProductLab" });

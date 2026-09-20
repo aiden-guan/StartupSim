@@ -36,7 +36,7 @@ function OfficeInterior({level,onObject,perks=[],brand,visual,quality='high'}:Of
   const desktop = isStanding ? 0.99 : 0.78;
   return <group>
     <OfficeArchitecture level={level} quality={quality}/>
-    <BrandSign position={[0,h*.7,-d/2+.19]} color={brand.color} mark={brand.mark} width={level>=4?5:level>=2?3.4:2.5}/>
+    <BrandSign position={[0,h*.7,-d/2+.19]} color={brand.color} secondaryColor={brand.secondaryColor} mark={brand.mark} pattern={brand.pattern} width={level>=4?5:level>=2?3.4:2.5}/>
     {desks.slice(0,shownDesks).map((p,i)=>{
       const [x,,z]=p.position;
       return <group key={p.id}>

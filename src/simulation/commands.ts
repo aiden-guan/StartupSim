@@ -30,7 +30,7 @@ import { Rng, uid } from "./rng";
 import { applyAutoAssign } from "./staffing";
 import { assign, makeTask } from "./tasks";
 import type { DelegationStrategy, DepartmentId, GameState, HexPos, LaunchStat, Product } from "./types";
-import { createNewGame, type NewGameInput } from "./newGame";
+import { createNewGame, normalizeCompanyBrand, type NewGameInput } from "./newGame";
 import { tickDay, checkOnboarding } from "./tick";
 import { employeeScore, minSalaryFor } from "./workers";
 import { valuationOf } from "./derived";
@@ -57,6 +57,7 @@ export type GameCommand =
   | { type: "beginTutorial" }
   | { type: "skipTutorial" }
   | { type: "setSettings"; patch: Partial<GameState["settings"]> }
+  | { type: "setBrand"; patch: Partial<GameState["company"]["brand"]> }
   | { type: "startProduct"; a: string; b: string; name?: string }
   | { type: "renameProduct"; productId: string; name: string }
   | { type: "assign"; taskId: string; workerId: string; confirm?: boolean }
@@ -380,6 +381,9 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         break;
       case "setSettings":
         draft.settings = { ...draft.settings, ...command.patch };
+        break;
+      case "setBrand":
+        draft.company.brand = normalizeCompanyBrand({ ...draft.company.brand, ...command.patch });
         break;
       case "startProduct": {
         const a = primitiveById[command.a];

@@ -1,5 +1,5 @@
 import { primitiveById } from "../data/primitives";
-import { inferenceCoverage } from "./derived";
+import { inferenceCoverage, RENTED_GPU_WEEKLY_COVERAGE } from "./derived";
 import { isServiceProductStatus, type GameState, type Task } from "./types";
 
 export const COMPUTE_TASK_TYPES = new Set(["product", "research", "special"]);
@@ -22,13 +22,34 @@ export function inferenceCreditDepleted(state: GameState): boolean {
   return state.compute.apiCredits <= 0 && uncoveredInferenceDemand(state) > 0;
 }
 
+/** Credits needed for the next inference bill stay out of the training pool. */
+export function inferenceCreditsReserved(state: GameState): number {
+  return Math.min(Math.max(0, state.compute.apiCredits), uncoveredInferenceDemand(state));
+}
+
 /** GPU capacity leftover after live inference, expressed as a daily training budget. */
 export function leftoverCapacityDaily(state: GameState): number {
   return Math.max(0, inferenceCoverage(state) - weeklyInferenceDemand(state)) / 7;
 }
 
 export function availableTrainingCompute(state: GameState): number {
-  return Math.max(0, state.compute.apiCredits) + leftoverCapacityDaily(state);
+  return Math.max(0, state.compute.apiCredits - inferenceCreditsReserved(state)) + leftoverCapacityDaily(state);
+}
+
+/**
+ * Returns the smallest number of additional rented GPUs that would bring all
+ * active training work to full speed, using the same coverage math as the
+ * simulation. API credits are daily training capacity; GPU coverage is weekly
+ * and only the portion left after live inference can train models.
+ */
+export function rentedGpusNeededForTraining(state: GameState): number {
+  const demand = taskComputeDemandTotal(state);
+  const credits = Math.max(0, state.compute.apiCredits - inferenceCreditsReserved(state));
+  if (demand <= credits) return 0;
+
+  const weeklyInference = weeklyInferenceDemand(state);
+  const targetCoverage = weeklyInference + (demand - credits) * 7;
+  return Math.max(0, Math.ceil((targetCoverage - inferenceCoverage(state)) / RENTED_GPU_WEEKLY_COVERAGE));
 }
 
 export function taskComputeDemand(state: GameState, task: Task): number {
@@ -47,6 +68,12 @@ export function taskComputeDemand(state: GameState, task: Task): number {
   const team = 1 + workers.length * 0.32;
   const concurrent = state.tasks.filter((t) => t.id !== task.id && isComputeTask(t) && state.employees.some((w) => w.taskId === t.id && w.burnoutDays <= 0)).length;
   return Math.max(4, Math.round(base * weight * team * (1 + concurrent * 0.22)));
+}
+
+function taskComputeDemandTotal(state: GameState): number {
+  return state.tasks
+    .filter((task) => isComputeTask(task))
+    .reduce((sum, task) => sum + taskComputeDemand(state, task), 0);
 }
 
 export interface ComputeAllocation {
@@ -80,7 +107,8 @@ export function allocateTrainingCompute(state: GameState): ComputeAllocation {
 /** Spend credits to match the served training budget. GPU leftover is capacity, not a credit spend. */
 export function consumeTrainingCompute(state: GameState, allocation: ComputeAllocation): number {
   const capacity = leftoverCapacityDaily(state);
-  const creditSpend = Math.max(0, Math.min(state.compute.apiCredits, Math.round(allocation.served - capacity)));
+  const trainingCredits = Math.max(0, state.compute.apiCredits - inferenceCreditsReserved(state));
+  const creditSpend = Math.max(0, Math.min(trainingCredits, Math.round(allocation.served - capacity)));
   state.compute.apiCredits = Math.max(0, state.compute.apiCredits - creditSpend);
   state.compute.trainingReserved = allocation.served;
   state.stats.computeConsumed += creditSpend;

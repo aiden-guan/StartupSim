@@ -1,8 +1,8 @@
-import { identity } from "../branding/identity";
+import { BRAND_PATTERNS, BRAND_SECONDARY_COLORS, identity } from "../branding/identity";
 import { BALANCE } from "../config/balance";
 import { resolveCofounder } from "../data/cofounders";
 import { competitors as competitorDefs } from "../data/competitors";
-import type { CompanyBrand, CompanyState, DepartmentId, Employee, GameState, Unlocks } from "./types";
+import type { BrandMark, BrandPattern, CompanyBrand, CompanyState, DepartmentId, Employee, GameState, Unlocks } from "./types";
 import { DEFAULT_FOUNDER_LOOK, founderLook, normalizeLook } from "./look";
 import { Rng, uid } from "./rng";
 import { skipTutorial } from "./tutorial";
@@ -38,7 +38,13 @@ function emptyUnlocks(): Unlocks {
   };
 }
 
-export const DEFAULT_BRAND: CompanyBrand = { color: "#c4622d", mark: "wordmark" };
+export const DEFAULT_BRAND: CompanyBrand = {
+  color: "#c4622d",
+  mark: "wordmark",
+  secondaryColor: BRAND_SECONDARY_COLORS[0],
+  pattern: "solid",
+  tagline: "",
+};
 
 export interface NewGameInput {
   founderName: string;
@@ -46,8 +52,28 @@ export interface NewGameInput {
   cofounderId: string;
   seed?: number;
   founderLook?: GameState["founder"]["look"];
-  companyBrand?: CompanyBrand;
+  companyBrand?: Partial<CompanyBrand>;
   skipTutorial?: boolean;
+}
+
+const BRAND_MARKS: readonly BrandMark[] = ["wordmark", "circle", "bars", "spark"];
+
+function optionOrDefault<T extends string>(value: unknown, options: readonly T[], fallback: T): T {
+  return typeof value === "string" && options.includes(value as T) ? value as T : fallback;
+}
+
+export function normalizeCompanyBrand(input?: Partial<CompanyBrand>): CompanyBrand {
+  const source = input ?? {};
+  return {
+    color: typeof source.color === "string" && source.color ? source.color : DEFAULT_BRAND.color,
+    mark: optionOrDefault(source.mark, BRAND_MARKS, DEFAULT_BRAND.mark),
+    secondaryColor:
+      typeof source.secondaryColor === "string" && source.secondaryColor
+        ? source.secondaryColor
+        : DEFAULT_BRAND.secondaryColor,
+    pattern: optionOrDefault<BrandPattern>(source.pattern, BRAND_PATTERNS, DEFAULT_BRAND.pattern),
+    tagline: typeof source.tagline === "string" ? source.tagline.trim().slice(0, 48) : DEFAULT_BRAND.tagline,
+  };
 }
 
 export function defaultSettings(): GameState["settings"] {
@@ -119,7 +145,7 @@ export function createNewGame(input: NewGameInput): GameState {
 
   const company: CompanyState = {
     name: input.companyName.trim() || identity.companyFallback,
-    brand: input.companyBrand ?? { ...DEFAULT_BRAND },
+    brand: normalizeCompanyBrand(input.companyBrand),
     cash: BALANCE.STARTING_CASH,
     officeLevel: 0,
     hype: 4,

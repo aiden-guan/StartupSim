@@ -131,6 +131,7 @@ export type AccessoryId = "none" | "badge" | "headphones" | "scarf" | "watch" | 
 export type FaceId = "default" | "round" | "angular";
 export type ExpressionId = "neutral" | "happy" | "stressed" | "angry" | "tired" | "confident" | "surprised";
 export type BrandMark = "wordmark" | "circle" | "bars" | "spark";
+export type BrandPattern = "solid" | "split" | "stripes" | "frame";
 export type GraphicsQuality = "low" | "medium" | "high";
 
 export interface CharacterLook {
@@ -157,6 +158,9 @@ export interface CharacterLook {
 export interface CompanyBrand {
   color: string;
   mark: BrandMark;
+  secondaryColor: string;
+  pattern: BrandPattern;
+  tagline: string;
 }
 
 export interface CalendarDate {

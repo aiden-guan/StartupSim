@@ -46,11 +46,14 @@ describe("character looks", () => {
       cofounderId: "reya",
       seed: 3,
       founderLook: look,
-      companyBrand: { color: "#1f6b4a", mark: "spark" },
+      companyBrand: { color: "#1f6b4a", mark: "spark", secondaryColor: "#d8e9df", pattern: "stripes", tagline: "Tools for the long game" },
     });
     expect(g.founder.look.hairStyle).toBe("messy");
     expect(g.founder.look.topId).toBe("hoodie");
     expect(g.company.brand.mark).toBe("spark");
+    expect(g.company.brand.secondaryColor).toBe("#d8e9df");
+    expect(g.company.brand.pattern).toBe("stripes");
+    expect(g.company.brand.tagline).toBe("Tools for the long game");
     expect(g.meta.schemaVersion).toBe(7);
   });
 
@@ -65,7 +68,7 @@ describe("tutorial engine", () => {
     expect(g.pendingMentor).toBe("intro");
     expect(currentTutorialSlide(g)?.id).toBe("intro-1");
     g = applyCommand(g, { type: "advanceMentor" })!;
-    expect(currentTutorialSlide(g)?.id).toBe("intro-2");
+    expect(currentTutorialSlide(g)?.id).toBe("open-lab");
   });
 
   it("skipTutorial finishes all steps", () => {
@@ -118,6 +121,8 @@ describe("save migrate", () => {
     raw.founder.look = { ...raw.founder.look, topId: undefined as never };
     const migrated = migrateGameState(raw);
     expect(migrated.company.brand.color).toBeTruthy();
+    expect(migrated.company.brand.secondaryColor).toBeTruthy();
+    expect(migrated.company.brand.pattern).toBe("solid");
     expect(migrated.founder.look.topId).toBeTruthy();
     expect(migrated.settings.graphics).toBe("high");
   });

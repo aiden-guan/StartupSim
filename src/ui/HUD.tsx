@@ -1,5 +1,5 @@
 import { locations } from '../data/locations';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { SPEED_OPTIONS } from '../config/balance';
 import { useCameraDirector } from '../game3d/camera/cameraStore';
 import { formatDate } from '../simulation/date';
@@ -43,14 +43,13 @@ function useAnimatedCash(value:number,reducedMotion:boolean,baseline:number,tick
 }
 
 export const NAV_GROUPS:{id:string;label:string;items:{id:DrawerId;label:string;need?:keyof GameState['unlocks']}[]}[]=[
-  {id:'products',label:'Products',items:[{id:'tasks',label:'Product lab'},{id:'products',label:'Launches'}]},
-  {id:'team',label:'Team',items:[{id:'people',label:'People'},{id:'hiring',label:'Recruiting',need:'hiring'}]},
-  {id:'research',label:'Research',items:[{id:'research',label:'Tech tree',need:'research'}]},
-  {id:'finance',label:'Finance',items:[{id:'finance',label:'Ledger'},{id:'funding',label:'Funding',need:'funding'}]},
-  {id:'infrastructure',label:'Infrastructure',items:[{id:'compute',label:'Compute',need:'compute'}]},
-  {id:'company',label:'Company',items:[{id:'company',label:'Office & saves'},{id:'perks',label:'Culture',need:'perks'}]},
-  {id:'world',label:'World',items:[{id:'world',label:'World',need:'world'}]},
-  {id:'inbox',label:'Comms',items:[{id:'inbox',label:'Inbox'},{id:'social',label:'Radar'}]},
+  // Keep the dock stable as the company grows. Unlocks become tabs inside the
+  // same decision hub instead of adding more equally loud buttons to the stage.
+  {id:'products',label:'Build',items:[{id:'tasks',label:'Product lab'},{id:'products',label:'Launches'},{id:'research',label:'Research',need:'research'},{id:'compute',label:'Compute',need:'compute'}]},
+  {id:'team',label:'Team',items:[{id:'people',label:'People'},{id:'hiring',label:'Recruiting',need:'hiring'},{id:'perks',label:'Culture',need:'perks'}]},
+  {id:'finance',label:'Money',items:[{id:'finance',label:'Finance'},{id:'funding',label:'Funding',need:'funding'}]},
+  {id:'company',label:'Company',items:[{id:'company',label:'Office & saves'},{id:'world',label:'World',need:'world'}]},
+  {id:'inbox',label:'Inbox',items:[{id:'inbox',label:'Inbox'},{id:'social',label:'Radar'}]},
 ];
 export function HUD({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch),drawer=useGame(s=>s.drawer),setDrawer=useGame(s=>s.setDrawer);
@@ -66,21 +65,14 @@ export function HUD({game}:{game:GameState}) {
   const uncoveredInference=uncoveredInferenceDemand(game);
   const burn=monthlyBurn(game);
   const cash=useAnimatedCash(game.company.cash,game.settings.reducedMotion,burn,game.clock.tick);
-  const valuation = useAnimatedMetric(game.company.valuation, game.settings.reducedMotion, 100_000);
-  const users = useAnimatedMetric(game.products.filter(p => p.status === 'active' || p.status === 'mature' || p.status === 'declining').reduce((sum, p) => sum + p.users, 0), game.settings.reducedMotion, 100);
-  const revenue = useAnimatedMetric(game.company.monthlyRevenue, game.settings.reducedMotion, 10_000);
-  const team = useAnimatedMetric(game.employees.length, game.settings.reducedMotion, 1);
   const unlockedAchievements = new Set([...(game.achievements ?? []), ...getLifetimeAchievements()]);
   const unlockedAchievementCount = ACHIEVEMENTS.filter((achievement) => unlockedAchievements.has(achievement.id)).length;
+  const brandStyle = { background: game.company.brand.color, '--brand-secondary': game.company.brand.secondaryColor } as CSSProperties;
   return <div className="game-hud">
     <header className="hud-bar">
-      <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className="brand-square" style={{background:game.company.brand.color}}/><span>{game.company.name}<small>{locations.find(l=>l.id===game.company.activeLocationId)?.name ?? (game.company.officeLevel===0?'Apartment':'Headquarters')}</small></span></button>
-      <button className={`hud-stat cash-stat ${cash.delta?`cash-${cash.delta.level} ${cash.delta.value>0?'cash-up':'cash-down'}`:''}`} onClick={()=>setDrawer('finance')} title="Open the ledger for a cash-flow breakdown"><small>Cash</small><strong aria-label={money(game.company.cash)}>{money(cash.display)}</strong>{cash.delta&&<span className="cash-delta">{cash.delta.value>0?'+':''}{money(cash.delta.value)}</span>}</button>
+      <button className="company-wordmark" onClick={()=>setDrawer('company')}><span className={`brand-square brand-square-${game.company.brand.mark} brand-pattern-${game.company.brand.pattern}`} style={brandStyle}/><span>{game.company.name}<small>{locations.find(l=>l.id===game.company.activeLocationId)?.name ?? (game.company.officeLevel===0?'Apartment':'Headquarters')}</small></span></button>
+      <button className={`hud-stat cash-stat ${cash.delta?`cash-${cash.delta.level} ${cash.delta.value>0?'cash-up':'cash-down'}`:''}`} onClick={()=>setDrawer('finance')} title="Open Finance for a cash-flow breakdown"><small>Cash</small><strong aria-label={money(game.company.cash)}>{money(cash.display)}</strong>{cash.delta&&<span className="cash-delta">{cash.delta.value>0?'+':''}{money(cash.delta.value)}</span>}</button>
       <button className="hud-stat" onClick={()=>setDrawer('finance')} title={`Expected net burn ${money(burn)} per month`}><small>Runway</small><strong className={run<3?'warning':''}>{run>=99?'Profitable':`${animatedRun.toFixed(1)} months`}</strong></button>
-      <button className="hud-stat hud-growth" onClick={()=>setDrawer('finance')} title="Company valuation"><small>Valuation</small><strong aria-label={money(game.company.valuation)}>{money(valuation)}</strong></button>
-      <button className="hud-stat hud-growth hud-growth-secondary" onClick={()=>setDrawer('products')} title="Active product users"><small>Users</small><strong aria-label={Math.round(users).toLocaleString()}>{Math.round(users).toLocaleString()}</strong></button>
-      <button className="hud-stat hud-growth hud-growth-secondary" onClick={()=>setDrawer('finance')} title="Revenue this month"><small>Revenue / mo</small><strong aria-label={money(game.company.monthlyRevenue)}>{money(revenue)}</strong></button>
-      <button className="hud-stat hud-growth hud-growth-secondary" onClick={()=>setDrawer('people')} title="Team members"><small>Team</small><strong aria-label={`${game.employees.length} team members`}>{Math.round(team)}</strong></button>
       {burnedCount>0&&<button className="hud-alert-badge" onClick={()=>setDrawer('people')} title={`${burnedCount} team member${burnedCount>1?'s are':' is'} resting due to burnout`}>⚠ {burnedCount} Resting</button>}
       {creditDepleted&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('compute')} title={`API credits depleted · ${money(uncoveredInference)}/week of inference billed to cash`}>⚠ Credits depleted</button>}
       {lowRunway&&<button className="hud-alert-badge danger" onClick={()=>setDrawer('finance')} title="Runway critically low · under 2 months">⚠ Low runway</button>}

@@ -589,10 +589,20 @@ export function Rug({ position, color = '#9da998' }: { position: Vector3Tuple; c
   );
 }
 
-export function BrandSign({ position, color, mark = 'wordmark', width = 1.8 }: { position: Vector3Tuple; color: string; mark?: string; width?: number }) {
+export function BrandSign({ position, color, secondaryColor = paper, mark = 'wordmark', pattern = 'solid', width = 1.8 }: { position: Vector3Tuple; color: string; secondaryColor?: string; mark?: string; pattern?: string; width?: number }) {
   return (
     <group position={position}>
       <Bevel size={[width, 0.42, 0.045]} color={color} radius={0.014} />
+      {pattern === 'split' ? <Bevel position={[width * .24, 0, .026]} size={[width * .46, .34, .008]} color={secondaryColor} radius={.008} /> : null}
+      {pattern === 'stripes' ? [-.28, 0, .28].map((x) => <Bevel key={x} position={[x * width, 0, .026]} size={[.045, .33, .008]} color={secondaryColor} radius={.004} />) : null}
+      {pattern === 'frame' ? (
+        <>
+          <Bevel position={[0, .16, .026]} size={[width - .16, .022, .008]} color={secondaryColor} radius={.004} />
+          <Bevel position={[0, -.16, .026]} size={[width - .16, .022, .008]} color={secondaryColor} radius={.004} />
+          <Bevel position={[-(width / 2 - .08), 0, .026]} size={[.022, .32, .008]} color={secondaryColor} radius={.004} />
+          <Bevel position={[width / 2 - .08, 0, .026]} size={[.022, .32, .008]} color={secondaryColor} radius={.004} />
+        </>
+      ) : null}
       {mark === 'circle' ? (
         <mesh position={[0, 0, 0.028]}>
           <circleGeometry args={[0.115, 16]} />

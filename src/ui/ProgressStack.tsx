@@ -14,6 +14,9 @@ export function ProgressStack({ game }: { game: GameState }) {
   const setDrawer = useGame((s) => s.setDrawer);
   const tasks = game.tasks;
   const ready = game.products.filter((p) => p.status === "ready");
+  const primaryReady = ready[0];
+  const primaryTask = tasks[0];
+
   if (!tasks.length && !ready.length) {
     return (
       <div className="progress-stack">
@@ -25,40 +28,46 @@ export function ProgressStack({ game }: { game: GameState }) {
       </div>
     );
   }
-  return (
-    <div className="progress-stack" tabIndex={0} aria-label="Active projects">
-      {ready.map((product) => (
-        <button key={product.id} className="progress-row is-ready" onClick={() => setDrawer("products")}>
+
+  // The office should point to one useful decision, not reproduce every
+  // project already available in Product lab. The rest remain one click away.
+  if (primaryReady) {
+    return (
+      <div className="progress-stack" tabIndex={0} aria-label="Next product decision">
+        <button className="progress-row is-ready" onClick={() => setDrawer("products")}>
           <span className="progress-kicker">Ready to launch</span>
-          <strong>{product.name}</strong>
-          <div className="progress-track"><i style={{ width: "100%" }} /></div>
-          <em>Configure launch →</em>
+          <strong>{primaryReady.name}</strong>
+          <em>Open Launches →{ready.length > 1 ? ` · ${ready.length - 1} more ready` : ""}</em>
         </button>
-      ))}
-      {tasks.map((task) => {
-        const estimate = taskEstimate(game, task);
-        const status = statusOf(game, estimate);
-        const pct = Math.min(100, (task.progress / Math.max(1, task.requiredProgress)) * 100);
-        return (
-          <button
-            key={task.id}
-            className={`progress-row is-${status.id}`}
-            onClick={() => setDrawer("tasks")}
-            title={status.label}
-          >
-            <span className="progress-kicker">{status.label}{estimate.days ? ` · ~${estimate.days}d` : ""}</span>
-            <strong>{task.name}</strong>
-            <div className="progress-track"><i style={{ width: `${pct}%` }} /></div>
-            <em>
-              {status.id === "compute"
-                ? "Blocked by compute · buy capacity →"
-                : status.id === "staff"
-                  ? "No team assigned →"
-                  : `${Math.round(pct)}%`}
-            </em>
-          </button>
-        );
-      })}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  if (primaryTask) {
+    const estimate = taskEstimate(game, primaryTask);
+    const status = statusOf(game, estimate);
+    const pct = Math.min(100, (primaryTask.progress / Math.max(1, primaryTask.requiredProgress)) * 100);
+    return (
+      <div className="progress-stack" tabIndex={0} aria-label="Next project decision">
+        <button
+          className={`progress-row is-${status.id}`}
+          onClick={() => setDrawer("tasks")}
+          title={status.label}
+        >
+          <span className="progress-kicker">{status.label}{estimate.days ? ` · ~${estimate.days}d` : ""}</span>
+          <strong>{primaryTask.name}</strong>
+          <div className="progress-track"><i style={{ width: `${pct}%` }} /></div>
+          <em>
+            {status.id === "compute"
+              ? "Buy capacity to continue →"
+              : status.id === "staff"
+                ? "Assign a team →"
+                : `${Math.round(pct)}% complete${tasks.length > 1 ? ` · ${tasks.length - 1} more in Build` : ""}`}
+          </em>
+        </button>
+      </div>
+    );
+  }
+
+  return null;
 }
