@@ -127,21 +127,31 @@ describe("market turn processing", () => {
     expect((state.marketBattle?.turnNonce ?? 0) >= 2 || first.ended || second.ended).toBe(true);
   });
 
-  it("failed attacks cost cash and momentum without transferring the node", () => {
+  it("always resolves a legal contest without a failure roll", () => {
     const { state, product } = setup(25);
     const session = openBattle(state, product, 25);
     const cash = state.company.cash;
     const rivalId = session.rivalBeachhead;
-    const before = session.nodes.find((n) => n.id === rivalId)!;
-    const dominated = before.rivalDominated;
     const momentum = session.playerMomentum ?? 0;
     const result = resolveSideAction(state, session, new FixedRng(0.99), "player", "contest", rivalId, product.levels, product.combo);
-    expect(result.success).toBe(false);
-    expect(state.company.cash).toBeLessThanOrEqual(cash);
-    expect(session.nodes.find((n) => n.id === rivalId)!.rivalDominated).toBe(dominated);
-    expect(session.playerMomentum ?? 0).toBeLessThan(momentum);
-    expect((session.nodes.find((n) => n.id === rivalId)!.contestPenalty ?? 0)).toBeGreaterThan(0);
+    expect(result.success).toBe(true);
+    expect(state.company.cash).toBe(cash);
+    expect(session.nodes.find((n) => n.id === rivalId)!.rivalDominated).toBe(false);
+    expect(session.playerMomentum ?? 0).toBeGreaterThan(momentum);
+    expect((session.nodes.find((n) => n.id === rivalId)!.contestPenalty ?? 0)).toBe(0);
+    expect(result.influenceDelta).toBeGreaterThan(0);
     expect(result.summary.length).toBeGreaterThan(10);
+  });
+
+  it("removes a reinforced node from the rival's legal targets until turn end", () => {
+    const { state, product } = setup(26);
+    const session = openBattle(state, product, 26);
+    const playerNode = session.nodes.find((node) => node.id === session.playerBeachhead)!;
+    playerNode.fortified = true;
+    session.playerDefensivePosture = true;
+
+    const rivalLegal = getLegalMoves(session, "rival", 2);
+    expect(rivalLegal.contest).not.toContain(playerNode.id);
   });
 
   it("stronger product and launch stats increase influence and starting foothold", () => {
@@ -244,22 +254,10 @@ describe("tactical turn-based operations & Ops economy", () => {
     expect(applied.rivalShare).toBe(preview.projectedRivalShare);
   });
 
-  it("always lands Promote in an unclaimed segment", () => {
+  it("projects the applied result for a legal Promote", () => {
     const { state, product } = setup(35);
     const session = openBattle(state, product, 35);
     const target = getLegalMoves(session, "player", product.levels.distribution).expand[0]!;
-    const preview = previewSideAction(
-      state,
-      session,
-      "player",
-      "expand",
-      target,
-      product.levels,
-      product.combo,
-      "pitch",
-    )!;
-
-    expect(preview.successChance).toBe(100);
 
     const result = resolveTacticalAction(state, new FixedRng(0.999999), { nodeId: target, tactic: "pitch" });
 
@@ -389,8 +387,8 @@ describe("tactical turn-based operations & Ops economy", () => {
     hub.playerInfluence = 20;
     hub.playerShare = 85;
     hub.playerIsolated = false;
+    hub.fortified = true;
 
-    // Rival fails roll with 0.99
     resolveEndTurn(state, new FixedRng(0.99));
 
     // Base 3 Ops + 1 Hub Bonus = 4 Max Ops!

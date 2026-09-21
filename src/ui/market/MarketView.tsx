@@ -25,9 +25,9 @@ const TRAIT_INFO: Record<MarketTrait, { icon: string; label: string; desc: strin
 type PlayerTactic = Extract<MarketTactic, "pitch" | "fortify" | "poach">;
 
 const TACTICS: Record<PlayerTactic, { label: string; icon: string; description: string }> = {
-  pitch: { label: "Promote", icon: "↗", description: "Find a connected opening." },
-  fortify: { label: "Reinforce", icon: "◆", description: "Protect your foothold." },
-  poach: { label: "Poach", icon: "⇄", description: "Challenge a rival hold." },
+  pitch: { label: "Promote", icon: "↗", description: "Open a connected segment. Distribution 3+ can reach two hops." },
+  fortify: { label: "Reinforce", icon: "◆", description: "Add influence to a foothold and protect it from the rival this round." },
+  poach: { label: "Poach", icon: "⇄", description: "Challenge a rival hold that touches your network or one you already contest." },
 };
 
 function tacticForMove(canReinforce: boolean, canContest: boolean): PlayerTactic {
@@ -103,10 +103,14 @@ export function MarketView({ game }: { game: GameState }) {
     disabledReason = selectedNode.playerDominated && !canReinforce
       ? "Market already dominated"
       : selectedNode.rivalDominated && !canContest
-      ? "Competitor hold is out of reach"
-      : "Segment out of network reach";
+      ? "Rival hold is out of reach. Promote through an adjacent segment first."
+      : "No connected opening here. Promote next to your network; Distribution 3+ reaches two hops.";
   } else if (!tacticIsLegal) {
-    disabledReason = `${TACTICS[availableTactic].label} is the available move for this segment.`;
+    disabledReason = selectedNode.rivalDominated || selectedNode.rivalShare >= 55
+      ? "This is a rival hold. Poach it instead."
+      : selectedNode.playerInfluence > 0
+      ? "You already have a foothold here. Reinforce it instead."
+      : `${TACTICS[availableTactic].label} is the move this segment allows.`;
   } else if (!hasOps) {
     disabledReason = `Not enough Ops (${session.playerOps ?? 0}/${cost}). End your turn to replenish!`;
   }
@@ -241,7 +245,7 @@ export function MarketView({ game }: { game: GameState }) {
               <span className="market-move-actor">{activeMove.side === "player" ? "Your move" : `${rival?.name ?? "Rival"}'s move`}</span>
               <strong><i>{activeMove.side === "player" ? "●" : "◆"}</i>{visibleMoveLabel(activeMove)}</strong>
               <span>{activeMove.nodeName}</span>
-              <small className={activeMove.success ? "success" : "failed"}>{activeMove.success ? "Move landed" : "Move blocked"}</small>
+              <small className="success">Move landed</small>
             </div>
           )}
           <svg viewBox="0 0 600 420" role="group" aria-label="Customer Segment Graph">
@@ -580,6 +584,9 @@ export function MarketView({ game }: { game: GameState }) {
             {/* Tactical Operation Selector Tabs */}
             <div style={{ margin: "10px 0 4px" }}>
               <span className="eyebrow" style={{ fontSize: 9 }}>Choose a move</span>
+              <p className="market-move-explainer">
+                <strong>Promote</strong> into an open connection · <strong>Reinforce</strong> your foothold · <strong>Poach</strong> a reachable rival hold. Legal moves execute; resistance changes the influence gained.
+              </p>
               <div className="tactical-selector">
                 <button
                   type="button"
@@ -634,9 +641,7 @@ export function MarketView({ game }: { game: GameState }) {
                   }}
                 >
                   <span style={{ display: "block", color: "#486350", fontWeight: 600 }}>
-                    {preview.successChance === 100
-                      ? `${TACTICS[selectedTactic].label} lands automatically:`
-                      : `If ${TACTICS[selectedTactic].label.toLowerCase()} succeeds · ${preview.successChance}% chance:`}
+                    Projected result after this legal move:
                   </span>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
                     <span>
@@ -760,7 +765,7 @@ export function MarketView({ game }: { game: GameState }) {
           {/* Market Strategy Rules Compact Help */}
           <details className="market-help">
             <summary>How the market works</summary>
-            <p>Promote into open connected segments, reinforce footholds, or poach rival-held segments. Platform Hubs add Ops.</p>
+            <p>Promote reaches an open segment next to your network; Distribution 3+ can reach one extra hop. Reinforce only works where you already have influence and protects that hold until the rival phase. Poach challenges a rival-held segment you can reach. Resistance and existing share reduce the influence a legal move adds; they do not cancel the move.</p>
           </details>
         </aside>
       </div>

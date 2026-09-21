@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { recruitingChannels } from "../data/recruiting";
+import { BALANCE } from "../config/balance";
 import { officeAnnualBurden, offices } from "../data/offices";
 import { applyCommand } from "./commands";
 import { allocateTrainingCompute, availableTrainingCompute, consumeTrainingCompute, inferenceCreditDepleted, leftoverCapacityDaily, rentedGpusNeededForTraining, taskComputeDemand, uncoveredInferenceDemand } from "./compute";
@@ -10,6 +11,7 @@ import { createNewGame } from "./newGame";
 import { Rng } from "./rng";
 import { applyAutoAssign, dailyOutput, departureImpact, planAutoAssign } from "./staffing";
 import { developTask } from "./tasks";
+import { minSalaryFor } from "./workers";
 import { exportSave, importSave } from "../state/save";
 import { migrateGameState } from "../state/migrate";
 import type { Employee, GameState } from "./types";
@@ -361,6 +363,32 @@ describe("hiring", () => {
     expect(g.hiring.lastResult?.accepted).toBe(false);
     expect(g.employees.length).toBe(before);
     expect(g.hiring.lastResult?.reason).toBeTruthy();
+  });
+
+  it("prices better candidates higher while giving network referrals a real salary advantage", () => {
+    const g = boot(18);
+    g.unlocks.hiring = true;
+    const network = recruitingChannels.find((channel) => channel.id === "network")!;
+    const executiveSearch = recruitingChannels.find((channel) => channel.id === "exec")!;
+    const low = structuredClone(g.employees[0]!);
+    const high = structuredClone(low);
+    low.skills = { research: 1, engineering: 1, product: 1, growth: 1, productivity: 2 };
+    high.skills = { research: 8, engineering: 8, product: 8, growth: 8, productivity: 8 };
+
+    expect(minSalaryFor(high, g, network.salaryMultiplier)).toBeGreaterThan(minSalaryFor(low, g, network.salaryMultiplier));
+    expect(minSalaryFor(high, g, network.salaryMultiplier)).toBeLessThan(minSalaryFor(high, g, executiveSearch.salaryMultiplier));
+
+    const afterRecruiting = applyCommand(g, { type: "recruit", channelId: network.id })!;
+    expect(afterRecruiting.hiring.candidates.some((candidate) => candidate.minSalary <= afterRecruiting.company.cash)).toBe(true);
+    expect(afterRecruiting.company.cash).toBe(BALANCE.STARTING_CASH - network.cost);
+
+    const affordableRuns = Array.from({ length: 100 }, (_, index) => {
+      const next = boot(index + 1);
+      next.unlocks.hiring = true;
+      const recruited = applyCommand(next, { type: "recruit", channelId: network.id })!;
+      return recruited.hiring.candidates.some((candidate) => candidate.minSalary <= recruited.company.cash);
+    }).filter(Boolean).length;
+    expect(affordableRuns).toBeGreaterThanOrEqual(99);
   });
 });
 

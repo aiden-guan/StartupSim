@@ -91,6 +91,7 @@ describe('guided first company',()=>{
     r.send({type:'recruit',channelId:'network'});
     expect(r.id()).toBe('hire-candidate');
     const candidate=r.game.hiring.candidates[0]!;
+    expect(candidate.minSalary).toBeLessThanOrEqual(r.game.company.cash);
     r.send({type:'hire',candidateId:candidate.employee.id,salary:candidate.minSalary});
     expect(r.game.stats.employeesHired).toBe(1);
     expect(r.game.pendingMentor).toBeNull();

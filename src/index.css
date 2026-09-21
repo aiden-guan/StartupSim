@@ -799,6 +799,8 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .tactical-btn.active { background:#3a5e50;color:#f0f4ea;border-color:#2a473b;box-shadow:0 2px 4px rgba(0,0,0,0.15); }
 .tactical-btn:disabled { opacity:.45;cursor:not-allowed; }
 .tactical-btn small { font-size:8px;opacity:.85;font-weight:normal; }
+.market-move-explainer { margin:6px 0 8px;color:#71806e;font-size:9px;line-height:1.5; }
+.market-move-explainer strong { color:#46634e;font-weight:700; }
 
 .tactical-cost-badge { display:inline-block;font-size:9px;padding:2px 6px;background:#cad6c4;color:#2f4639;border-radius:2px;font-weight:600;margin-top:3px; }
 

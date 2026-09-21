@@ -1,8 +1,6 @@
 import { BALANCE } from "../config/balance";
 import { competitors as competitorDefs } from "../data/competitors";
 import { GTM_STRATEGIES } from "../data/gtm";
-import { offices } from "../data/offices";
-import { scaleEventCash } from "../simulation/eventEconomy";
 import { gtmFitAnalysis } from "../simulation/gtm";
 import { setPause } from "../simulation/pause";
 import type { GameState, LaunchLevels, Product } from "../simulation/types";
@@ -78,10 +76,6 @@ function finishSession(state: GameState, session: MarketSession, rng: Rng): void
 
 function summarize(result: Omit<MarketActionResult, "summary"> & { nodeName: string }): string {
   if (result.action === "pass") return `${result.side === "player" ? "You" : "The competitor"} passed the window.`;
-  if (!result.success) {
-    const top = result.factors[0]?.label ?? "market position";
-    return `Expansion failed. ${top} outweighed the attempt on ${result.nodeName}.`;
-  }
   if (result.tactic === "blitz") return `PR Blitz decisively captured traction in ${result.nodeName}!`;
   if (result.tactic === "fortify") return `Reinforced your position in ${result.nodeName}.`;
   if (result.tactic === "viral") return `Viral loop triggered in ${result.nodeName}, cascading to adjacent segments.`;
@@ -92,26 +86,7 @@ function summarize(result: Omit<MarketActionResult, "summary"> & { nodeName: str
   return `Expanded into ${result.nodeName}.`;
 }
 
-function failCost(state: GameState, rng: Rng): number {
-  return Math.min(state.company.cash * 0.08, scaleEventCash(state, BALANCE.MARKET_FAILURE_COST, "minor", rng));
-}
-
-function isGuaranteedOpenPromotion(
-  node: MarketSession["nodes"][number],
-  side: "player" | "rival",
-  action: "expand" | "reinforce" | "contest",
-  tactic?: MarketTactic,
-): boolean {
-  return side === "player"
-    && action === "expand"
-    && (tactic === undefined || tactic === "pitch")
-    && node.playerInfluence === 0
-    && node.rivalInfluence === 0
-    && !node.playerDominated
-    && !node.rivalDominated;
-}
-
-function actionChance(
+function actionCalculation(
   state: GameState,
   session: MarketSession,
   side: "player" | "rival",
@@ -120,7 +95,10 @@ function actionChance(
   levels: LaunchLevels,
   combo: [string, string],
   tactic?: MarketTactic,
-): { chance: number; breakdown: ReturnType<typeof calculateInfluence>; power: MarketPowerContext } | null {
+): {
+  breakdown: ReturnType<typeof calculateInfluence>;
+  power: MarketPowerContext;
+} | null {
   const node = session.nodes.find((candidate) => candidate.id === nodeId);
   const product = state.products.find((candidate) => candidate.id === session.productId);
   if (!node || !product) return null;
@@ -136,26 +114,7 @@ function actionChance(
     power,
     tactic,
   );
-  const defender = side === "player" ? node.rivalInfluence : node.playerInfluence;
-  let defense = defender + node.resistance + (action === "contest" ? 4 : 0) + (side === "player" ? node.rivalShare : node.playerShare) * 0.04;
-  if (side === "rival" && node.fortified) defense += 6;
-  if (side === "rival" && session.playerDefensivePosture) defense += 3;
-  if (node.trait === "community_driven" && action === "contest") defense += 4;
-
-  let attack = breakdown.totalInfluence + power.productQuality + power.momentum * 0.35 + (offices[state.company.officeLevel]?.prestige ?? 0) * 0.02;
-  if (tactic === "blitz") attack += 8;
-  if (tactic === "poach") attack += 4;
-
-  if (isGuaranteedOpenPromotion(node, side, action, tactic)) {
-    return { chance: 1, breakdown, power };
-  }
-
-  let chance = 0.3 + (attack / Math.max(1, attack + defense)) * 0.6;
-  if (action === "reinforce") chance = Math.min(0.97, chance + 0.2);
-  if (action === "contest") chance *= 0.82;
-  if ((session.playerMomentum ?? 0) < 0 && side === "player") chance *= 0.9;
-  chance = Math.max(0.14, Math.min(0.95, chance));
-  return { chance, breakdown, power };
+  return { breakdown, power };
 }
 
 function prepareSuccessfulAction(
@@ -178,6 +137,19 @@ function prepareSuccessfulAction(
   }
 }
 
+function isLegalMarketAction(
+  session: MarketSession,
+  side: "player" | "rival",
+  action: "expand" | "reinforce" | "contest",
+  nodeId: string,
+  distributionLevel: number,
+): boolean {
+  const legal = getLegalMoves(session, side, distributionLevel);
+  return (action === "expand" && legal.expand.includes(nodeId))
+    || (action === "reinforce" && legal.reinforce.includes(nodeId))
+    || (action === "contest" && legal.contest.includes(nodeId));
+}
+
 export function previewSideAction(
   state: GameState,
   session: MarketSession,
@@ -193,9 +165,9 @@ export function previewSideAction(
   influenceToAdd: number;
   breakdown: ReturnType<typeof calculateInfluence>;
   willDominate: boolean;
-  successChance: number;
 } | null {
-  const calculation = actionChance(state, session, side, action, nodeId, levels, combo, tactic);
+  if (!isLegalMarketAction(session, side, action, nodeId, levels.distribution)) return null;
+  const calculation = actionCalculation(state, session, side, action, nodeId, levels, combo, tactic);
   if (!calculation) return null;
 
   const simulated: MarketSession = {
@@ -224,14 +196,13 @@ export function previewSideAction(
     influenceToAdd: calculation.breakdown.totalInfluence,
     breakdown: calculation.breakdown,
     willDominate: dominatedAfter && !dominatedBefore,
-    successChance: Math.round(calculation.chance * 100),
   };
 }
 
 export function resolveSideAction(
   state: GameState,
   session: MarketSession,
-  rng: Rng,
+  _rng: Rng,
   side: "player" | "rival",
   action: "expand" | "reinforce" | "contest",
   nodeId: string,
@@ -257,9 +228,11 @@ export function resolveSideAction(
   };
   if (!node) return empty;
 
-  const calculation = actionChance(state, session, side, action, nodeId, levels, combo, tactic);
+  if (!isLegalMarketAction(session, side, action, nodeId, levels.distribution)) return empty;
+
+  const calculation = actionCalculation(state, session, side, action, nodeId, levels, combo, tactic);
   if (!calculation) return empty;
-  const { chance, breakdown, power } = calculation;
+  const { breakdown, power } = calculation;
   const defender = side === "player" ? node.rivalInfluence : node.playerInfluence;
 
   const factors = [
@@ -274,41 +247,6 @@ export function resolveSideAction(
   if (side === "rival" && node.fortified) factors.push({ label: "Customer moat", weight: 6 });
   if (side === "rival" && session.playerDefensivePosture) factors.push({ label: "Defensive posture", weight: 3 });
   factors.sort((a, b) => b.weight - a.weight);
-
-  const success = isGuaranteedOpenPromotion(node, side, action, tactic) || rng.next() < chance;
-  if (!success) {
-    const cashCost = side === "player" && action !== "reinforce" ? Math.max(0, Math.round(failCost(state, rng))) : 0;
-    if (side === "player") {
-      state.company.cash -= cashCost;
-      session.playerMomentum = (session.playerMomentum ?? 0) - (action === "contest" ? 2 : 1);
-      node.contestPenalty = (node.contestPenalty ?? 0) + 1;
-      if (action === "contest") node.rivalInfluence += 1;
-    } else {
-      session.rivalMomentum = (session.rivalMomentum ?? 0) - 1;
-      if (action === "contest") node.playerInfluence += 1;
-    }
-    recomputeAllNetwork(session);
-    const rivalName = competitorDefs.find((c) => c.id === session.competitorId)?.name ?? "the incumbent";
-    return {
-      success: false,
-      action,
-      tactic,
-      nodeId,
-      nodeName: node.name,
-      side,
-      territoryChanged: false,
-      dominated: false,
-      influenceDelta: 0,
-      momentumDelta: action === "contest" ? -2 : -1,
-      cashCost,
-      factors,
-      summary: side === "player"
-        ? (tactic === "blitz"
-            ? `PR Blitz fell flat. ${rivalName}'s incumbent position in ${node.name} held firm.`
-            : `Expansion failed. Your product was competitive, but ${rivalName}'s existing position on ${node.name} outweighed it.`)
-        : `${rivalName} failed to take ${node.name}.`,
-    };
-  }
 
   prepareSuccessfulAction(node, side, action, tactic);
 
@@ -549,7 +487,11 @@ export function resolveEndTurn(
     // 4. Rival Turn Phase
     const def = competitorDefs.find((c) => c.id === session.competitorId);
     const difficulty = session.firstMarket ? 0 : (def?.difficulty ?? 1);
-    const rivalOpsCount = Math.max(1, Math.min(3, 1 + difficulty));
+    // The guided first market gives the rival a deterministic counter-move every
+    // other round so the tutorial stays readable without relying on failed rolls.
+    const rivalOpsCount = session.firstMarket
+      ? (session.turn % 2 === 0 ? 0 : 1)
+      : Math.max(1, Math.min(3, 1 + difficulty));
     for (let i = 0; i < rivalOpsCount; i++) {
       if (shouldEndSession(session)) break;
       const rivalResult = processRivalTurn(state, session, rng);

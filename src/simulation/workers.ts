@@ -129,7 +129,7 @@ export function employeeScore(worker: Employee): number {
   return SKILLS.reduce((s, k) => s + worker.skills[k], 0);
 }
 
-export function minSalaryFor(worker: Employee, state: GameState): number {
+export function minSalaryFor(worker: Employee, state: GameState, salaryMultiplier = 1): number {
   const perkCut = state.company.perks.reduce((s, p) => s + (p.level + 1) * 0.01, 0);
   const econ =
     state.economy === "recession" || state.economy === "creditCrunch"
@@ -139,5 +139,5 @@ export function minSalaryFor(worker: Employee, state: GameState): number {
         : 1;
   const self = workerSelfBonus(worker, "minSalary") || 1;
   const base = BALANCE.BASE_EMPLOYEE_SALARY + employeeScore(worker) * BALANCE.SALARY_PER_SCORE;
-  return Math.round(base * econ * self * state.world.talentCostIndex * Math.max(0.6, 1 - perkCut) * (1 + state.company.prestige / 400));
+  return Math.round(base * salaryMultiplier * econ * self * state.world.talentCostIndex * Math.max(0.6, 1 - perkCut) * (1 + state.company.prestige / 400));
 }

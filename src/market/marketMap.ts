@@ -517,6 +517,10 @@ export function getLegalMoves(
   };
 
   for (const node of session.nodes) {
+    // Reinforcement is a real defensive lock for the current round. The rival
+    // must choose another legal target until the shield decays at turn end.
+    if (side === "rival" && node.fortified) continue;
+
     const hasPresence = side === "player" ? node.playerInfluence > 0 : node.rivalInfluence > 0;
     const isEnemyDominated = side === "player" ? node.rivalDominated : node.playerDominated;
     const enemyShare = side === "player" ? node.rivalShare : node.playerShare;

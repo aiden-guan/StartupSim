@@ -159,8 +159,8 @@ const DELEGATION_PROFILES: Record<DelegationStrategy, DelegationProfile> = {
 };
 
 function delegationTactic(strategy: DelegationStrategy, action: DelegatedAction): MarketTactic {
+  if (action === "reinforce") return "fortify";
   if (action === "contest" && strategy === "aggressive") return "poach";
-  if (strategy === "niche" && action === "reinforce") return "fortify";
   return "pitch";
 }
 
@@ -172,15 +172,18 @@ export function executeDelegatedMarketSession(
 ): void {
   const profile = DELEGATION_PROFILES[strategy];
   const session = startMarketSession(draft, p, r);
+  session.playerOps = session.playerMaxOps;
   for (let t = 0; t < session.maxTurns; t++) {
     if (shouldEndSession(session)) break;
-    const pMoves = getLegalMoves(session, "player", p.levels.distribution);
-    const allPMoves = [
-      ...pMoves.expand.map((id) => ({ action: "expand" as const, nodeId: id })),
-      ...pMoves.reinforce.map((id) => ({ action: "reinforce" as const, nodeId: id })),
-      ...pMoves.contest.map((id) => ({ action: "contest" as const, nodeId: id })),
-    ];
-    if (allPMoves.length) {
+    for (let actionIndex = 0; actionIndex < Math.min(2, session.playerMaxOps) && session.playerOps > 0; actionIndex++) {
+      const pMoves = getLegalMoves(session, "player", p.levels.distribution);
+      const allPMoves = [
+        ...pMoves.expand.map((id) => ({ action: "expand" as const, nodeId: id })),
+        ...pMoves.reinforce.map((id) => ({ action: "reinforce" as const, nodeId: id })),
+        ...pMoves.contest.map((id) => ({ action: "contest" as const, nodeId: id })),
+      ];
+      if (!allPMoves.length) break;
+
       allPMoves.sort((a, b) => {
         const na = session.nodes.find((n) => n.id === a.nodeId)!;
         const nb = session.nodes.find((n) => n.id === b.nodeId)!;
@@ -190,7 +193,8 @@ export function executeDelegatedMarketSession(
 
           // Do not spend the whole window polishing a segment that is already secure.
           if (action === "reinforce") {
-            score -= Math.max(0, node.playerShare - 55) / 7;
+            score -= Math.max(0, node.playerShare - 55) / 2;
+            if (node.playerDominated && node.playerShare >= 75) score -= 8;
           }
 
           // Contests are more valuable when the rival actually controls the segment.
@@ -209,9 +213,16 @@ export function executeDelegatedMarketSession(
         const scoreB = scoreMove(nb, b.action);
         return scoreB - scoreA;
       });
-      const chosen = allPMoves[0]!;
+
+      const chosen = allPMoves.find((move) => {
+        const tactic = delegationTactic(strategy, move.action);
+        return (OPS_COST[tactic] ?? 1) <= session.playerOps;
+      });
+      if (!chosen) break;
+
       const node = session.nodes.find((n) => n.id === chosen.nodeId);
       const tactic = delegationTactic(strategy, chosen.action);
+      const cost = OPS_COST[tactic] ?? 1;
       if (chosen.action === "contest") {
         if (node?.rivalDominated) {
           node.rivalDominated = false;
@@ -230,15 +241,22 @@ export function executeDelegatedMarketSession(
         marketPowerFor(draft, p, session, "player"),
         tactic,
       );
+      if (node && tactic === "fortify") node.fortified = true;
+      session.playerOps -= cost;
       session.playerMomentum = Math.min(
         6,
         (session.playerMomentum ?? 0) + (chosen.action === "contest" ? 2 : 1),
       );
+      if (shouldEndSession(session)) break;
     }
     if (shouldEndSession(session)) break;
     processRivalTurn(draft, session, r);
     session.turnsLeft -= 1;
     session.turn += 1;
+    const baseDistributionOps = p.levels.distribution >= 3 ? 4 : 3;
+    const hubBonus = session.nodes.filter((node) => node.trait === "platform_hub" && node.playerDominated && !node.playerIsolated).length;
+    session.playerMaxOps = Math.min(5, baseDistributionOps + hubBonus);
+    session.playerOps = session.playerMaxOps;
   }
   applyMarketEntryResults(draft, session, r);
   if (draft.marketResult) {
@@ -535,11 +553,14 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
               ? "reinforce"
               : null;
         if (!inferred) break;
+        if (command.type === "marketExpand" && !legal.expand.includes(targetId)) break;
+        if (command.type === "marketReinforce" && !legal.reinforce.includes(targetId)) break;
+        if (command.type === "marketAction" && command.action && command.action !== inferred) break;
         const act = command.type === "marketExpand"
-          ? (legal.contest.includes(targetId) ? "contest" : "expand")
+          ? "expand"
           : command.type === "marketReinforce"
             ? "reinforce"
-            : (command.action === "contest" || command.action === "expand" || command.action === "reinforce" ? command.action : inferred);
+            : command.action ?? inferred;
 
         const tactic: MarketTactic = ("tactic" in command && command.tactic)
           ? command.tactic
@@ -566,12 +587,12 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         const p = draft.products.find((x) => x.id === b.productId);
         if (!p) break;
         const legal = getLegalMoves(b, "player", p.levels.distribution);
-        const targetId = b.selectedNodeId && (legal.expand.includes(b.selectedNodeId) || legal.reinforce.includes(b.selectedNodeId) || legal.contest.includes(b.selectedNodeId))
+        const targetId = b.selectedNodeId && (legal.expand.includes(b.selectedNodeId) || legal.contest.includes(b.selectedNodeId))
           ? b.selectedNodeId
           : (legal.expand[0] ?? legal.contest[0] ?? legal.reinforce[0]);
         if (targetId) {
           const act = legal.contest.includes(targetId) ? "contest" : legal.expand.includes(targetId) ? "expand" : "reinforce";
-          const tactic: MarketTactic = act === "contest" ? "poach" : "pitch";
+          const tactic: MarketTactic = act === "contest" ? "poach" : act === "reinforce" ? "fortify" : "pitch";
           const cost = OPS_COST[tactic] ?? 1;
           if (b.playerOps < cost) {
             resolveEndTurn(draft, r);
@@ -626,7 +647,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           }
           draft.hiring.candidates.push({
             employee: emp,
-            minSalary: minSalaryFor(emp, draft),
+            minSalary: minSalaryFor(emp, draft, ch.salaryMultiplier),
             personality: r.pick(["builder", "climber", "mission", "mercenary"]),
           });
         }
