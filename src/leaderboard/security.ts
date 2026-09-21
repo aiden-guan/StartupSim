@@ -161,14 +161,10 @@ export function validateRunIntegrity(sub: LeaderboardSubmission): ValidationResu
     return { valid: false, reason: `Invalid elapsed days count: ${days}` };
   }
 
-  // 3. Peak valuation & scale invariants
+  // 3. Peak valuation validation
   const peakVal = sub.stats?.peakValuation ?? 0;
-  if (typeof peakVal !== "number" || isNaN(peakVal) || peakVal < 0) {
+  if (typeof peakVal !== "number" || !Number.isFinite(peakVal) || peakVal < 0) {
     return { valid: false, reason: "Invalid peak valuation" };
-  }
-  // Max plausible valuation in the simulation economy: $50 Trillion
-  if (peakVal > 50_000_000_000_000) {
-    return { valid: false, reason: "Peak valuation exceeds economy physical bound" };
   }
 
   // If claimed peak valuation > $25M, player must have launched products or raised funding

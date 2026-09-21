@@ -91,6 +91,27 @@ describe("Leaderboard Anti-Cheat & Security", () => {
     expect(result.verifiedEntry?.daysElapsed).toBe(1_000_000);
   });
 
+  it("accepts peak valuations above the former economy cap", () => {
+    const sub = validSubmissionFixture();
+    sub.stats.peakValuation = 60_000_000_000_000;
+    sub.company.valuation = sub.stats.peakValuation;
+    sub.seal = computeRunSeal({
+      runId: sub.runId,
+      seed: sub.seed,
+      endingId: sub.endingId,
+      daysElapsed: sub.clock.daysElapsed,
+      peakValuation: sub.stats.peakValuation,
+      productsLaunched: sub.stats.productsLaunched,
+      scandals: sub.stats.scandals,
+      lifetimeRevenue: sub.company.lifetimeRevenue,
+    });
+
+    const result = validateRunIntegrity(sub);
+
+    expect(result.valid).toBe(true);
+    expect(result.verifiedEntry?.valuation).toBe(60_000_000_000_000);
+  });
+
   it("rejects run submission when seal does not match (tamper detection)", () => {
     const sub = validSubmissionFixture();
     sub.seal = "fake_tampered_hash_value";
