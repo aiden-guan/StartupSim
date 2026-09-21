@@ -32,8 +32,33 @@ export function leftoverCapacityDaily(state: GameState): number {
   return Math.max(0, inferenceCoverage(state) - weeklyInferenceDemand(state)) / 7;
 }
 
+export interface TrainingCapacityBreakdown {
+  total: number;
+  hostedCredits: number;
+  gpuHeadroom: number;
+  reservedForInference: number;
+}
+
+/**
+ * Training can draw from two sources: the remaining hosted-credit buffer and
+ * any owned/rented inference capacity left over after live products are served.
+ * Keep this breakdown shared by the simulation and the Compute panel so a
+ * player never sees a capacity number that disagrees with the actual tick.
+ */
+export function trainingCapacityBreakdown(state: GameState): TrainingCapacityBreakdown {
+  const reservedForInference = inferenceCreditsReserved(state);
+  const hostedCredits = Math.max(0, state.compute.apiCredits - reservedForInference);
+  const gpuHeadroom = leftoverCapacityDaily(state);
+  return {
+    total: hostedCredits + gpuHeadroom,
+    hostedCredits,
+    gpuHeadroom,
+    reservedForInference,
+  };
+}
+
 export function availableTrainingCompute(state: GameState): number {
-  return Math.max(0, state.compute.apiCredits - inferenceCreditsReserved(state)) + leftoverCapacityDaily(state);
+  return trainingCapacityBreakdown(state).total;
 }
 
 /**
@@ -120,5 +145,13 @@ export function computeBlockReason(state: GameState, task: Task): string | null 
   const row = allocation.byTask.get(task.id);
   if (!row?.blocked) return null;
   const name = task.name;
-  return `${name} is blocked because available compute has been exhausted.`;
+  const extraGpus = rentedGpusNeededForTraining(state);
+  const uncovered = uncoveredInferenceDemand(state);
+  if (uncovered > 0 && state.compute.apiCredits <= 0) {
+    return `${name} is blocked: live products are using all owned and rented capacity, and hosted credits are empty. ${extraGpus > 0 ? `Add ${extraGpus} rented GPU${extraGpus === 1 ? "" : "s"} to restore training headroom.` : "Add more capacity to restore training headroom."}`;
+  }
+  if (state.compute.apiCredits <= 0) {
+    return `${name} is blocked: there is no hosted credit buffer and no spare owned or rented capacity. ${extraGpus > 0 ? `Add ${extraGpus} rented GPU${extraGpus === 1 ? "" : "s"} to resume work.` : "Add capacity to resume work."}`;
+  }
+  return `${name} is blocked because all available training capacity is reserved or exhausted. Add more capacity to resume work.`;
 }

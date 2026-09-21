@@ -56,10 +56,10 @@ export const onboarding: OnboardDef[] = [
     {id:'research-open',text:'Research unlocks product combinations. Start a node, then assign a team in Projects.',workspace:'research',highlightUI:'research-tree',advance:action('startedResearch')},
   ]},
   {id:'compute',after:'research',slides:[
-    {id:'compute-open',text:'Users consume compute. Credits pay for inference first; watch this bill as products grow.',workspace:'compute',highlightUI:'compute-capacity',advance:next},
+    {id:'compute-open',text:'Live products use owned and rented capacity first. Spare capacity trains work; hosted credits fill the gap. When both are gone, add headroom in Compute.',workspace:'compute',highlightUI:'compute-capacity',advance:next},
   ]},
   {id:'funding',after:'compute',slides:[
-    {id:'funding-open',text:'Two launches unlock funding. Raising money buys time but costs ownership and adds a board.',workspace:'funding',highlightUI:'funding-meetings',advance:next},
+    {id:'funding-open',text:'Two launches unlock investor meetings. Cash gives you runway, but each round dilutes your ownership and adds a board seat with growth targets.',workspace:'funding',highlightUI:'funding-meetings',advance:next},
   ]},
 ];
 export const onboardingById = Object.fromEntries(onboarding.map(step => [step.id,step]));

@@ -64,6 +64,16 @@ function getLaunchProfile(levels: { deployment: number; capability: number; dist
     notes: "Early configuration. Invest launch points to define product reach and market conversion power.",
   };
 }
+
+function defaultProductExpanded(game: GameState, product: Product, readyCount: number) {
+  if (product.status !== 'ready') return false;
+  const tutorialNeedsDesigner =
+    game.onboarding.tutorialEnabled &&
+    game.onboarding.firstProductId === product.id &&
+    currentTutorialSlide(game)?.id === 'designer';
+  return tutorialNeedsDesigner || readyCount === 1;
+}
+
 export function TasksPanel({game}:{game:GameState}) {
   const dispatch=useGame(s=>s.dispatch);
   const [showLab,setShowLab]=useState(game.tasks.length===0);
@@ -200,7 +210,7 @@ export function TasksPanel({game}:{game:GameState}) {
       </div><div className="project-time"><strong>{estimate.days===null?'No team assigned':`~${estimate.days} days`}</strong><small>{estimate.days===null?'Assign people below to begin':'At the current team’s pace'}</small></div></div>
         <div data-tutorial="task-progress"><div className="progress-label"><span>{Math.min(100,task.progress/task.requiredProgress*100).toFixed(0)}% complete</span><span>{estimate.daily.toFixed(1)} progress / day</span></div><div className="progress-track"><i style={{width:`${Math.min(100,task.progress/task.requiredProgress*100)}%`}}/></div></div>
         <div className="team-efficiency"><span>Team efficiency <strong>{pct(estimate.efficiency*100)}</strong></span><span>Coordination overhead −{Math.round((1-estimate.efficiency)*100)}%</span></div>
-        {estimate.computeBlocked&&<div className="no-team-alert" role="status"><strong>Blocked by compute</strong><span>{computeBlockReason(game,task)??`${task.name} cannot advance until you rent GPUs or buy owned capacity.`}</span><GameButton onClick={()=>useGame.getState().setDrawer('compute')}>Open compute →</GameButton></div>}
+        {estimate.computeBlocked&&<div className="no-team-alert" role="status"><strong>Blocked by compute</strong><span>{computeBlockReason(game,task)??`${task.name} cannot advance until spare owned or rented capacity, or hosted credits, are available.`}</span><GameButton onClick={()=>useGame.getState().setDrawer('compute')}>Open compute →</GameButton></div>}
         {estimate.workers.length===0?<div className="no-team-alert" role="alert"><strong>⚠ NO TEAM ASSIGNED</strong><span>Progress is halted. Assign available teammates below to begin development.</span></div>:<div className="team-active-note"><span>Assigned team: <strong>{estimate.workers.filter(w=>w.burnoutDays<=0).length} active</strong>{estimate.resting?` · ${estimate.workers.filter(w=>w.burnoutDays>0).length} resting`:''} · {estimate.days===null?'waiting':`~${estimate.days} days remaining`}</span></div>}
         <ProjectStaffing game={game} task={task}/>
         {estimate.workers.length>0&&<div className="skill-contributions">{relevantSkillsFor(task).filter(s=>s!=='productivity').map(skill=><span key={skill}>{skill}<b>{estimate.workers.reduce((s,w)=>s+(w.burnoutDays?0:w.skills[skill]),0).toFixed(1)}</b></span>)}</div>}
@@ -397,7 +407,7 @@ function LaunchAutomationControlGroup({
   };
 
   return (
-    <div className="launch-automation-controls" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+    <div className="launch-automation-controls">
       <GameButton
         tone="primary"
         disabled={isTutorialRestricted}
@@ -409,28 +419,18 @@ function LaunchAutomationControlGroup({
             : "Automatically allocate points and select recommended AI model, business model, and GTM strategy"
         }
       >
-        {autoDelegate && delegationUnlocked ? "⚡ Optimize & Launch →" : "⚡ Optimize Launch"}
+        {autoDelegate && delegationUnlocked ? "Optimize & Launch →" : "Optimize Launch"}
       </GameButton>
 
       <div
         className={`delegation-actions-group auto-delegate-pill ${!delegationUnlocked ? 'is-locked' : autoDelegate ? 'is-active' : 'is-inactive'}`}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '3px 8px',
-          background: autoDelegate && delegationUnlocked ? '#dbe8db' : '#eaeee5',
-          border: `1px solid ${autoDelegate && delegationUnlocked ? '#8da58f' : '#cbd5c7'}`,
-          borderRadius: 4,
-          fontSize: 11,
-        }}
         title={
           !delegationUnlocked
             ? `Auto-Delegate unlocks after launching ${BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE} products (${game.company.productsLaunched}/${BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE})`
             : "Toggle whether Optimize Launch automatically handles market entry"
         }
       >
-        <span className="eyebrow" style={{ fontSize: 10, margin: 0, color: autoDelegate && delegationUnlocked ? '#1f432a' : '#4a5b4e' }}>
+        <span className="auto-delegate-label">
           Auto-Delegate:
         </span>
         {delegationUnlocked ? (
@@ -439,33 +439,14 @@ function LaunchAutomationControlGroup({
             className="auto-delegate-toggle-btn"
             aria-pressed={autoDelegate}
             onClick={toggleAutoDelegate}
-            style={{
-              cursor: 'pointer',
-              border: '1px solid #9fb39e',
-              background: autoDelegate ? '#285836' : '#fff',
-              color: autoDelegate ? '#fff' : '#495f50',
-              fontWeight: 700,
-              fontSize: 10,
-              padding: '2px 8px',
-              borderRadius: 3,
-              letterSpacing: '0.04em',
-              transition: 'all .15s ease',
-            }}
           >
             {autoDelegate ? 'ON' : 'OFF'}
           </button>
         ) : (
-          <span
-            style={{
-              fontSize: 9,
-              color: '#849386',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            LOCKED ({game.company.productsLaunched}/{BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE})
-          </span>
+          <>
+            <span className="auto-delegate-state">Unlocks after {BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE} launches</span>
+            <span className="visually-hidden">LOCKED ({game.company.productsLaunched}/{BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE})</span>
+          </>
         )}
       </div>
     </div>
@@ -511,12 +492,13 @@ function ProductCard({
   const ready = p.status === 'ready';
   const isLive = p.status === 'active' || p.status === 'mature' || p.status === 'declining';
   const state = ready
-    ? Object.values(p.levels).some(n => n > 0)
-      ? 'Ready to launch'
-      : 'Ready to configure'
+    ? 'Ready'
+    : p.status === 'development'
+    ? 'In development'
     : p.status === 'deprecated'
     ? 'Sunset'
     : p.status;
+  const stateTone = ready ? 'ready' : p.status === 'development' ? 'development' : isLive ? 'live' : 'sunset';
 
   const finishLaunch = () => {
     if (!launchPending.current) return;
@@ -556,14 +538,14 @@ function ProductCard({
           <GameIcon name={p.combo[0]} />
           <GameIcon name={p.combo[1]} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
-            <span className="eyebrow" style={{ margin: 0 }}>{state}</span>
+        <div className="product-header-copy">
+          <div className="product-status-row">
+            <span className={`product-status product-status-${stateTone}`}>{state}</span>
             {isLive && <span className="product-compact-badge">{money(p.weeklyRevenue)}/wk</span>}
             {isLive && <span className="product-compact-badge">{Math.round(p.users).toLocaleString()} users</span>}
             {isLive && <span className="product-compact-badge">{pct(p.marketShare)} share</span>}
             {ready && (
-              <span className="product-compact-badge" style={{ background: '#dce8dc', color: '#274b32' }}>
+              <span className="product-compact-badge product-points-badge">
                 {Math.floor(p.points.engineering + p.points.product + p.points.growth)} launch pts
               </span>
             )}
@@ -606,24 +588,23 @@ function ProductCard({
                 title="Rename product"
                 aria-label={`Rename ${p.name}`}
               >
-                ✏️ Rename
+                Rename
               </button>
             </div>
           )}
-          <p style={{ margin: '2px 0 0' }}>
+          <p className="product-subtitle">
             {p.combo.map(id => primitiveById[id]?.name ?? id).join(' + ')} · {p.vertical}
             {isLive ? ` · ${PRICING_MODELS[p.businessModel]?.name ?? p.businessModel} · ${p.gtmStrategy}` : ''}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-          {ready && <span className="ready-stamp">PRODUCT READY</span>}
+        <div className="product-card-actions">
           <button
             type="button"
             className="product-collapse-toggle-btn"
             aria-expanded={isExpanded}
             onClick={onToggleExpand}
           >
-            {isExpanded ? 'Collapse ▲' : 'Details ▼'}
+            {isExpanded ? 'Hide details' : ready ? 'Review launch' : 'Details'}
           </button>
         </div>
       </header>
@@ -639,30 +620,19 @@ function ProductCard({
             </div>
           ) : ready ? (
             <>
-              <div
-                className="launch-automation-bar"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 12,
-                  padding: '9px 14px',
-                  background: '#e4ece1',
-                  border: '1px solid #c2d1be',
-                  borderRadius: 4,
-                  margin: '0 0 16px',
-                  flexWrap: 'wrap',
-                }}
-              >
+              <div className="launch-automation-bar">
                 <LaunchAutomationControlGroup game={game} product={p} dispatch={dispatch} />
-                <span style={{ fontSize: 11, color: '#546957', fontWeight: 500 }}>
+                <span className="launch-automation-note">
                   {game.settings?.autoDelegate && game.company.productsLaunched >= BALANCE.MIN_PRODUCTS_BEFORE_DELEGATE
-                    ? 'Hands-off mode: Optimize will configure and launch into market'
-                    : 'Auto-fills the rest for review'}
+                    ? 'Optimize will configure and enter the market'
+                    : 'Review the suggested setup before entering the market'}
                 </span>
               </div>
               <div className="launch-points">
-                <span>Launch points</span>
+                <div className="launch-points-heading">
+                  <span>Points available</span>
+                  <small>Spend on scale, conversion, or reach</small>
+                </div>
                 {(['engineering', 'product', 'growth'] as const).map(k => (
                   <div key={k}>
                     <small>{k}</small>
@@ -1007,7 +977,7 @@ function ProductCard({
   );
 }
 
-export type ProductCategory = 'all' | 'ready' | 'active' | 'sunset';
+export type ProductCategory = 'all' | 'development' | 'ready' | 'active' | 'sunset';
 
 export function ProductsPanel({ game }: { game: GameState }) {
   const dispatch = useGame(s => s.dispatch);
@@ -1017,8 +987,13 @@ export function ProductsPanel({ game }: { game: GameState }) {
   const [activeCategory, setActiveCategory] = useState<ProductCategory>('all');
   const [sunsetSectionCollapsed, setSunsetSectionCollapsed] = useState(false);
 
+  const developmentProducts = useMemo(
+    () => game.products.filter(p => p.status === 'development'),
+    [game.products]
+  );
+
   const readyProducts = useMemo(
-    () => game.products.filter(p => p.status === 'ready' || p.status === 'development'),
+    () => game.products.filter(p => p.status === 'ready'),
     [game.products]
   );
 
@@ -1033,6 +1008,7 @@ export function ProductsPanel({ game }: { game: GameState }) {
     [game.products]
   );
 
+  const developmentCount = developmentProducts.length;
   const readyCount = readyProducts.length;
   const activeCount = activeProducts.length;
   const sunsetCount = sunsetProducts.length;
@@ -1066,13 +1042,16 @@ export function ProductsPanel({ game }: { game: GameState }) {
   );
 
   const visibleProducts = useMemo(() => {
+    if (activeCategory === 'development') return developmentProducts;
     if (activeCategory === 'ready') return readyProducts;
     if (activeCategory === 'active') return activeProducts;
     if (activeCategory === 'sunset') return sunsetProducts;
-    return [...readyProducts, ...activeProducts, ...sunsetProducts];
-  }, [activeCategory, readyProducts, activeProducts, sunsetProducts]);
+    return [...developmentProducts, ...readyProducts, ...activeProducts, ...sunsetProducts];
+  }, [activeCategory, developmentProducts, readyProducts, activeProducts, sunsetProducts]);
 
-  const allExpanded = visibleProducts.length > 0 && visibleProducts.every(p => expandedIds[p.id] ?? (p.status === 'ready'));
+  const launchReadyCount = readyProducts.length;
+  const isProductExpanded = (product: Product) => expandedIds[product.id] ?? defaultProductExpanded(game, product, launchReadyCount);
+  const allExpanded = visibleProducts.length > 0 && visibleProducts.every(isProductExpanded);
 
   const handleToggleAll = () => {
     const next: Record<string, boolean> = { ...expandedIds };
@@ -1105,8 +1084,14 @@ export function ProductsPanel({ game }: { game: GameState }) {
       {game.products.length > 0 && (
         <div className="catalog-header-bar">
           <div className="catalog-header-stats">
-            <span className="eyebrow" style={{ margin: 0 }}>Products ({game.products.length})</span>
+            <span className="eyebrow catalog-product-count" style={{ margin: 0 }}>Products ({game.products.length})</span>
+            <span className="catalog-header-summary">
+              {developmentCount > 0 ? `${developmentCount} in development` : readyCount > 0 ? `${readyCount} ready` : 'Nothing waiting to launch'}
+              {developmentCount > 0 && readyCount > 0 ? ` · ${readyCount} ready` : ''}
+              {activeCount > 0 ? ` · ${activeCount} live` : ''}
+            </span>
             <div className="catalog-category-filter-group" role="tablist" aria-label="Product categories">
+              <span className="catalog-view-label">View</span>
               <button
                 type="button"
                 role="tab"
@@ -1114,17 +1099,30 @@ export function ProductsPanel({ game }: { game: GameState }) {
                 className={`catalog-category-tab ${activeCategory === 'all' ? 'is-active' : ''}`}
                 onClick={() => setActiveCategory('all')}
               >
-                All ({game.products.length})
+                All <b>({game.products.length})</b>
               </button>
+              {developmentCount > 0 && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeCategory === 'development'}
+                  aria-label={`${developmentCount} in development`}
+                  className={`catalog-category-tab catalog-stat-tag development-tab ${activeCategory === 'development' ? 'is-active' : ''}`}
+                  onClick={() => setActiveCategory('development')}
+                >
+                  In development <b>({developmentCount})</b>
+                </button>
+              )}
               {readyCount > 0 && (
                 <button
                   type="button"
                   role="tab"
                   aria-selected={activeCategory === 'ready'}
+                  aria-label={`${readyCount} ready to launch`}
                   className={`catalog-category-tab catalog-stat-tag ready-tab ${activeCategory === 'ready' ? 'is-active' : ''}`}
                   onClick={() => setActiveCategory('ready')}
                 >
-                  {readyCount} ready to launch
+                  Ready <b>({readyCount})</b>
                 </button>
               )}
               {activeCount > 0 && (
@@ -1132,10 +1130,11 @@ export function ProductsPanel({ game }: { game: GameState }) {
                   type="button"
                   role="tab"
                   aria-selected={activeCategory === 'active'}
+                  aria-label={`${activeCount} active in market`}
                   className={`catalog-category-tab catalog-stat-tag active-tab ${activeCategory === 'active' ? 'is-active' : ''}`}
                   onClick={() => setActiveCategory('active')}
                 >
-                  {activeCount} active in market
+                  Live <b>({activeCount})</b>
                 </button>
               )}
               {sunsetCount > 0 && (
@@ -1143,10 +1142,11 @@ export function ProductsPanel({ game }: { game: GameState }) {
                   type="button"
                   role="tab"
                   aria-selected={activeCategory === 'sunset'}
+                  aria-label={`${sunsetCount} sunset`}
                   className={`catalog-category-tab catalog-stat-tag sunset-tab ${activeCategory === 'sunset' ? 'is-active' : ''}`}
                   onClick={() => setActiveCategory('sunset')}
                 >
-                  {sunsetCount} sunset
+                  Sunset <b>({sunsetCount})</b>
                 </button>
               )}
             </div>
@@ -1160,7 +1160,7 @@ export function ProductsPanel({ game }: { game: GameState }) {
                 className="catalog-launch-all-btn"
                 title={canLaunchAll ? `Optimize and launch all ${launchableProducts.length} ready products` : launchAllDisabledReason}
               >
-                ⚡ Launch all ({launchableProducts.length})
+                Launch all ({launchableProducts.length})
               </GameButton>
             )}
             <GameButton onClick={handleToggleAll} className="catalog-expand-all-btn">
@@ -1168,6 +1168,50 @@ export function ProductsPanel({ game }: { game: GameState }) {
             </GameButton>
           </div>
         </div>
+      )}
+
+      {/* In development section */}
+      {(activeCategory === 'all' || activeCategory === 'development') && (
+        developmentProducts.length > 0 ? (
+          <section className="catalog-section catalog-section-development" aria-label="Products in development">
+            <div className="catalog-section-header">
+              <div className="catalog-section-title-wrap">
+                <span className="catalog-section-tag development">In development</span>
+                <span className="catalog-section-count">{developmentProducts.length}</span>
+              </div>
+              <span className="catalog-section-meta">Assign a team in Product Lab to keep work moving</span>
+            </div>
+            <div className="catalog-section-list">
+              {developmentProducts.map(p => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  game={game}
+                  dispatch={dispatch}
+                  isExpanded={isProductExpanded(p)}
+                  onToggleExpand={() => setExpandedIds(prev => ({ ...prev, [p.id]: !(prev[p.id] ?? defaultProductExpanded(game, p, launchReadyCount)) }))}
+                  isEditing={editingId === p.id}
+                  editName={editName}
+                  onStartEdit={() => { setEditingId(p.id); setEditName(p.name); }}
+                  onCancelEdit={() => setEditingId(null)}
+                  onEditNameChange={setEditName}
+                  onSaveEdit={() => {
+                    if (editName.trim()) {
+                      dispatch({ type: 'renameProduct', productId: p.id, name: editName });
+                      setEditingId(null);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+        ) : (
+          activeCategory === 'development' && (
+            <div className="catalog-empty-category">
+              No products in development. Start a new recipe in the Product Lab.
+            </div>
+          )
+        )
       )}
 
       {/* Ready to configure section */}
@@ -1179,7 +1223,7 @@ export function ProductsPanel({ game }: { game: GameState }) {
                 <span className="catalog-section-tag ready">Ready to configure</span>
                 <span className="catalog-section-count">{readyProducts.length}</span>
               </div>
-              <span className="catalog-section-meta">Tune launch points, AI model, and go-to-market strategy</span>
+              <span className="catalog-section-meta">Configure, review, then enter the market</span>
             </div>
             <div className="catalog-section-list">
               {readyProducts.map(p => (
@@ -1188,8 +1232,8 @@ export function ProductsPanel({ game }: { game: GameState }) {
                   product={p}
                   game={game}
                   dispatch={dispatch}
-                  isExpanded={expandedIds[p.id] ?? (p.status === 'ready')}
-                  onToggleExpand={() => setExpandedIds(prev => ({ ...prev, [p.id]: !(prev[p.id] ?? (p.status === 'ready')) }))}
+                  isExpanded={isProductExpanded(p)}
+                  onToggleExpand={() => setExpandedIds(prev => ({ ...prev, [p.id]: !(prev[p.id] ?? defaultProductExpanded(game, p, launchReadyCount)) }))}
                   isEditing={editingId === p.id}
                   editName={editName}
                   onStartEdit={() => { setEditingId(p.id); setEditName(p.name); }}
@@ -1234,8 +1278,8 @@ export function ProductsPanel({ game }: { game: GameState }) {
                   product={p}
                   game={game}
                   dispatch={dispatch}
-                  isExpanded={expandedIds[p.id] ?? (p.status === 'ready')}
-                  onToggleExpand={() => setExpandedIds(prev => ({ ...prev, [p.id]: !(prev[p.id] ?? (p.status === 'ready')) }))}
+                  isExpanded={isProductExpanded(p)}
+                  onToggleExpand={() => setExpandedIds(prev => ({ ...prev, [p.id]: !(prev[p.id] ?? defaultProductExpanded(game, p, launchReadyCount)) }))}
                   isEditing={editingId === p.id}
                   editName={editName}
                   onStartEdit={() => { setEditingId(p.id); setEditName(p.name); }}
@@ -1291,8 +1335,8 @@ export function ProductsPanel({ game }: { game: GameState }) {
                     product={p}
                     game={game}
                     dispatch={dispatch}
-                    isExpanded={expandedIds[p.id] ?? (p.status === 'ready')}
-                    onToggleExpand={() => setExpandedIds(prev => ({ ...prev, [p.id]: !(prev[p.id] ?? (p.status === 'ready')) }))}
+                    isExpanded={isProductExpanded(p)}
+                    onToggleExpand={() => setExpandedIds(prev => ({ ...prev, [p.id]: !(prev[p.id] ?? defaultProductExpanded(game, p, launchReadyCount)) }))}
                     isEditing={editingId === p.id}
                     editName={editName}
                     onStartEdit={() => { setEditingId(p.id); setEditName(p.name); }}

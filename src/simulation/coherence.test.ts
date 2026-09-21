@@ -3,9 +3,9 @@ import { recruitingChannels } from "../data/recruiting";
 import { BALANCE } from "../config/balance";
 import { officeAnnualBurden, offices } from "../data/offices";
 import { applyCommand } from "./commands";
-import { allocateTrainingCompute, availableTrainingCompute, consumeTrainingCompute, inferenceCreditDepleted, leftoverCapacityDaily, rentedGpusNeededForTraining, taskComputeDemand, uncoveredInferenceDemand } from "./compute";
+import { allocateTrainingCompute, availableTrainingCompute, computeBlockReason, consumeTrainingCompute, inferenceCreditDepleted, leftoverCapacityDaily, rentedGpusNeededForTraining, taskComputeDemand, trainingCapacityBreakdown, uncoveredInferenceDemand } from "./compute";
 import { candidateQualityScore, generateEmployee, generateSkills } from "./candidates";
-import { monthlyRent, OWNED_COMPUTE_UNIT_COST } from "./derived";
+import { inferenceCoverage, monthlyRent, OWNED_COMPUTE_UNIT_COST } from "./derived";
 import { companyStage, scaleEventCash } from "./eventEconomy";
 import { createNewGame } from "./newGame";
 import { Rng } from "./rng";
@@ -174,6 +174,40 @@ describe("compute constraints", () => {
     expect(availableTrainingCompute(g)).toBe(0);
     consumeTrainingCompute(g, allocateTrainingCompute(g));
     expect(g.compute.apiCredits).toBe(4_000);
+  });
+
+  it("keeps training available from spare owned or rented capacity after credits run out", () => {
+    let g = boot(13);
+    g = startNamedProduct(g, "chat", "writing");
+    const task = g.tasks[0]!;
+    g = applyCommand(g, { type: "assign", taskId: task.id, workerId: g.employees[0]!.id })!;
+    g = structuredClone(g);
+    g.compute.apiCredits = 0;
+    g.compute.rentedGpus = 1;
+
+    const capacity = trainingCapacityBreakdown(g);
+    expect(capacity.hostedCredits).toBe(0);
+    expect(capacity.gpuHeadroom).toBeGreaterThan(0);
+    expect(availableTrainingCompute(g)).toBe(capacity.total);
+    expect(allocateTrainingCompute(g).blocked).toBe(false);
+  });
+
+  it("explains when live inference, not company ownership, consumes all headroom", () => {
+    let g = boot(13);
+    g = startNamedProduct(g, "chat", "writing");
+    const task = g.tasks[0]!;
+    g = applyCommand(g, { type: "assign", taskId: task.id, workerId: g.employees[0]!.id })!;
+    g = structuredClone(g);
+    g.products[0]!.status = "active";
+    g.products[0]!.weeklyInference = 33_058;
+    g.compute.apiCredits = 0;
+    g.compute.rentedGpus = 32;
+    g.compute.ownedCluster = 5;
+
+    expect(inferenceCoverage(g)).toBe(26_200);
+    expect(allocateTrainingCompute(g).blocked).toBe(true);
+    expect(computeBlockReason(g, task)).toContain("live products are using all owned and rented capacity");
+    expect(computeBlockReason(g, task)).toContain("hosted credits are empty");
   });
 });
 

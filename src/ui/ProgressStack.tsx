@@ -59,7 +59,7 @@ export function ProgressStack({ game }: { game: GameState }) {
           <div className="progress-track"><i style={{ width: `${pct}%` }} /></div>
           <em>
             {status.id === "compute"
-              ? "Buy capacity to continue →"
+              ? "Open Compute to restore headroom →"
               : status.id === "staff"
                 ? "Assign a team →"
                 : `${Math.round(pct)}% complete${tasks.length > 1 ? ` · ${tasks.length - 1} more in Build` : ""}`}

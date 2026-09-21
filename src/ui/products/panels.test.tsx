@@ -147,4 +147,20 @@ describe("Products and Tasks UI Panels", () => {
     expect(readyIdx).toBeLessThan(activeIdx);
     expect(activeIdx).toBeLessThan(sunsetIdx);
   });
+
+  it("keeps in-development products out of the launch-ready queue", () => {
+    const game = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "dustin-moskovitz", skipTutorial: true });
+    const product = createProduct(game, "chat", "writing", new Rng(4));
+    product.status = "development";
+    game.products = [product];
+
+    const markup = renderToStaticMarkup(<ProductsPanel game={game} />);
+
+    expect(markup).toContain("catalog-section-development");
+    expect(markup).toContain("In development");
+    expect(markup).toContain('aria-label="1 in development"');
+    expect(markup).not.toContain("Ready to configure");
+    expect(markup).not.toContain("ready to launch");
+    expect(markup).not.toContain("Launch all");
+  });
 });

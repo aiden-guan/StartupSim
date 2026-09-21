@@ -178,7 +178,7 @@ export function MarketResults({ game }: { game: GameState }) {
 
         <p className="result-note">
           {r.revenue > 0
-            ? "Revenue arrives weekly. API credits cover inference before company cash is touched."
+            ? "Revenue arrives weekly. Hosted credits cover uncovered inference before company cash is touched."
             : "No meaningful footholds this launch. Improve capability and expand reach before trying again."}
         </p>
 
