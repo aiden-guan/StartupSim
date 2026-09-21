@@ -2,7 +2,10 @@ import { openDB } from "idb";
 import type { GameState } from "../simulation/types";
 import { migrateGameState } from "./migrate";
 
-const DB = "compounding";
+export const LOCAL_DB_NAME = "compounding";
+// Saves and leaderboard records share this database. Keep the version in one
+// place so opening one feature cannot fail after the other upgrades it.
+export const LOCAL_DB_VERSION = 2;
 const LEGACY_DB = "founder-mode";
 const STORE = "saves";
 export const AUTOSAVE_ID = "autosave";
@@ -11,7 +14,7 @@ let pendingAutosave: GameState | null = null;
 let autosaveWrite: Promise<void> | null = null;
 
 async function db() {
-  return openDB(DB, 1, {
+  return openDB(LOCAL_DB_NAME, LOCAL_DB_VERSION, {
     upgrade(database) {
       if (!database.objectStoreNames.contains(STORE)) database.createObjectStore(STORE);
     },

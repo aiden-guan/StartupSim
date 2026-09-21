@@ -2,6 +2,7 @@ import { openDB } from "idb";
 import { evaluateAchievements } from "../simulation/achievements";
 import { monthlyArr } from "../simulation/conditions";
 import type { GameState } from "../simulation/types";
+import { LOCAL_DB_NAME, LOCAL_DB_VERSION } from "../state/save";
 import { computeRunSeal, sanitizeHandle, sanitizeQuote } from "./security";
 import { computeScoreTier, getDaysElapsed } from "./scoring";
 import type {
@@ -12,11 +13,10 @@ import type {
   LeaderboardSubmitResponse,
 } from "./types";
 
-const LOCAL_DB = "compounding";
 const LOCAL_LEADERBOARD_STORE = "leaderboard_runs";
 
 async function getLocalDb() {
-  return openDB(LOCAL_DB, 2, {
+  return openDB(LOCAL_DB_NAME, LOCAL_DB_VERSION, {
     upgrade(database) {
       if (!database.objectStoreNames.contains("saves")) {
         database.createObjectStore("saves");
