@@ -4,9 +4,24 @@ import { BALANCE } from "../../config/balance";
 import { createNewGame } from "../../simulation/newGame";
 import { createProduct } from "../../simulation/products";
 import { Rng } from "../../simulation/rng";
+import { applyCommand } from "../../simulation/commands";
 import { ProductsPanel, TasksPanel } from "./panels";
 
 describe("Products and Tasks UI Panels", () => {
+  it("keeps the assigned project team visible and collapses everyone else by default", () => {
+    let game = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "dustin-moskovitz", skipTutorial: true });
+    game = applyCommand(game, { type: "startProduct", a: "chat", b: "writing" })!;
+    const task = game.tasks[0]!;
+    game = applyCommand(game, { type: "assign", taskId: task.id, workerId: game.employees[0]!.id })!;
+    const markup = renderToStaticMarkup(<TasksPanel game={game} />);
+
+    expect(markup).toContain("Assigned to this project");
+    expect(markup).toContain("1 teammate");
+    expect(markup).toContain("Add or reassign people");
+    expect(markup).toContain("1 other teammate");
+    expect(markup).toContain('<details class="staff-picker" data-tutorial="assign-crew">');
+  });
+
   it("renders concise auto-assign feedback in TasksPanel", () => {
     const game = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "dustin-moskovitz", skipTutorial: true });
     game.lastStaffing = {

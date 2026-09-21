@@ -12,6 +12,13 @@ export function pct(n: number): string {
   return `${n.toFixed(0)}%`;
 }
 
+export function equityPct(n: number): string {
+  if (n > 0 && n < 0.01) return "<0.01%";
+  if (n < 1) return `${n.toFixed(2)}%`;
+  if (n < 10 || Math.abs(n - Math.round(n)) >= 0.05) return `${n.toFixed(1)}%`;
+  return pct(n);
+}
+
 export function modelPricePerMTok(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: n % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
 }

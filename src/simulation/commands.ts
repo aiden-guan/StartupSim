@@ -970,8 +970,11 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
           { id: "mission", name: "Signal Fund", notes: "They will ask about safety and then about growth." },
         ];
         draft.funding.offers = r.pickN(archetypes, 3).map((a, i) => {
-          const cash = Math.round((80_000 * (idx + 1) ** 2 + arr * (0.4 + i * 0.1)) / 1000) * 1000;
-          const valuation = Math.max(val, cash * 4);
+          const baselineCash = Math.round((80_000 * (idx + 1) ** 2 + arr * (0.4 + i * 0.1)) / 1000) * 1000;
+          const valuation = Math.max(val, baselineCash * 4);
+          const minimumDilution = BALANCE.FUNDING_MIN_DILUTION_BY_ROUND[idx]! + i * BALANCE.FUNDING_OFFER_DILUTION_STEP;
+          const minimumCash = valuation * minimumDilution / (1 - minimumDilution);
+          const cash = Math.round(Math.max(baselineCash, minimumCash) / 1000) * 1000;
           return {
             id: `${round}-${a.id}`,
             round,

@@ -52,7 +52,8 @@ export function companyTraitBonus(state: GameState, skill: SkillName | "happines
 
 export function workerSkill(worker: Employee, state: GameState, name: SkillName): number {
   const raw = worker.skills[name] + workerSelfBonus(worker, name) + companyTraitBonus(state, name);
-  return Math.max(0, raw);
+  const automation = state.company.automation[worker.department] ?? 0;
+  return Math.max(0, raw * (1 + automation * BALANCE.AUTOMATION_OUTPUT_PER_PERCENT));
 }
 
 export function workerHappiness(worker: Employee, state: GameState): number {
@@ -76,10 +77,6 @@ export function companySkill(
     const s = workerSkill(w, state, name);
     const prod = scaleByProductivity ? Math.max(0.3, workerSkill(w, state, "productivity") / 8) : 1;
     total += Math.max(0, s * prod);
-  }
-  const auto = state.company.automation.engineering ?? 0;
-  if (name === "engineering" || name === "research" || name === "productivity") {
-    total *= 1 + auto / 200;
   }
   const loc = state.company.locations.reduce((s, id) => {
     const def = locations.find((l) => l.id === id);

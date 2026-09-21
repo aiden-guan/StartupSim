@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BALANCE } from "../../config/balance";
 import { models } from "../../data/models";
 import { calculateModelImpact } from "../../simulation/modelImpact";
 import type { DepartmentId, GameState } from "../../simulation/types";
@@ -14,6 +15,17 @@ import { MiniaturePreview } from "../visuals/MiniaturePreview";
 import { ModelGlyph } from "../visuals/ModelGlyph";
 
 const DEPTS: DepartmentId[] = ["engineering", "support", "sales", "marketing", "finance", "recruiting", "legal", "research", "management"];
+const DEPARTMENT_LABELS: Record<DepartmentId, string> = {
+  engineering: "Engineering",
+  support: "Support",
+  sales: "Sales",
+  marketing: "Marketing",
+  finance: "Finance",
+  recruiting: "Recruiting",
+  legal: "Legal",
+  research: "Research",
+  management: "Management",
+};
 const SERVICE_PRODUCT_STATUSES = new Set(["active", "mature", "declining"]);
 const RENTED_GPU_ADJUSTMENTS = [-100, -10, -1, 1, 10, 100] as const;
 
@@ -46,6 +58,7 @@ export function ComputePanel({ game }: { game: GameState }) {
   const selected = visibleModels.find((model) => model.id === selectedId) ?? visibleModels.find((model) => model.id === game.currentModelId) ?? visibleModels[0]!;
   const selectedAvailable = isModelAvailable(game, selected.id);
   const adjustRentedGpus = (delta: number) => dispatch({ type: "rentGpus", count: Math.max(0, Math.min(MAX_RENTED_GPUS, game.compute.rentedGpus + delta)) });
+  const configuredDepartments = Object.values(game.company.automation).filter((value) => value > 0).length;
 
   return <div className="compute-console">
     <div className="workspace-intro">
@@ -114,6 +127,6 @@ export function ComputePanel({ game }: { game: GameState }) {
       </div>
     </section>
     </details>
-    {game.unlocks.automation && <details className="compute-advanced-section"><summary><span>Department automation</span><small>{Object.values(game.company.automation).filter((value) => value > 0).length} departments configured</small></summary><section><div className="automation-grid">{DEPTS.map((department) => <label key={department}>{department}<output>{game.company.automation[department]}%</output><input aria-label={`${department} automation`} type="range" min="0" max="100" step="10" value={game.company.automation[department]} onChange={(event) => dispatch({ type: "setAutomation", department, percent: Number(event.target.value) })} /></label>)}</div><div className="choice-row">{(["engineering", "support", "sales", "research"] as const).map((kind) => <GameButton key={kind} onClick={() => dispatch({ type: "deployAiWorker", kind })}>Deploy {kind} agent</GameButton>)}</div></section></details>}
+    {game.unlocks.automation && <details className="compute-advanced-section automation-section"><summary><span>Department automation</span><small>{configuredDepartments ? `${configuredDepartments} department${configuredDepartments === 1 ? "" : "s"} configured` : "Not configured"}</small></summary><section><div className="automation-explainer" role="note"><span className="eyebrow">What the sliders do</span><p><strong>Automation amplifies assigned work.</strong> Every 10% adds 5% to the skill contribution of people in that department; 100% means 1.5× output. It does not replace staffing.</p><small>Raising automation lowers non-founder morale and advances automation-risk events.</small></div><div className="automation-grid">{DEPTS.map((department) => { const percent = game.company.automation[department]; const teammateCount = game.employees.filter((worker) => worker.department === department).length; return <label key={department}><span className="automation-label"><strong>{DEPARTMENT_LABELS[department]}</strong><small>{teammateCount} teammate{teammateCount === 1 ? "" : "s"}</small></span><output>{percent}% <small>· +{Math.round(percent * BALANCE.AUTOMATION_OUTPUT_PER_PERCENT * 100)}% output</small></output><input aria-label={`${DEPARTMENT_LABELS[department]} automation`} type="range" min="0" max="100" step="10" value={percent} onChange={(event) => dispatch({ type: "setAutomation", department, percent: Number(event.target.value) })} /></label>; })}</div><div className="automation-agents"><div><span className="eyebrow">Digital teammates</span><p>Agents are tireless employees you assign to projects separately. Each adds {money(BALANCE.AI_WORKER_MONTHLY_COST)}/month to the cloud bill.</p></div><div className="choice-row">{(["engineering", "support", "sales", "research"] as const).map((kind) => <GameButton key={kind} onClick={() => dispatch({ type: "deployAiWorker", kind })}>Deploy {DEPARTMENT_LABELS[kind]} agent</GameButton>)}</div></div></section></details>}
   </div>;
 }

@@ -5,6 +5,7 @@ import { companySkill, companyTraitBonus, idleWorkers, workerSelfBonus, workerSk
 import { managementRelief, workersFor } from "./tasks";
 import { locations } from "../data/locations";
 import { offices } from "../data/offices";
+import { BALANCE } from "../config/balance";
 
 export const TASK_SKILLS: Record<Task["type"], SkillName[]> = {
   product: ["engineering", "product", "research", "growth", "productivity"],
@@ -117,8 +118,6 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
   const bureau = 1 - Math.min(0.45, state.company.culture.bureaucracy / 200);
   const officeProd = 1 + (offices[state.company.officeLevel]?.productivity ?? 0) / 100;
   const bureauOffice = bureau * officeProd;
-  const autoEng = state.company.automation.engineering ?? 0;
-
   const locBonuses: Record<SkillName, number> = {
     engineering: 0,
     research: 0,
@@ -140,12 +139,13 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
   function getWorkerSkills(w: Employee): Record<SkillName, number> {
     let cached = workerSkills.get(w.id);
     if (!cached) {
+      const automationMultiplier = 1 + (state.company.automation[w.department] ?? 0) * BALANCE.AUTOMATION_OUTPUT_PER_PERCENT;
       cached = {
-        engineering: Math.max(0, w.skills.engineering + workerSelfBonus(w, "engineering") + traitBonuses.engineering),
-        research: Math.max(0, w.skills.research + workerSelfBonus(w, "research") + traitBonuses.research),
-        product: Math.max(0, w.skills.product + workerSelfBonus(w, "product") + traitBonuses.product),
-        growth: Math.max(0, w.skills.growth + workerSelfBonus(w, "growth") + traitBonuses.growth),
-        productivity: Math.max(0, w.skills.productivity + workerSelfBonus(w, "productivity") + traitBonuses.productivity),
+        engineering: Math.max(0, (w.skills.engineering + workerSelfBonus(w, "engineering") + traitBonuses.engineering) * automationMultiplier),
+        research: Math.max(0, (w.skills.research + workerSelfBonus(w, "research") + traitBonuses.research) * automationMultiplier),
+        product: Math.max(0, (w.skills.product + workerSelfBonus(w, "product") + traitBonuses.product) * automationMultiplier),
+        growth: Math.max(0, (w.skills.growth + workerSelfBonus(w, "growth") + traitBonuses.growth) * automationMultiplier),
+        productivity: Math.max(0, (w.skills.productivity + workerSelfBonus(w, "productivity") + traitBonuses.productivity) * automationMultiplier),
       };
       workerSkills.set(w.id, cached);
     }
@@ -163,9 +163,6 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
       const s = skills[name];
       const prod = scaleByProductivity ? Math.max(0.3, skills.productivity / 8) : 1;
       total += Math.max(0, s * prod);
-    }
-    if (name === "engineering" || name === "research" || name === "productivity") {
-      total *= 1 + autoEng / 200;
     }
     return Math.max(0, (total + locBonuses[name]) * bureauOffice);
   }

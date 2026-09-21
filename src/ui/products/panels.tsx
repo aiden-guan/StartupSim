@@ -234,6 +234,10 @@ function ProjectStaffing({ game, task }: { game: GameState; task: Task }) {
   const pending = pendingId ? game.employees.find((w) => w.id === pendingId) : null;
   const impact = pending ? reassignmentImpact(game, pending, task) : null;
   const skills = relevantSkillsFor(task).filter((s) => s !== "productivity").slice(0, 3);
+  const assigned = game.employees.filter((worker) => worker.taskId === task.id);
+  const candidates = game.employees.filter((worker) => worker.taskId !== task.id);
+  const tutorialStep = currentTutorialSlide(game)?.id;
+  const tutorialNeedsRoster = task.productId === game.onboarding.firstProductId && (tutorialStep === "assign-founder" || tutorialStep === "assign-cofounder");
 
   function requestAssign(worker: Employee) {
     if (worker.burnoutDays > 0) return;
@@ -246,6 +250,29 @@ function ProjectStaffing({ game, task }: { game: GameState; task: Task }) {
       return;
     }
     dispatch({ type: "assign", workerId: worker.id, taskId: task.id });
+  }
+
+  function workerButton(worker: Employee) {
+    const state = workerState(game, worker, task);
+    return (
+      <button
+        key={worker.id}
+        className={`worker-assignment ${state.id}`}
+        data-tutorial={task.productId === game.onboarding.firstProductId ? `assign-${worker.role}` : undefined}
+        aria-pressed={state.id === "assigned"}
+        disabled={worker.burnoutDays > 0}
+        title={state.label}
+        onClick={() => requestAssign(worker)}
+      >
+        <CharacterPortrait look={worker.look} robot={worker.role === "robot"} />
+        <div>
+          <strong>{worker.name}</strong>
+          <small>{worker.role === "founder" ? "Founder" : worker.role === "cofounder" ? "Cofounder" : worker.title}</small>
+          <span>{skills.map((skill) => `${skill.slice(0, 3).toUpperCase()} ${worker.skills[skill].toFixed(0)}`).join(" · ")}</span>
+          <em>{state.id === "assigned" ? "✓ Working on this" : state.label}</em>
+        </div>
+      </button>
+    );
   }
 
   return (
@@ -262,30 +289,11 @@ function ProjectStaffing({ game, task }: { game: GameState; task: Task }) {
           </div>
         </div>
       )}
-      <div className="assignment-grid" data-tutorial="assign-crew">
-        {game.employees.map((w) => {
-          const state = workerState(game, w, task);
-          return (
-            <button
-              key={w.id}
-              className={`worker-assignment ${state.id}`}
-              data-tutorial={task.productId === game.onboarding.firstProductId ? `assign-${w.role}` : undefined}
-              aria-pressed={state.id === "assigned"}
-              disabled={w.burnoutDays > 0}
-              title={state.label}
-              onClick={() => requestAssign(w)}
-            >
-              <CharacterPortrait look={w.look} robot={w.role === "robot"} />
-              <div>
-                <strong>{w.name}</strong>
-                <small>{w.role === "founder" ? "Founder" : w.role === "cofounder" ? "Cofounder" : w.title}</small>
-                <span>{skills.map((skill) => `${skill.slice(0, 3).toUpperCase()} ${w.skills[skill].toFixed(0)}`).join(" · ")}</span>
-                <em>{state.id === "assigned" ? "✓ Working on this" : state.label}</em>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      {assigned.length > 0 && <div className="assigned-roster"><div className="staffing-heading"><span>Assigned to this project</span><small>{assigned.length} teammate{assigned.length === 1 ? "" : "s"}</small></div><div className="assignment-grid">{assigned.map(workerButton)}</div></div>}
+      <details className="staff-picker" data-tutorial="assign-crew" open={tutorialNeedsRoster || undefined}>
+        <summary><span>{assigned.length ? "Add or reassign people" : "Choose a project team"}</span><small>{candidates.length} other teammate{candidates.length === 1 ? "" : "s"}</small></summary>
+        <div className="assignment-grid">{candidates.map(workerButton)}</div>
+      </details>
     </div>
   );
 }
