@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { identity } from "../../branding/identity";
-import { listSaves, type SaveMeta } from "../../state/save";
+import { AUTOSAVE_ID, listSaves, type SaveMeta } from "../../state/save";
 import { useGame } from "../../state/store";
 import { SavePanel } from "../SavePanel";
 import { GameButton } from "../shared/controls";
@@ -12,7 +12,7 @@ export function TitleOverlay() {
   const setSettingsOpen = useGame((s) => s.setSettingsOpen);
   const setCreditsOpen = useGame((s) => s.setCreditsOpen);
   const setLeaderboardOpen = useGame((s) => s.setLeaderboardOpen);
-  const [newCompanyPrompt, setNewCompanyPrompt] = useState<SaveMeta[] | null>(null);
+  const [newCompanyPrompt, setNewCompanyPrompt] = useState<SaveMeta | null>(null);
 
   function beginSetup() {
     resetSetup();
@@ -23,8 +23,9 @@ export function TitleOverlay() {
   async function requestNewCompany() {
     try {
       const saves = await listSaves();
-      if (saves.length) {
-        setNewCompanyPrompt(saves);
+      const autosave = saves.find((save) => save.id === AUTOSAVE_ID);
+      if (autosave) {
+        setNewCompanyPrompt(autosave);
         return;
       }
     } catch {
@@ -76,10 +77,9 @@ export function TitleOverlay() {
           <div className="w-full max-w-md border border-[#cfc5b6] bg-[#f9f4e7] p-6 text-left shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="new-company-confirm-title">
             <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-copper">Existing company found</span>
             <h2 id="new-company-confirm-title" className="mt-2 font-display text-2xl font-semibold text-ink">Start a new company?</h2>
-            <p className="mt-3 text-sm leading-relaxed text-muted">Starting a new company will replace the current autosave the next time the new company is saved. Manual slots stay safe.</p>
+            <p className="mt-3 text-sm leading-relaxed text-muted">Your current company is saved automatically on this device. Starting a new company will replace that saved company.</p>
             <div className="mt-3 border-l-2 border-copper bg-[#efe3d0] px-3 py-2 font-mono text-[10px] text-[#76573f]">
-              {newCompanyPrompt.slice(0, 2).map((save) => <div key={save.id}>{saveLabelForConfirm(save)} · {save.company}</div>)}
-              {newCompanyPrompt.length > 2 ? <div>+ {newCompanyPrompt.length - 2} more saved file{newCompanyPrompt.length - 2 === 1 ? "" : "s"}</div> : null}
+              <div>Autosave · {newCompanyPrompt.company} · {newCompanyPrompt.date}</div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <GameButton className="border-line text-ink" onClick={() => setNewCompanyPrompt(null)}>Keep current company</GameButton>
@@ -90,10 +90,4 @@ export function TitleOverlay() {
       ) : null}
     </div>
   );
-}
-
-function saveLabelForConfirm(save: SaveMeta): string {
-  if (save.id === "autosave") return "Autosave";
-  if (save.id.startsWith("slot-")) return `Slot ${save.id.slice(5)}`;
-  return save.name;
 }

@@ -249,8 +249,14 @@ export const useGame = create<AppState>((set, get) => ({
     ) {
       set({ drawer: "inbox" });
     }
-    if (next && (cmd.type === "tickDay" ? next.clock.date.day === 1 : true) && next.settings.autosave) {
-      void writeSave("autosave", get().game ?? next);
+    if (next) {
+      // Company progress is always local-first. Saving every state transition
+      // means a run cannot lose weeks of simulation time between monthly
+      // checkpoints, and keeps starting a new company immediately resumable.
+      void writeSave("autosave", next).catch(() => {
+        // IndexedDB is best effort; gameplay should never be blocked by a
+        // browser storage failure.
+      });
     }
   },
   setScreen: (screen) => set({ screen }),

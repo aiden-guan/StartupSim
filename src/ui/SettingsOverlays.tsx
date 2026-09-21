@@ -57,10 +57,6 @@ export function SettingsOverlay() {
               <input type="range" min={0.85} max={1.2} step={0.05} value={settings.uiScale} onChange={(e) => dispatch({ type: "setSettings", patch: { uiScale: Number(e.target.value) } })} />
             </label>
             <label className="flex items-center justify-between">
-              Autosave
-              <input type="checkbox" checked={settings.autosave} onChange={(e) => dispatch({ type: "setSettings", patch: { autosave: e.target.checked } })} />
-            </label>
-            <label className="flex items-center justify-between">
               Pause on events
               <input type="checkbox" checked={settings.pauseOnEvents} onChange={(e) => dispatch({ type: "setSettings", patch: { pauseOnEvents: e.target.checked } })} />
             </label>

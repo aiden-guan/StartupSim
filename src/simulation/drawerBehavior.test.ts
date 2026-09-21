@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createNewGame } from "./newGame";
 import { createProduct } from "./products";
 import { Rng } from "./rng";
+import { writeSave } from "../state/save";
 import { useGame } from "../state/store";
 
 vi.mock("../state/save", () => ({
@@ -11,6 +12,46 @@ vi.mock("../state/save", () => ({
 }));
 
 describe("Product completion screen switching and onboarding", () => {
+  it("autosaves a new company and every simulation day", () => {
+    const save = vi.mocked(writeSave);
+    save.mockClear();
+
+    useGame.getState().dispatch({
+      type: "newGame",
+      input: {
+        founderName: "Sarah",
+        companyName: "HyperScale",
+        cofounderId: "reya",
+        skipTutorial: true,
+      },
+    });
+
+    expect(save).toHaveBeenCalledWith("autosave", expect.objectContaining({
+      company: expect.objectContaining({ name: "HyperScale" }),
+    }));
+
+    const game = createNewGame({
+      founderName: "Sarah",
+      companyName: "Daily Co",
+      cofounderId: "reya",
+      skipTutorial: true,
+    });
+    game.settings.autosave = false;
+    game.clock.date.day = 10;
+    game.clock.paused = false;
+    game.clock.pauseReasons = [];
+    game.clock.reasonPaused = null;
+    useGame.getState().loadGame(game);
+    save.mockClear();
+
+    useGame.getState().dispatch({ type: "tickDay" });
+
+    expect(save).toHaveBeenCalledWith("autosave", expect.objectContaining({
+      company: expect.objectContaining({ name: "Daily Co" }),
+      clock: expect.objectContaining({ date: expect.objectContaining({ day: 11 }) }),
+    }));
+  });
+
   it("does not automatically switch drawer to products when a product finishes during normal gameplay", () => {
     const game = createNewGame({
       founderName: "Sarah",

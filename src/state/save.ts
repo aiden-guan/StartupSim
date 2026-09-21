@@ -5,6 +5,10 @@ import { migrateGameState } from "./migrate";
 const DB = "compounding";
 const LEGACY_DB = "founder-mode";
 const STORE = "saves";
+export const AUTOSAVE_ID = "autosave";
+
+let pendingAutosave: GameState | null = null;
+let autosaveWrite: Promise<void> | null = null;
 
 async function db() {
   return openDB(DB, 1, {
@@ -46,27 +50,54 @@ export async function listSaves(): Promise<SaveMeta[]> {
     const row = await database.get(STORE, key);
     if (row?.meta) metas.push(row.meta);
   }
-  return metas.sort((a, b) => b.updatedAt - a.updatedAt);
+  const sorted = metas.sort((a, b) => b.updatedAt - a.updatedAt);
+  if (!sorted.some((meta) => meta.id === AUTOSAVE_ID) && sorted[0]) {
+    // Older releases exposed manual slots. Promote the newest one into the
+    // single autosave so simplifying the UI does not strand an existing run.
+    const latest = sorted[0];
+    const row = await database.get(STORE, latest.id);
+    if (row?.state) {
+      const autosaveMeta: SaveMeta = { ...latest, id: AUTOSAVE_ID, name: "Autosave" };
+      await database.put(STORE, { meta: autosaveMeta, state: row.state }, AUTOSAVE_ID);
+      sorted.unshift(autosaveMeta);
+    }
+  }
+  return sorted;
 }
 
-export const MANUAL_SLOTS = ["slot-1", "slot-2", "slot-3"] as const;
-
-export function saveLabel(id: string): string {
-  if (id === "autosave") return "Autosave";
-  if (id.startsWith("slot-")) return `Slot ${id.slice(5)}`;
-  return id;
-}
-
-export async function writeSave(id: string, state: GameState): Promise<void> {
+async function persistSave(id: string, state: GameState): Promise<void> {
   const database = await db();
   const meta: SaveMeta = {
     id,
-    name: saveLabel(id),
+    name: id === AUTOSAVE_ID ? "Autosave" : id,
     updatedAt: Date.now(),
     date: `${state.clock.date.year}-${String(state.clock.date.month).padStart(2, "0")}-${String(state.clock.date.day).padStart(2, "0")}`,
     company: state.company.name,
   };
   await database.put(STORE, { meta, state }, id);
+}
+
+async function flushAutosave(): Promise<void> {
+  while (pendingAutosave) {
+    const state = pendingAutosave;
+    pendingAutosave = null;
+    await persistSave(AUTOSAVE_ID, state);
+  }
+}
+
+export function writeSave(id: string, state: GameState): Promise<void> {
+  if (id !== AUTOSAVE_ID) return persistSave(id, state);
+
+  // Keep autosaves ordered and collapse a burst of simulation ticks down to
+  // the newest state. This prevents an older async IndexedDB write from
+  // replacing a newer company state.
+  pendingAutosave = state;
+  if (!autosaveWrite) {
+    autosaveWrite = flushAutosave().finally(() => {
+      autosaveWrite = null;
+    });
+  }
+  return autosaveWrite;
 }
 
 export async function readSave(id: string): Promise<GameState | null> {
@@ -105,13 +136,4 @@ export function importSave(raw: string): GameState {
     return migrateGameState(parsed as GameState);
   }
   throw new Error("Not a Compounding save file");
-}
-
-export function downloadSaveFile(state: GameState): void {
-  const blob = new Blob([exportSave(state)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${state.company.name.replace(/\s+/g, "-")}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
 }
