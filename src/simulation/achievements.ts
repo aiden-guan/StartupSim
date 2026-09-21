@@ -2,20 +2,21 @@ import { monthlyArr } from "./conditions.js";
 import type { GameState } from "./types.js";
 
 /** Stable identity check used by both the dilution mechanic and achievements. */
-export function isEduardoSaverin(employee: { id?: string; name?: string; traits?: string[] }): boolean {
+export function isEduardoSaverin(employee: { id?: string; name?: string; role?: string }): boolean {
   if (!employee) return false;
+  if (employee.role && employee.role !== "cofounder") return false;
   const id = employee.id?.toLowerCase() ?? "";
   const name = employee.name?.toLowerCase() ?? "";
-  const traits = employee.traits ?? [];
 
+  // `capital-connector` is a reusable recruiting trait, not a stable identity.
+  // Only canonical names/IDs (including legacy save aliases) identify Eduardo.
   return (
     id.includes("saverin") ||
     id === "casey" ||
     id === "eduardo-saverin" ||
     name.includes("eduardo") ||
     name.includes("saverin") ||
-    name.includes("savron") ||
-    traits.includes("capital-connector")
+    name.includes("savron")
   );
 }
 

@@ -1,4 +1,5 @@
 import { isServiceProductStatus, type Condition, type GameState } from "./types.js";
+import { totalAcquiredMonthlyRevenue } from "./acquisitions";
 
 function num(cond: Condition): number {
   return typeof cond.val === "number" ? cond.val : Number(cond.val);
@@ -22,9 +23,10 @@ function cmp(op: Condition["op"], a: number, b: number): boolean {
 }
 
 export function monthlyArr(state: GameState): number {
-  return state.products
+  const productRevenue = state.products
     .filter((p) => isServiceProductStatus(p.status))
     .reduce((s, p) => s + p.weeklyRevenue * 4.33, 0);
+  return productRevenue + totalAcquiredMonthlyRevenue(state);
 }
 
 export function conditionSatisfied(cond: Condition, state: GameState): boolean {

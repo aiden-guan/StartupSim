@@ -20,7 +20,7 @@ import {
   shouldEndSession,
   startMarketSession,
 } from "../market/marketMap";
-import { OPS_COST, marketPowerFor, processRivalTurn, resolveEndTurn, resolveTacticalAction } from "../market/turns";
+import { beginRivalTurn, OPS_COST, marketPowerFor, processRivalTurn, resolveEndTurn, resolveRivalStep, resolveTacticalAction } from "../market/turns";
 import type { MarketTactic } from "../market/types";
 import { applyEffects, isModelAvailable } from "./effects";
 import { monthlyArr } from "./conditions";
@@ -39,6 +39,7 @@ import { applyAdvanceMentor, applyBackMentor, finishMentorStep, skipTutorial, re
 import { checkAchievements, isEduardoSaverin, unlockAchievement } from "./achievements";
 import { handleFor } from "./social";
 import { optimizeProductLaunch } from "./launchOptimization";
+import { acquisitionCost } from "./acquisitions";
 
 export type GameCommand =
   | { type: "newGame"; input: NewGameInput }
@@ -78,7 +79,9 @@ export type GameCommand =
   | { type: "selectPiece"; pieceId: string | null }
   | { type: "marketMove"; dest: HexPos }
   | { type: "marketCapture" }
+  | { type: "marketBeginRivalTurn" }
   | { type: "marketEndTurn" }
+  | { type: "marketRivalStep" }
   | { type: "delegateMarket"; productId: string; strategy?: "balanced" | "aggressive" | "niche" | "expansion" }
   | { type: "recruit"; channelId: string }
   | { type: "hire"; candidateId: string; salary: number }
@@ -539,8 +542,14 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       case "marketAction":
       case "marketExpand":
       case "marketReinforce": {
-        const b = draft.marketBattle;
-        if (!b || b.current !== "player" || draft.pendingMentor) break;
+        let b = draft.marketBattle;
+        if (!b || draft.pendingMentor) break;
+        // Non-UI simulation callers may issue the next player command without
+        // animating the rival phase. Finish that phase synchronously; the manual
+        // view never reaches this path because its controls remain disabled.
+        while (draft.marketBattle?.current === "rival") resolveRivalStep(draft, r);
+        b = draft.marketBattle;
+        if (!b || b.current !== "player") break;
         const p = draft.products.find((x) => x.id === b.productId);
         if (!p) break;
         const targetId = command.nodeId;
@@ -573,6 +582,9 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
         }
 
         resolveTacticalAction(draft, r, { nodeId: targetId, tactic });
+        if (draft.marketBattle?.current === "player" && draft.marketBattle.playerOps === 0) {
+          beginRivalTurn(draft, r);
+        }
         break;
       }
       case "marketMove": {
@@ -599,13 +611,31 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
             if (!draft.marketBattle || draft.marketBattle.turnsLeft <= 0) break;
           }
           resolveTacticalAction(draft, r, { nodeId: targetId, tactic });
+          if (draft.marketBattle?.current === "player" && draft.marketBattle.playerOps === 0) {
+            beginRivalTurn(draft, r);
+          }
         }
+        break;
+      }
+      case "marketBeginRivalTurn": {
+        const b = draft.marketBattle;
+        if (!b || draft.pendingMentor || b.current !== "player") break;
+        beginRivalTurn(draft, r);
         break;
       }
       case "marketEndTurn": {
         const b = draft.marketBattle;
-        if (!b || draft.pendingMentor || b.current !== "player") break;
-        resolveEndTurn(draft, r);
+        if (!b || draft.pendingMentor) break;
+        if (b.current === "rival") {
+          while (draft.marketBattle?.current === "rival") resolveRivalStep(draft, r);
+        } else {
+          resolveEndTurn(draft, r);
+        }
+        break;
+      }
+      case "marketRivalStep": {
+        if (!draft.marketBattle || draft.pendingMentor || draft.marketBattle.current !== "rival") break;
+        resolveRivalStep(draft, r);
         break;
       }
       case "delegateMarket": {
@@ -1029,7 +1059,7 @@ export function applyCommand(state: GameState | null, command: GameCommand): Gam
       case "acquire": {
         const c = draft.competitors.find((x) => x.id === command.competitorId);
         if (!c || c.disabled) break;
-        const price = Math.max(BALANCE.ACQUISITION_MIN_COST, c.funding * BALANCE.ACQUISITION_FUNDING_RATIO);
+        const price = acquisitionCost(c);
         if (draft.company.cash < price) break;
         draft.company.cash -= price;
         c.disabled = true;

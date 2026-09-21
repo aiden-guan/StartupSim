@@ -119,6 +119,29 @@ describe("Beachhead Tests", () => {
     expect(rivalNode.rivalDominated).toBe(true);
     expect(rivalNode.isRivalBeachhead).toBe(true);
   });
+
+  it("varies repeat-launch maps and gives stronger launches more segments", () => {
+    const weak = setupGame(43);
+    weak.state.company.seenMarket = true;
+    weak.product.levels = { deployment: 0, capability: 0, distribution: 0 };
+    weak.product.points = { engineering: 0, product: 0, growth: 0, research: 0 };
+    weak.product.gtmFit = 0;
+    weak.state.company.hype = 0;
+
+    const strong = setupGame(43);
+    strong.state.company.seenMarket = true;
+    strong.product.levels = { deployment: 6, capability: 6, distribution: 6 };
+    strong.product.points = { engineering: 500, product: 500, growth: 500, research: 500 };
+
+    const weakA = startMarketSession(weak.state, weak.product, new Rng(101));
+    const weakB = startMarketSession(weak.state, weak.product, new Rng(202));
+    const strongSession = startMarketSession(strong.state, strong.product, new Rng(101));
+
+    expect(strongSession.nodes.length).toBeGreaterThan(weakA.nodes.length);
+    expect(weakA.nodes.map((node) => [node.segmentId, node.x, node.y])).not.toEqual(
+      weakB.nodes.map((node) => [node.segmentId, node.x, node.y]),
+    );
+  });
 });
 
 describe("Influence & Preview Tests", () => {

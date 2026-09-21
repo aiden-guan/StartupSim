@@ -7,7 +7,7 @@ import { Rng } from "../simulation/rng";
 import type { GameState, Product } from "../simulation/types";
 import { competitors } from "../data/competitors";
 import { aiSelectMove, calculateInfluence, getLegalMoves, launchStrength, startMarketSession } from "./marketMap";
-import { previewSideAction, processRivalTurn, resolveEndTurn, resolveMarketTurn, resolveSideAction, resolveTacticalAction } from "./turns";
+import { beginRivalTurn, previewSideAction, processRivalTurn, resolveEndTurn, resolveMarketTurn, resolveRivalStep, resolveSideAction, resolveTacticalAction } from "./turns";
 
 class FixedRng extends Rng {
   constructor(private value: number) {
@@ -203,6 +203,30 @@ describe("rival processing", () => {
     const move = processRivalTurn(state, session, new FixedRng(0));
     expect(session.lastRivalMove === null || move !== null).toBe(true);
   });
+
+  it("applies one rival move per step and keeps control locked until the phase finishes", () => {
+    const { state, product } = setup(37);
+    const session = openBattle(state, product, 37);
+    session.turn = 1;
+    session.playerOps = 0;
+
+    const begun = beginRivalTurn(state, new FixedRng(0));
+    expect(begun.ok).toBe(true);
+    expect(session.current).toBe("rival");
+    expect(session.busy).toBe(true);
+
+    const before = session.actionLog.length;
+    const first = resolveRivalStep(state, new FixedRng(0));
+    expect(first.ok).toBe(true);
+    expect(session.actionLog.length - before).toBeLessThanOrEqual(1);
+    expect(session.current).toBe("rival");
+
+    while (state.marketBattle?.current === "rival") {
+      resolveRivalStep(state, new FixedRng(0));
+    }
+    expect(state.marketBattle?.current ?? "ended").not.toBe("rival");
+    expect(state.marketBattle?.busy ?? false).toBe(false);
+  });
 });
 
 describe("tactical turn-based operations & Ops economy", () => {
@@ -309,6 +333,21 @@ describe("tactical turn-based operations & Ops economy", () => {
     const act4 = resolveTacticalAction(state, new FixedRng(0), { nodeId: beach, tactic: "pitch" });
     expect(act4.ok).toBe(false);
     expect(act4.reason).toContain("Not enough Ops");
+  });
+
+  it("automatically starts the rival phase when the final Ops is spent", () => {
+    const { state, product } = setup(38);
+    const session = openBattle(state, product, 38);
+    session.playerOps = 1;
+    const legal = getLegalMoves(session, "player", product.levels.distribution);
+    const target = legal.expand[0] ?? legal.reinforce[0]!;
+    const action = legal.expand.includes(target) ? "expand" as const : "reinforce" as const;
+    const tactic = action === "expand" ? "pitch" as const : "fortify" as const;
+
+    const next = applyCommand(state, { type: "marketAction", nodeId: target, action, tactic })!;
+    expect(next.marketBattle?.playerOps).toBe(0);
+    expect(next.marketBattle?.current).toBe("rival");
+    expect(next.marketBattle?.busy).toBe(true);
   });
 
   it("PR Blitz spends cash, adds company hype, and penetrates resistance", () => {

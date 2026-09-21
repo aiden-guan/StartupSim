@@ -59,6 +59,25 @@ describe("Achievements System", () => {
     expect(next.inbox[0]?.subject).toContain("LEGAL NOTICE");
   });
 
+  it("does not mistake a hired capital connector for Eduardo", () => {
+    const game = createNewGame({ founderName: "Ada", companyName: "Hyperion", cofounderId: "dustin-moskovitz", skipTutorial: true });
+    game.stats.dilutionsCount = 1;
+
+    const candidate = structuredClone(game.employees.find((employee) => employee.role === "cofounder")!);
+    candidate.id = "emp-capital-connector";
+    candidate.name = "Maya Chen";
+    candidate.role = "employee";
+    candidate.traits = ["capital-connector"];
+    candidate.equity = 0;
+    game.hiring.candidates = [{ employee: candidate, minSalary: 0, personality: "builder" }];
+
+    const next = applyCommand(game, { type: "hire", candidateId: candidate.id, salary: 0 })!;
+
+    expect(next.employees.some((employee) => employee.id === candidate.id)).toBe(true);
+    expect(next.achievements).not.toContain("the-social-network");
+    expect(evaluateAchievements(next).some((achievement) => achievement.id === "the-social-network")).toBe(false);
+  });
+
   it("unlocks unicorn-club and decacorn correctly", () => {
     const game = createNewGame({ founderName: "Ada", companyName: "Hyperion", cofounderId: "dustin-moskovitz" });
     game.stats.peakValuation = 1_200_000_000;

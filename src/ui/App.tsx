@@ -124,10 +124,18 @@ export function App() {
     if (import.meta.env.DEV && params.has('world')) {
       useGame.getState().loadGame(createEnvironmentPreviewGame(Number(params.get('world')) || 0));
     }
-    if (params.get("market") === "1") {
+    if (params.get("market") === "1" || (import.meta.env.DEV && params.get("market") === "large")) {
       const g = createNewGame({ founderName: "Ada", companyName: "HyperScale", cofounderId: "dustin-moskovitz", skipTutorial: true });
       const p = createProduct(g, "code", "agent", new Rng(1));
-      p.levels = { deployment: 1, capability: 2, distribution: 1 };
+      const largeMarket = params.get("market") === "large";
+      if (largeMarket) {
+        g.company.seenMarket = true;
+        for (const competitor of g.competitors) competitor.disabled = competitor.id !== "foundry";
+        p.levels = { deployment: 6, capability: 6, distribution: 6 };
+        p.points = { engineering: 500, product: 500, growth: 500, research: 500 };
+      } else {
+        p.levels = { deployment: 1, capability: 2, distribution: 1 };
+      }
       p.status = "ready";
       g.products.push(p);
       const withMarket = applyCommand(g, { type: "enterMarket", productId: p.id });

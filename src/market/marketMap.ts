@@ -10,7 +10,7 @@ import { launchCosts, marketScaleMultiplier, requiredFor } from "../simulation/p
 import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from "../simulation/gtm";
 import type { Rng } from "../simulation/rng";
 import { uid } from "../simulation/rng";
-import { MARKET_SEGMENTS, selectTemplateForProduct } from "./templates";
+import { MARKET_SEGMENTS, selectTemplateForProduct, varyTemplateForLaunch } from "./templates";
 import type {
   MarketEdge,
   MarketEntryResult,
@@ -628,9 +628,17 @@ export function startMarketSession(
   rng: Rng,
 ): MarketSession {
   const first = !state.company.seenMarket;
-  const template = selectTemplateForProduct(
+  const baseTemplate = selectTemplateForProduct(
     product.vertical,
     product.combo,
+    first,
+  );
+  const template = varyTemplateForLaunch(
+    baseTemplate,
+    product.vertical,
+    product.combo,
+    launchStrength(product, state),
+    rng,
     first,
   );
 

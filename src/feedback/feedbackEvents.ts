@@ -98,7 +98,7 @@ export function deriveFeedbackEvents(prev: GameState | null, next: GameState | n
     if (result?.dominated) add({ type: "market.captured", tier: 3, id: cmd.nodeId, label: "Market captured" });
     else add({ type: "market.move", tier: 1 });
   }
-  if (cmd.type === "marketEndTurn" && next.marketBattle?.lastRivalMove && next.marketBattle.lastRivalMove !== prev.marketBattle?.lastRivalMove)
+  if (cmd.type === "marketRivalStep" && next.marketBattle?.lastRivalMove && next.marketBattle.lastRivalMove !== prev.marketBattle?.lastRivalMove)
     add({ type: "market.rival", tier: 2 });
   if (!prev.marketResult && next.marketResult)
     add({ type: "launch.result", tier: next.marketResult.share >= 25 ? 3 : 2, label: next.marketResult.outcome });

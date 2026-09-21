@@ -57,7 +57,8 @@ export function MarketView({ game }: { game: GameState }) {
 
   const product = game.products.find((p) => p.id === session.productId)!;
   const rival = competitorDefs.find((c) => c.id === session.competitorId);
-  const locked = Boolean(game.pendingMentor);
+  const isRivalTurn = session.current === "rival";
+  const locked = Boolean(game.pendingMentor) || isRivalTurn;
 
   const overall = getOverallShares(session);
   const legal = getLegalMoves(session, "player", product?.levels.distribution ?? 0);
@@ -79,6 +80,23 @@ export function MarketView({ game }: { game: GameState }) {
     );
     return () => window.clearTimeout(timer);
   }, [activeMove?.id, game.settings.reducedMotion]);
+
+  useEffect(() => {
+    if (!isRivalTurn || activeMove || game.pendingMentor) return;
+    const timer = window.setTimeout(() => {
+      const beforeIds = new Set(useGame.getState().game?.marketBattle?.actionLog.map((entry) => entry.id) ?? []);
+      dispatch({ type: "marketRivalStep" });
+      const after = useGame.getState().game?.marketBattle;
+      const fresh = after?.actionLog.find((entry) => !beforeIds.has(entry.id) && entry.side === "rival");
+      if (fresh) {
+        setMoveReveals((current) => [...current, fresh]);
+        setFeedback(fresh.summary);
+      } else if (after?.current === "player") {
+        setFeedback("Your turn. Choose a segment.");
+      }
+    }, game.settings.reducedMotion ? 300 : 550);
+    return () => window.clearTimeout(timer);
+  }, [activeMove, dispatch, game.pendingMentor, game.settings.reducedMotion, isRivalTurn, session.rivalOps, session.turnNonce]);
 
   // Auto-tune default tactic when user selects a different node
   useEffect(() => {
@@ -163,10 +181,8 @@ export function MarketView({ game }: { game: GameState }) {
   function handleEndTurn() {
     if (locked) return;
     const beforeIds = new Set(session.actionLog.map((entry) => entry.id));
-    dispatch({ type: "marketEndTurn" });
-    const after = useGame.getState().game?.marketBattle;
-    const summary = after?.lastRivalMove?.summary ?? "Turn ended. Rival evaluated strategic counter-moves.";
-    setFeedback(summary);
+    dispatch({ type: "marketBeginRivalTurn" });
+    setFeedback(`${rival?.name ?? "Rival"} is moving…`);
     enqueueNewMoves(beforeIds);
   }
 
@@ -175,7 +191,7 @@ export function MarketView({ game }: { game: GameState }) {
   const bankedOps = session.bankedOps ?? 0;
 
   return (
-    <main className={`market-mode ${game.settings.reducedMotion ? "reduced-motion" : ""}`}>
+    <main className={`market-mode ${game.settings.reducedMotion ? "reduced-motion" : ""} ${isRivalTurn ? "rival-turn" : ""}`}>
       {/* Top Header */}
       <header className="market-header">
         <div>
@@ -224,7 +240,7 @@ export function MarketView({ game }: { game: GameState }) {
           </span>
         </div>
 
-        <span className="market-clock">Ⅱ Company paused</span>
+        <span className="market-clock">{isRivalTurn ? `◆ ${rival?.name ?? "Rival"} moving` : "Ⅱ Company paused"}</span>
       </header>
 
       {/* Main Layout */}
@@ -234,6 +250,7 @@ export function MarketView({ game }: { game: GameState }) {
           className="tactical-board"
           data-tutorial="market-board"
           aria-label="Market Map Board"
+          aria-busy={isRivalTurn}
         >
           {activeMove && (
             <div
@@ -383,7 +400,7 @@ export function MarketView({ game }: { game: GameState }) {
                   className={`market-node ${isSelected ? "selected" : ""} ${
                     isTargetReachable ? "reachable" : ""
                   }`}
-                  style={{ cursor: "pointer", outline: "none" }}
+                  style={{ cursor: locked ? "default" : "pointer", outline: "none" }}
                 >
                   {/* Subtle shadow */}
                   <circle cx="0" cy="2" r={r} fill="#142427" opacity="0.35" />
@@ -540,7 +557,7 @@ export function MarketView({ game }: { game: GameState }) {
         </section>
 
         {/* Right Inspector Panel */}
-        <aside className="market-orders">
+        <aside className="market-orders" aria-busy={isRivalTurn}>
           {/* Rival identity card */}
           <div className="rival-identity">
             <CompanyMark company={session.competitorId} />
@@ -553,6 +570,14 @@ export function MarketView({ game }: { game: GameState }) {
               </small>
             </div>
           </div>
+
+          {isRivalTurn && (
+            <div className="rival-phase" role="status" aria-live="polite">
+              <span>Rival turn</span>
+              <strong>{activeMove?.side === "rival" ? `${visibleMoveLabel(activeMove)} · ${activeMove.nodeName}` : `${rival?.name ?? "Rival"} is choosing…`}</strong>
+              <small>{session.rivalOps > 0 ? `${session.rivalOps} move${session.rivalOps === 1 ? "" : "s"} remaining` : "Returning control to you"}</small>
+            </div>
+          )}
 
           {/* Selected Node Details Card */}
           <div className="order-card">
@@ -581,42 +606,39 @@ export function MarketView({ game }: { game: GameState }) {
               </div>
             )}
 
-            {/* Tactical Operation Selector Tabs */}
-            <div style={{ margin: "10px 0 4px" }}>
-              <span className="eyebrow" style={{ fontSize: 9 }}>Choose a move</span>
-              <p className="market-move-explainer">
-                <strong>Promote</strong> into an open connection · <strong>Reinforce</strong> your foothold · <strong>Poach</strong> a reachable rival hold. Legal moves execute; resistance changes the influence gained.
-              </p>
+            {/* Move selector: one short job statement per action. */}
+            <div className="market-move-picker">
+              <span className="eyebrow" style={{ fontSize: 9 }}>Move</span>
               <div className="tactical-selector">
                 <button
                   type="button"
                   className={`tactical-btn ${selectedTactic === "pitch" ? "active" : ""}`}
                   onClick={() => setSelectedTactic("pitch")}
-                  disabled={!canExpand}
+                  disabled={!canExpand || locked}
                   title={TACTICS.pitch.description}
                 >
                   <span>{TACTICS.pitch.icon} Promote</span>
-                  <small>1 Ops</small>
+                  <small>Open · 1 Ops</small>
                 </button>
                 <button
                   type="button"
                   className={`tactical-btn ${selectedTactic === "fortify" ? "active" : ""}`}
                   onClick={() => setSelectedTactic("fortify")}
-                  disabled={!canReinforce}
+                  disabled={!canReinforce || locked}
                   title={TACTICS.fortify.description}
                 >
                   <span>{TACTICS.fortify.icon} Reinforce</span>
-                  <small>1 Ops</small>
+                  <small>Hold · 1 Ops</small>
                 </button>
                 <button
                   type="button"
                   className={`tactical-btn ${selectedTactic === "poach" ? "active" : ""}`}
                   onClick={() => setSelectedTactic("poach")}
-                  disabled={!canContest}
+                  disabled={!canContest || locked}
                   title={TACTICS.poach.description}
                 >
                   <span>{TACTICS.poach.icon} Poach</span>
-                  <small>2 Ops</small>
+                  <small>Take · 2 Ops</small>
                 </button>
               </div>
             </div>
@@ -640,9 +662,7 @@ export function MarketView({ game }: { game: GameState }) {
                     fontSize: 11,
                   }}
                 >
-                  <span style={{ display: "block", color: "#486350", fontWeight: 600 }}>
-                    Projected result after this legal move:
-                  </span>
+                  <span style={{ display: "block", color: "#486350", fontWeight: 600 }}>After move</span>
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
                     <span>
                       You: {selectedNode.playerShare}% →{" "}
@@ -655,7 +675,7 @@ export function MarketView({ game }: { game: GameState }) {
                   </div>
                   {preview.willDominate && (
                     <small style={{ color: "#bd663b", fontWeight: 700, display: "block", marginTop: 4 }}>
-                      ★ WILL ACHIEVE DOMINANCE THIS TURN
+                      ★ Dominance secured
                     </small>
                   )}
                 </div>
@@ -716,10 +736,10 @@ export function MarketView({ game }: { game: GameState }) {
               title={disabledReason || `${TACTICS[selectedTactic].label} ${selectedNode.name}`}
               onClick={handleExecuteAction}
             >
-              {TACTICS[selectedTactic].label} {selectedNode.name} (-{cost} Ops) →
+              {TACTICS[selectedTactic].label} {selectedNode.name} · {cost} Ops
             </button>
             <small className="disabled-reason">
-              {disabledReason || TACTICS[selectedTactic].description}
+              {isRivalTurn ? "Wait for the rival to finish." : disabledReason || TACTICS[selectedTactic].description}
             </small>
           </div>
 
@@ -747,25 +767,25 @@ export function MarketView({ game }: { game: GameState }) {
 
           {/* Strategic End Turn Button */}
           <button
-            className={`end-turn ${playerOps === 0 ? "ready-to-end" : ""}`}
+            className={`end-turn ${playerOps === 0 && !isRivalTurn ? "ready-to-end" : ""}`}
             data-tutorial="market-end-turn"
             disabled={locked}
             onClick={handleEndTurn}
           >
             {playerOps > 0
-              ? `End Turn (Bank 1 Ops & Defend →)`
-              : `End Turn (Rival Phase →)`}
+              ? `End turn · Bank 1 Ops`
+              : `Rival turn`}
           </button>
           <small style={{ fontSize: 9, color: "#62796c", display: "block", marginTop: 5, lineHeight: 1.4 }}>
             {playerOps > 0
-              ? "Unused Ops carry over and held segments gain defense."
-              : "End the turn to let the rival move."}
+              ? "Bank one unused Ops and defend held segments."
+              : "The rival moves automatically."}
           </small>
 
           {/* Market Strategy Rules Compact Help */}
           <details className="market-help">
             <summary>How the market works</summary>
-            <p>Promote reaches an open segment next to your network; Distribution 3+ can reach one extra hop. Reinforce only works where you already have influence and protects that hold until the rival phase. Poach challenges a rival-held segment you can reach. Resistance and existing share reduce the influence a legal move adds; they do not cancel the move.</p>
+            <p>Promote opens a connected segment. Reinforce strengthens and protects your foothold. Poach takes on a reachable rival hold. Resistance reduces influence gained.</p>
           </details>
         </aside>
       </div>

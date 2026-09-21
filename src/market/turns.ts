@@ -421,14 +421,31 @@ export function resolveEndTurn(
   state: GameState,
   rng: Rng,
 ): { ok: boolean; ended: boolean; summaries: string[] } {
+  const started = beginRivalTurn(state, rng);
+  if (!started.ok || started.ended) return started;
+
+  // Simulation callers (delegation and unit tests) still resolve a full round
+  // synchronously. The manual UI uses marketRivalStep so every rival move can
+  // land on the board before the next one begins.
+  while (state.marketBattle?.current === "rival") {
+    const step = resolveRivalStep(state, rng);
+    started.summaries.push(...step.summaries);
+    if (step.ended) return { ...started, ended: true };
+  }
+  return started;
+}
+
+export function beginRivalTurn(
+  state: GameState,
+  rng: Rng,
+): { ok: boolean; ended: boolean; summaries: string[] } {
   const session = state.marketBattle;
   if (!session || session.current !== "player" || session.busy) {
     return { ok: false, ended: false, summaries: [] };
   }
   session.busy = true;
   const summaries: string[] = [];
-  try {
-    recordTutorialEvent(state, "endedMarketTurn");
+  recordTutorialEvent(state, "endedMarketTurn");
 
     // 1. Banked Ops & Defensive Posture
     if (session.playerOps > 0) {
@@ -484,64 +501,77 @@ export function resolveEndTurn(
     }
     recomputeAllNetwork(session);
 
-    // 4. Rival Turn Phase
-    const def = competitorDefs.find((c) => c.id === session.competitorId);
-    const difficulty = session.firstMarket ? 0 : (def?.difficulty ?? 1);
-    // The guided first market gives the rival a deterministic counter-move every
-    // other round so the tutorial stays readable without relying on failed rolls.
-    const rivalOpsCount = session.firstMarket
-      ? (session.turn % 2 === 0 ? 0 : 1)
-      : Math.max(1, Math.min(3, 1 + difficulty));
-    for (let i = 0; i < rivalOpsCount; i++) {
-      if (shouldEndSession(session)) break;
-      const rivalResult = processRivalTurn(state, session, rng);
-      if (rivalResult) {
-        summaries.push(rivalResult.summary);
-        session.actionLog.unshift({
-          id: uid(rng, "log"),
-          turn: session.turn,
-          side: "rival",
-          tactic: rivalResult.action === "contest" ? "poach" : rivalResult.action === "reinforce" ? "fortify" : "pitch",
-          nodeId: rivalResult.nodeId,
-          nodeName: rivalResult.nodeName,
-          summary: rivalResult.summary,
-          success: rivalResult.success,
-        });
-      }
-    }
-
-    // 5. Advance Turn Counter
-    session.turnsLeft -= 1;
-    session.turn += 1;
-    session.turnNonce = (session.turnNonce ?? 0) + 1;
-
-    // 6. Refresh Ops for the new turn
-    const product = state.products.find((p) => p.id === session.productId);
-    const baseDistributionOps = (product?.levels.distribution ?? 0) >= 3 ? 4 : 3;
-    const hubBonus = session.nodes.filter((n) => n.trait === "platform_hub" && n.playerDominated && !n.playerIsolated).length;
-    session.playerMaxOps = Math.min(5, baseDistributionOps + hubBonus);
-    session.playerOps = Math.min(5, session.playerMaxOps + session.bankedOps);
-    session.bankedOps = 0;
-    session.playerDefensivePosture = false;
-
-    // Fortify shield decays at end of round
-    for (const node of session.nodes) {
-      if (node.fortified) node.fortified = false;
-    }
-
-    if (session.actionLog.length > 20) {
-      session.actionLog = session.actionLog.slice(0, 20);
-    }
-
-    if (shouldEndSession(session)) {
-      finishSession(state, session, rng);
-      return { ok: true, ended: true, summaries };
-    }
-
-    return { ok: true, ended: false, summaries };
-  } finally {
-    if (state.marketBattle) state.marketBattle.busy = false;
+  if (shouldEndSession(session)) {
+    finishSession(state, session, rng);
+    return { ok: true, ended: true, summaries };
   }
+
+  const def = competitorDefs.find((c) => c.id === session.competitorId);
+  const difficulty = session.firstMarket ? 0 : (def?.difficulty ?? 1);
+  session.rivalOps = session.firstMarket
+    ? (session.turn % 2 === 0 ? 0 : 1)
+    : Math.max(1, Math.min(3, 1 + difficulty));
+  session.current = "rival";
+  session.lastRivalMove = null;
+  session.turnNonce = (session.turnNonce ?? 0) + 1;
+  return { ok: true, ended: false, summaries };
+}
+
+export function resolveRivalStep(
+  state: GameState,
+  rng: Rng,
+): { ok: boolean; ended: boolean; summaries: string[] } {
+  const session = state.marketBattle;
+  if (!session || session.current !== "rival") {
+    return { ok: false, ended: false, summaries: [] };
+  }
+
+  const summaries: string[] = [];
+  if (session.rivalOps > 0 && !shouldEndSession(session)) {
+    const rivalResult = processRivalTurn(state, session, rng);
+    session.rivalOps -= 1;
+    session.turnNonce = (session.turnNonce ?? 0) + 1;
+    if (rivalResult) {
+      summaries.push(rivalResult.summary);
+      session.actionLog.unshift({
+        id: uid(rng, "log"),
+        turn: session.turn,
+        side: "rival",
+        tactic: rivalResult.action === "contest" ? "poach" : rivalResult.action === "reinforce" ? "fortify" : "pitch",
+        nodeId: rivalResult.nodeId,
+        nodeName: rivalResult.nodeName,
+        summary: rivalResult.summary,
+        success: rivalResult.success,
+      });
+    }
+    if (session.actionLog.length > 20) session.actionLog = session.actionLog.slice(0, 20);
+    return { ok: true, ended: false, summaries };
+  }
+
+  session.turnsLeft -= 1;
+  session.turn += 1;
+  session.turnNonce = (session.turnNonce ?? 0) + 1;
+
+  const product = state.products.find((p) => p.id === session.productId);
+  const baseDistributionOps = (product?.levels.distribution ?? 0) >= 3 ? 4 : 3;
+  const hubBonus = session.nodes.filter((n) => n.trait === "platform_hub" && n.playerDominated && !n.playerIsolated).length;
+  session.playerMaxOps = Math.min(5, baseDistributionOps + hubBonus);
+  session.playerOps = Math.min(5, session.playerMaxOps + session.bankedOps);
+  session.bankedOps = 0;
+  session.playerDefensivePosture = false;
+
+  for (const node of session.nodes) {
+    if (node.fortified) node.fortified = false;
+  }
+
+  if (shouldEndSession(session)) {
+    finishSession(state, session, rng);
+    return { ok: true, ended: true, summaries };
+  }
+
+  session.current = "player";
+  session.busy = false;
+  return { ok: true, ended: false, summaries };
 }
 
 export function processRivalTurn(state: GameState, session: MarketSession, rng: Rng): MarketActionResult | null {

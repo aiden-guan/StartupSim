@@ -1,4 +1,5 @@
 import type { MarketSegmentDefinition, MarketTemplate } from "./types";
+import type { Rng } from "../simulation/rng";
 
 export const MARKET_SEGMENTS: Record<string, MarketSegmentDefinition> = {
   // Developer Ecosystem
@@ -624,4 +625,92 @@ export function selectTemplateForProduct(
     return MARKET_TEMPLATES.robotics!;
   }
   return MARKET_TEMPLATES.consumer ?? MARKET_TEMPLATES.tutorial!;
+}
+
+const EXPANSION_SLOTS = [
+  { x: 300, y: 58 },
+  { x: 300, y: 362 },
+  { x: 165, y: 205 },
+  { x: 435, y: 205 },
+  { x: 170, y: 62 },
+  { x: 430, y: 358 },
+  { x: 430, y: 62 },
+  { x: 170, y: 358 },
+  { x: 300, y: 210 },
+];
+
+/**
+ * Produces a fresh market for manual launches while retaining the authored
+ * template's readable topology. Stronger launches expose more addressable
+ * segments, so a flagship launch earns a materially larger board.
+ */
+export function varyTemplateForLaunch(
+  template: MarketTemplate,
+  vertical: string,
+  combo: [string, string],
+  launchPower: number,
+  rng: Rng,
+  firstMarket: boolean,
+): MarketTemplate {
+  if (firstMarket) return template;
+
+  const nodes = template.nodes.map((node) => ({ ...node }));
+  const edges = template.edges.map((edge) => ({ ...edge }));
+  const usedSegments = new Set(nodes.map((node) => node.segmentId));
+  const relevant = Object.values(MARKET_SEGMENTS).filter((segment) => {
+    if (usedSegments.has(segment.id)) return false;
+    const verticalMatch = segment.verticals.includes(vertical) || segment.verticals.some((item) => template.verticals.includes(item));
+    const recipeMatch = combo.some((primitive) => (segment.productAffinities?.[primitive] ?? 0) > 0);
+    return verticalMatch || recipeMatch;
+  });
+
+  // Change some of the actual customer segments, not just their coordinates.
+  // Beachheads stay stable so every generated graph remains fair and legible.
+  const replaceCount = Math.min(launchPower >= 12 ? 2 : 1, relevant.length);
+  const replaceable = nodes.filter((node) => node.id !== template.defaultPlayerBeachhead && node.id !== template.defaultRivalBeachhead);
+  const replacements = rng.pickN(relevant, replaceCount);
+  const replacementTargets = rng.pickN(replaceable, replacements.length);
+  replacementTargets.forEach((target, index) => {
+    const replacement = replacements[index];
+    if (!replacement) return;
+    usedSegments.delete(target.segmentId);
+    target.segmentId = replacement.id;
+    usedSegments.add(replacement.id);
+  });
+
+  // Small launches keep the authored footprint. Large and flagship launches
+  // add 1-3 addressable segments instead of stretching the same seven nodes.
+  const extraCount = launchPower >= 16 ? 3 : launchPower >= 12 ? 2 : launchPower >= 9 ? 1 : 0;
+  const expansionPool = Object.values(MARKET_SEGMENTS).filter((segment) => {
+    if (usedSegments.has(segment.id)) return false;
+    return segment.verticals.includes(vertical) || combo.some((primitive) => (segment.productAffinities?.[primitive] ?? 0) > 0);
+  });
+
+  for (const segment of rng.pickN(expansionPool, extraCount)) {
+    const slot = EXPANSION_SLOTS
+      .filter((candidate) => !nodes.some((node) => Math.hypot(node.x - candidate.x, node.y - candidate.y) < 70))
+      .sort((a, b) => {
+        const aDistance = Math.min(...nodes.map((node) => Math.hypot(node.x - a.x, node.y - a.y)));
+        const bDistance = Math.min(...nodes.map((node) => Math.hypot(node.x - b.x, node.y - b.y)));
+        return bDistance - aDistance;
+      })[0] ?? EXPANSION_SLOTS[nodes.length % EXPANSION_SLOTS.length]!;
+    const id = `n_launch_${nodes.length}_${segment.id}`;
+    const nearest = [...nodes]
+      .sort((a, b) => Math.hypot(a.x - slot.x, a.y - slot.y) - Math.hypot(b.x - slot.x, b.y - slot.y))
+      .slice(0, 2);
+    nodes.push({ id, segmentId: segment.id, x: slot.x, y: slot.y });
+    for (const neighbor of nearest) edges.push({ a: id, b: neighbor.id });
+    usedSegments.add(segment.id);
+  }
+
+  // A light mirrored/jittered layout keeps repeat launches from feeling stamped
+  // out while preserving the 600x420 board and touch-target spacing.
+  const mirrorY = rng.chance(0.5);
+  for (const node of nodes) {
+    node.x = Math.max(55, Math.min(545, node.x + rng.int(-12, 12)));
+    const baseY = mirrorY ? 420 - node.y : node.y;
+    node.y = Math.max(52, Math.min(368, baseY + rng.int(-12, 12)));
+  }
+
+  return { ...template, nodes, edges };
 }

@@ -15,6 +15,7 @@ import { archetypeLabel, worldConditionLabel } from "../../visuals/registry";
 import { isLifeOrDeathEvent, isMinorFee } from "../../simulation/pause";
 import { BALANCE } from "../../config/balance";
 import { ExpansionPanel } from "./ExpansionPanel";
+import { acquisitionCost, acquisitionMonthlyRevenue } from "../../simulation/acquisitions";
 
 
 export { ResearchPanel } from './Research';
@@ -72,7 +73,63 @@ export function WorldPanel({ game }: { game: GameState }) {
       <div className="economy-overview">{highLevelConditions.map((condition)=><article key={condition.label}><span>{condition.label}</span><strong>{worldConditionLabel(condition.kind,condition.value,condition.baseline)}</strong><div className="condition-track"><i style={{width:`${Math.max(4,Math.min(100,condition.baseline===100?condition.value/1.6:condition.value))}%`}}/></div><p>{condition.note}</p></article>)}</div>
       <details className="economy-details"><summary>Detailed indicators</summary><div className="world-meter-list">{worldMeters.map((k) => (<div key={k}><div><span>{k.replace(/([A-Z])/g,' $1')}</span><strong>{game.world[k].toFixed(0)}</strong></div><div className="condition-track"><i style={{ width: `${Math.min(100, game.world[k])}%` }} /></div></div>))}</div><div className="market-index-grid">{marketIndexes.map(([label,value])=><div key={label}><small>{label}</small><strong>{Math.round(value*100)}</strong><span>{value>1.02?'Above baseline':value<.98?'Below baseline':'Baseline'}</span></div>)}</div></details>
       </>}
-      {tab==="competitors"&&<div className="competitor-list">{game.competitors.map((c) => { const def=competitorDefs.find((d)=>d.id===c.id); return <details key={c.id} className="competitor-card"><summary><CompanyMark company={c.id}/><span><strong>{c.name}</strong><small>{archetypeLabel(def?.archetype ?? c.archetype)} · {c.personality}</small></span><em><small>Market share</small><strong>{pct(c.marketShare)}</strong></em></summary><div className="competitor-detail"><CharacterPortrait look={lookFromSeed(c.id,def?.archetype)} /><div><p>{def?.description}</p><small>Founded by {def?.founder} · Focus: {def?.focus.join(', ')}</small></div>{game.unlocks.acquisitions&&!c.disabled?<button type="button" onClick={()=>dispatch({type:'acquire',competitorId:c.id})}>Acquire company</button>:null}</div></details>; })}</div>}
+      {tab === "competitors" && (
+        <div className="competitor-list">
+          {game.competitors.map((c) => {
+            const def = competitorDefs.find((d) => d.id === c.id);
+            const acquired = game.company.acquisitions.includes(c.id);
+            const price = acquisitionCost(c);
+            const monthlyRevenue = acquisitionMonthlyRevenue(game, c);
+            const canAfford = game.company.cash >= price;
+            return (
+              <details key={c.id} className="competitor-card">
+                <summary>
+                  <CompanyMark company={c.id} />
+                  <span>
+                    <strong>{c.name}</strong>
+                    <small>{archetypeLabel(def?.archetype ?? c.archetype)} · {c.personality}</small>
+                  </span>
+                  <em>
+                    <small>Market share</small>
+                    <strong>{pct(c.marketShare)}</strong>
+                  </em>
+                </summary>
+                <div className="competitor-detail">
+                  <CharacterPortrait look={lookFromSeed(c.id, def?.archetype)} />
+                  <div>
+                    <p>{def?.description}</p>
+                    <small>Founded by {def?.founder} · Focus: {def?.focus.join(", ")}</small>
+                    {!c.disabled && game.unlocks.acquisitions ? (
+                      <div className="acquisition-offer" aria-label={`${c.name} acquisition economics`}>
+                        <div>
+                          <span>Acquire for</span>
+                          <strong>{money(price)}</strong>
+                        </div>
+                        <div>
+                          <span>Revenue / month</span>
+                          <strong>+{money(monthlyRevenue)}</strong>
+                        </div>
+                      </div>
+                    ) : acquired ? (
+                      <div className="acquisition-status">Acquired · contributing {money(monthlyRevenue)} / month</div>
+                    ) : null}
+                  </div>
+                  {game.unlocks.acquisitions && !c.disabled ? (
+                    <button
+                      type="button"
+                      disabled={!canAfford}
+                      title={canAfford ? `Acquire ${c.name} for ${money(price)}` : `Need ${money(price - game.company.cash)} more cash`}
+                      onClick={() => dispatch({ type: "acquire", competitorId: c.id })}
+                    >
+                      {canAfford ? `Acquire for ${money(price)}` : `Need ${money(price - game.company.cash)} more`}
+                    </button>
+                  ) : null}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      )}
       {tab === "expansion" && <ExpansionPanel game={game} />}
     </div>
   );

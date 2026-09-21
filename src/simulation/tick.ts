@@ -24,6 +24,7 @@ import { growWorker, updateBurnout } from "./workers";
 import { handleFor, tickSocial } from "./social";
 import { buildAcquisitionMail } from "./acquisitionMail";
 import { checkAchievements } from "./achievements";
+import { totalAcquiredMonthlyRevenue } from "./acquisitions";
 
 function rng(state: GameState): Rng {
   return new Rng(state.meta.rngState);
@@ -703,6 +704,7 @@ export function tickDay(state: GameState): GameState {
         inf += h.inference;
         operations += h.operations;
       }
+      rev += Math.round(totalAcquiredMonthlyRevenue(draft) / 4.33);
       draft.company.cash += rev;
       draft.company.lifetimeRevenue += rev;
       draft.company.monthlyRevenue += rev;
