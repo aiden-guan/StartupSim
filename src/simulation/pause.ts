@@ -1,5 +1,5 @@
-import type { GameState, Mail, PauseReason } from './types';
-import { monthlyBurn, runwayMonths } from './derived';
+import type { GameState, Mail, PauseReason } from './types.js';
+import { monthlyBurn, runwayMonths } from './derived.js';
 
 const LABELS: Record<PauseReason, string> = {
   manual: 'Paused',
@@ -142,5 +142,4 @@ export function isMinorFee(mail: Mail, state?: GameState): boolean {
 
   return false;
 }
-
 

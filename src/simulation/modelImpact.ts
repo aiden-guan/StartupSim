@@ -1,5 +1,5 @@
-import { BALANCE } from "../config/balance";
-import type { ModelDef } from "../data/models";
+import { BALANCE } from "../config/balance.js";
+import type { ModelDef } from "../data/models.js";
 
 export const CONTEXT_HEAVY_PRIMITIVES = new Set([
   "writing",

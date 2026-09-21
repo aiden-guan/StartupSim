@@ -1,14 +1,14 @@
-import { BALANCE } from "../config/balance";
-import { primitiveById } from "../data/primitives";
-import { findRecipe } from "../data/recipes";
-import { modelById } from "../data/models";
-import { calculateModelImpact, calculateWeeklyProductInference } from "./modelImpact";
-import { PRICING_MODELS } from "../data/pricing";
-import { GTM_STRATEGIES } from "../data/gtm";
-import { isServiceProductStatus, type GameState, type LaunchStat, type Product, type ProductPoints } from "./types";
-import { uid, type Rng } from "./rng";
-import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from "./gtm";
-import { isModelAvailable } from "./effects";
+import { BALANCE } from "../config/balance.js";
+import { primitiveById } from "../data/primitives.js";
+import { findRecipe } from "../data/recipes.js";
+import { modelById } from "../data/models.js";
+import { calculateModelImpact, calculateWeeklyProductInference } from "./modelImpact.js";
+import { PRICING_MODELS } from "../data/pricing.js";
+import { GTM_STRATEGIES } from "../data/gtm.js";
+import { isServiceProductStatus, type GameState, type LaunchStat, type Product, type ProductPoints } from "./types.js";
+import { uid, type Rng } from "./rng.js";
+import { calculateWeeklyProductOperations, gtmExecutionMultiplier, gtmFitAnalysis, marketDemandMultiplier } from "./gtm.js";
+import { isModelAvailable } from "./effects.js";
 
 const epsilon = 1e-12;
 

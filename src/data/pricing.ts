@@ -1,4 +1,4 @@
-import type { BusinessModel } from "../simulation/types";
+import type { BusinessModel } from "../simulation/types.js";
 
 export interface PricingModelDef {
   id: BusinessModel;

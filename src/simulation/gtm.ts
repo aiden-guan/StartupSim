@@ -1,7 +1,7 @@
-import { BALANCE } from "../config/balance";
-import { GTM_STRATEGIES } from "../data/gtm";
-import { companySkill } from "./workers";
-import type { GameState, GtmStrategy, Product } from "./types";
+import { BALANCE } from "../config/balance.js";
+import { GTM_STRATEGIES } from "../data/gtm.js";
+import { companySkill } from "./workers.js";
+import type { GameState, GtmStrategy, Product } from "./types.js";
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 

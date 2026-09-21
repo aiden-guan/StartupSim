@@ -1,7 +1,7 @@
-import { techById } from "../data/technologies";
-import { modelById } from "../data/models";
-import type { Effect, GameState, WorldState } from "./types";
-import { setPause } from "./pause";
+import { techById } from "../data/technologies.js";
+import { modelById } from "../data/models.js";
+import type { Effect, GameState, WorldState } from "./types.js";
+import { setPause } from "./pause.js";
 
 const SERVICE_PRODUCT_STATUSES = new Set(["active", "mature", "declining"]);
 const MIGRATABLE_PRODUCT_STATUSES = new Set(["development", "ready", "active", "mature", "declining"]);

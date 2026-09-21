@@ -1,4 +1,4 @@
-import type { MarketSession } from "../market/types";
+import type { MarketSession } from "../market/types.js";
 
 export type SkillName =
   | "research"

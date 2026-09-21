@@ -1,4 +1,4 @@
-import type { SkillName } from "../simulation/types";
+import type { SkillName } from "../simulation/types.js";
 
 export interface TraitDef {
   id: string;

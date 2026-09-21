@@ -1,4 +1,4 @@
-import type { GtmStrategy, Product } from "../simulation/types";
+import type { GtmStrategy, Product } from "../simulation/types.js";
 
 export interface GtmStrategyDef {
   id: GtmStrategy;

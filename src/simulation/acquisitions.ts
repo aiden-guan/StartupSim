@@ -1,6 +1,6 @@
-import { BALANCE } from "../config/balance";
-import type { CompetitorState, GameState } from "./types";
-import { economyMult, marketScaleMultiplier } from "./products";
+import { BALANCE } from "../config/balance.js";
+import type { CompetitorState, GameState } from "./types.js";
+import { economyMult, marketScaleMultiplier } from "./products.js";
 
 /** The cash price shown to the player for acquiring a competitor. */
 export function acquisitionCost(competitor: Pick<CompetitorState, "funding">): number {

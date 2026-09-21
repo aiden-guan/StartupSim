@@ -1,5 +1,5 @@
 import { isServiceProductStatus, type Condition, type GameState } from "./types.js";
-import { totalAcquiredMonthlyRevenue } from "./acquisitions";
+import { totalAcquiredMonthlyRevenue } from "./acquisitions.js";
 
 function num(cond: Condition): number {
   return typeof cond.val === "number" ? cond.val : Number(cond.val);

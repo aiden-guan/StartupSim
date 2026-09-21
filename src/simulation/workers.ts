@@ -1,10 +1,10 @@
-import { offices } from "../data/offices";
-import { BALANCE } from "../config/balance";
-import { locations } from "../data/locations";
-import { traitById } from "../data/traits";
-import type { Employee, GameState, SkillName, Skills } from "./types";
-import { SKILLS } from "./types";
-import type { Rng } from "./rng";
+import { offices } from "../data/offices.js";
+import { BALANCE } from "../config/balance.js";
+import { locations } from "../data/locations.js";
+import { traitById } from "../data/traits.js";
+import type { Employee, GameState, SkillName, Skills } from "./types.js";
+import { SKILLS } from "./types.js";
+import type { Rng } from "./rng.js";
 
 export function emptySkills(): Skills {
   return { research: 0, engineering: 0, product: 0, growth: 0, productivity: 0 };
