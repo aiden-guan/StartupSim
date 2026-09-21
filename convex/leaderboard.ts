@@ -9,7 +9,6 @@ import {
 } from "./validators";
 
 const MAX_ROWS = 5000;
-const MAX_VALUATION = 50_000_000_000_000;
 
 const listResultValidator = v.object({
   entries: v.array(leaderboardEntryWithRankValidator),
@@ -39,7 +38,6 @@ function isSafeEntry(entry: LeaderboardEntry): boolean {
     entry.score >= 0 &&
     finite(entry.valuation) &&
     entry.valuation >= 0 &&
-    entry.valuation <= MAX_VALUATION &&
     finite(entry.cash) &&
     finite(entry.arr) &&
     entry.arr >= 0 &&
@@ -126,9 +124,7 @@ async function readRows(ctx: QueryCtx | MutationCtx, filter: LeaderboardFilter) 
         .take(MAX_ROWS);
       const byValuation = await ctx.db
         .query("leaderboardEntries")
-        .withIndex("by_valuation", (q) =>
-          q.gte("valuation", 1_000_000_000).lte("valuation", MAX_VALUATION),
-        )
+        .withIndex("by_valuation", (q) => q.gte("valuation", 1_000_000_000))
         .order("desc")
         .take(MAX_ROWS);
       return mergeRows(byEnding, byValuation);
