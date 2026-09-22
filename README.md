@@ -2,6 +2,8 @@
 
 > Build and ship an AI company, one consequential decision at a time.
 
+[Play the current build](https://startup.me)
+
 StartupSim is a low-poly management simulation about taking an AI company from a
 two-laptop apartment to an automated enterprise. The repository is named
 `StartupSim`; the current in-game title is **Compounding**.
@@ -109,7 +111,7 @@ http://localhost:5173/?world=3
 ## Status and limits
 
 This is an actively developed playable prototype, not a claim of production
-readiness. The repository contains local tests and a Vite deployment configuration,
-but no live demo URL is asserted here until it is independently verified. A
-repository license has not been added yet; confirm reuse rights with the author
-before redistributing the code or assets.
+readiness. The repository contains local tests and a Vite deployment configuration;
+the live build link is provided above, but deployment state and authenticated flows
+should be verified separately. A repository license has not been added yet; confirm
+reuse rights with the author before redistributing the code or assets.
