@@ -39,9 +39,13 @@ function Scene() {
   const showcasedProduct = game?.products.filter((product) => product.status !== 'development' && product.status !== 'deprecated').at(-1);
   useEffect(() => {
     const cam = useCameraDirector.getState();
-    if (screen === "title") cam.setGoal(TITLE_SHOT);
-    else if (screen === "setup") cam.setGoal(PREVIEW_SHOT);
-    else {
+    if (screen === "title" || screen === "setup") {
+      // OrbitControls can retain a far-away radius from the previous office
+      // view. Setup is a fixed character preview, so remove that state before
+      // moving to either of the non-game cameras.
+      cam.setOrbitEnabled(false);
+      cam.setGoal(screen === "title" ? TITLE_SHOT : PREVIEW_SHOT);
+    } else {
       const shot = overviewShot(level);
       cam.overview(level);
       cam.setGoal({ ...shot, mode: "PLAYER" });
