@@ -2,7 +2,7 @@
 
 > Build and ship an AI company, one consequential decision at a time.
 
-[Play the current build](https://startup.me)
+[Play the current build](https://startupsim.me)
 
 StartupSim is a low-poly management simulation about taking an AI company from a
 two-laptop apartment to an automated enterprise. The repository is named
