@@ -150,10 +150,12 @@ export const useGame = create<AppState>((set, get) => ({
     }
     if (next?.marketBattle || next?.marketResult) patch.screen = "market";
     if (cmd.type === "launchAll" && next && prev && next.marketResult?.delegated) {
+      const beforeById = new Map(prev.products.map((product) => [product.id, product]));
+      const afterById = new Map(next.products.map((product) => [product.id, product]));
       const launchedProducts = cmd.productIds
         .map((productId) => {
-          const before = prev.products.find((product) => product.id === productId);
-          const after = next.products.find((product) => product.id === productId);
+          const before = beforeById.get(productId);
+          const after = afterById.get(productId);
           return before?.status === "ready" && after?.status === "active" ? after : null;
         })
         .filter((product): product is GameState["products"][number] => Boolean(product));

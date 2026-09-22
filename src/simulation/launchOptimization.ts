@@ -63,17 +63,23 @@ export interface LaunchOptimizationResult {
   score: number;
 }
 
+interface CandidateEvaluationCache {
+  gtmFits: Map<string, ReturnType<typeof gtmFitAnalysis>>;
+  modelImpacts: Map<string, ReturnType<typeof calculateModelImpact>>;
+}
+
 /**
  * Evaluates projected launch economics using the same economic and gameplay formulas
  * found in products.ts and panels.tsx.
  */
-export function calculateCandidateEconomics(
+function calculateCandidateEconomicsInternal(
   state: GameState,
   product: Product,
   businessModel: BusinessModel,
   gtmStrategy: GtmStrategy,
   modelId: string,
   levels: { capability: number; deployment: number; distribution: number },
+  cache?: CandidateEvaluationCache,
 ): LaunchEconomicsProjection {
   const pricing = PRICING_MODELS[businessModel] ?? PRICING_MODELS.freemium;
   const strategy = GTM_STRATEGIES[gtmStrategy] ?? GTM_STRATEGIES["product-led"];
@@ -87,17 +93,24 @@ export function calculateCandidateEconomics(
     levels: { ...levels },
   };
 
-  const fit = gtmFitAnalysis(state, mockProduct, strategy.id);
+  const fitKey = `${strategy.id}:${levels.capability},${levels.deployment},${levels.distribution}`;
+  let fit = cache?.gtmFits.get(fitKey);
+  if (!fit) {
+    fit = gtmFitAnalysis(state, mockProduct, strategy.id);
+    cache?.gtmFits.set(fitKey, fit);
+  }
   const execution = gtmExecutionMultiplier(fit.score);
   const model = modelById[modelId];
-  const modelImpact = model
-    ? calculateModelImpact({
-        model,
-        product: mockProduct,
-        technologies: state.company.technologies,
-        worldInferenceCostIndex: state.world.inferenceCostIndex,
-      })
-    : null;
+  let modelImpact = model ? cache?.modelImpacts.get(modelId) : null;
+  if (model && !modelImpact) {
+    modelImpact = calculateModelImpact({
+      model,
+      product: mockProduct,
+      technologies: state.company.technologies,
+      worldInferenceCostIndex: state.world.inferenceCostIndex,
+    });
+    cache?.modelImpacts.set(modelId, modelImpact);
+  }
 
   const demand = marketDemandMultiplier(state, mockProduct) * (modelImpact?.demandMultiplier ?? 1);
   const marketScale = marketScaleMultiplier(state);
@@ -185,6 +198,18 @@ export function calculateCandidateEconomics(
     demandMultiplier: modelImpact?.demandMultiplier ?? 1,
     reliability,
   };
+}
+
+/** Public single-candidate evaluation. Batch callers use the internal cache. */
+export function calculateCandidateEconomics(
+  state: GameState,
+  product: Product,
+  businessModel: BusinessModel,
+  gtmStrategy: GtmStrategy,
+  modelId: string,
+  levels: { capability: number; deployment: number; distribution: number },
+): LaunchEconomicsProjection {
+  return calculateCandidateEconomicsInternal(state, product, businessModel, gtmStrategy, modelId, levels);
 }
 
 /**
@@ -339,12 +364,16 @@ export function recommendLaunchConfiguration(
 
   let bestResult: LaunchOptimizationResult | null = null;
   let highestScore = -Infinity;
+  const evaluationCache: CandidateEvaluationCache = {
+    gtmFits: new Map(),
+    modelImpacts: new Map(),
+  };
 
   for (const alloc of statAllocations) {
     for (const gtm of candidateGtmStrategies) {
       for (const biz of candidateBusinessModels) {
         for (const modelId of candidateModelIds) {
-          const economics = calculateCandidateEconomics(state, product, biz, gtm, modelId, alloc.levels);
+          const economics = calculateCandidateEconomicsInternal(state, product, biz, gtm, modelId, alloc.levels, evaluationCache);
           const score = calculateLaunchPerformanceScore(state, product, alloc.levels, economics);
 
           if (score > highestScore || !bestResult) {

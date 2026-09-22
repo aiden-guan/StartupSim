@@ -1,6 +1,8 @@
 import { facilityFootprint, kitchenPlacement, loungePlacement } from '../facilities/facilityZones';
 import type { OfficeLayout } from './layout';
 import { officeScale } from '../environment/officeScale';
+import { computeRackLayout, requestedComputeRacks } from '../environment/computeLayout';
+import type { EnvironmentVisualState } from '../environment/environmentVisualState';
 
 export interface NavigationObstacle {
   center: [number, number];
@@ -19,7 +21,7 @@ const obstacle = (x: number, z: number, halfX: number, halfZ: number): Navigatio
  */
 export function navigationObstacles(layout: OfficeLayout): NavigationObstacle[] {
   const desks = layout.points.filter((point) => point.kind === 'desk');
-  const obstacles: NavigationObstacle[] = [];
+  const obstacles: NavigationObstacle[] = [...(layout.extraObstacles ?? [])];
 
   for (const desk of desks) {
     const [x, , z] = desk.position;
@@ -34,6 +36,7 @@ export function navigationObstacles(layout: OfficeLayout): NavigationObstacle[] 
 
     if (point.kind === 'lab') obstacles.push(obstacle(x, z, 0.92, 0.54));
     if (point.kind === 'server') obstacles.push(obstacle(x, z, 0.48, 0.42));
+    if (point.kind === 'meet') obstacles.push(obstacle(x, z, 0.92, 0.42));
   }
 
   // Activity points are the walkable side of these props. Their larger
@@ -86,6 +89,114 @@ export function navigationObstacles(layout: OfficeLayout): NavigationObstacle[] 
   for (const facility of layout.facilities ?? []) {
     if (!facility.exterior) obstacles.push(facilityFootprint(facility));
   }
+  return obstacles;
+}
+
+function addField(
+  obstacles: NavigationObstacle[],
+  anchor: [number, number],
+  count: number,
+  columns: number,
+  gapX: number,
+  gapZ: number,
+  halfX: number,
+  halfZ: number,
+) {
+  const safeCount = Math.max(0, Math.floor(count));
+  const safeColumns = Math.max(1, Math.floor(columns));
+  for (let i = 0; i < safeCount; i += 1) {
+    const column = i % safeColumns;
+    const row = Math.floor(i / safeColumns);
+    obstacles.push(obstacle(anchor[0] + column * gapX, anchor[1] + row * gapZ, halfX, halfZ));
+  }
+}
+
+/**
+ * Collision footprints for the optional progression props. These are kept in
+ * navigation space instead of reading rendered meshes so the agent route stays
+ * deterministic and cheap. Only props that can occupy a walking lane are added.
+ */
+export function environmentObstacles(level: number, state: EnvironmentVisualState): NavigationObstacle[] {
+  const safeLevel = Math.max(0, Math.min(5, Math.floor(level)));
+  const { width, depth } = officeScale(safeLevel);
+  const obstacles: NavigationObstacle[] = [];
+
+  const computeX = width / 2 - (safeLevel >= 4 ? 8 : safeLevel >= 2 ? 5 : 1.5);
+  const computeZ = -depth / 2 + (safeLevel >= 4 ? 7 : safeLevel >= 2 ? 3.3 : 2.2);
+  if (state.computeTier > 0) {
+    const rackLayout = computeRackLayout(safeLevel, requestedComputeRacks(state));
+    obstacles.push(obstacle(
+      computeX,
+      computeZ,
+      Math.max(0.9, rackLayout.columns * 0.51 + 0.38),
+      // Leave the service side of the rack bank open; the server activity
+      // point sits just beyond that face in the level-3 shell.
+      Math.max(0.65, rackLayout.rows * 0.64 - 0.65),
+    ));
+    if (state.hasGpuCluster) obstacles.push(obstacle(computeX + (safeLevel >= 4 ? 2 : 1.5), computeZ, 0.75, 0.55));
+    if (state.hasDataCenter) obstacles.push(obstacle(computeX + (safeLevel >= 3 ? 1.5 : 0), computeZ + (safeLevel >= 3 ? 3 : 2), 1.55, 0.8));
+    if (state.hasCustomChip) obstacles.push(obstacle(computeX - 2, computeZ + (safeLevel >= 3 ? 5 : 2), 0.95, 0.65));
+  }
+
+  const labX = -width / 2 + (safeLevel >= 4 ? 8 : safeLevel >= 2 ? 4.6 : 2.2);
+  const labZ = -depth / 2 + (safeLevel >= 4 ? 7 : safeLevel >= 2 ? 3.5 : 2.4);
+  if (state.hasResearchLab) obstacles.push(obstacle(labX, labZ, 1.25, 1.05));
+  if (state.hasFoundationModel) {
+    obstacles.push(obstacle(labX + (safeLevel >= 3 ? 3.5 : 0), labZ + (safeLevel >= 3 ? 0 : 2), 1.05, 0.75));
+    obstacles.push(obstacle(labX + (safeLevel >= 3 ? 4.8 : 1.2), labZ + (safeLevel >= 3 ? 1.1 : 2.4), 0.5, 0.5));
+  }
+  if (state.hasAutonomousLab) {
+    // The lab activity point is authored at the near edge of this cell. Keep
+    // that approach lane clear while still blocking the cell interior.
+    obstacles.push(obstacle(labX + (safeLevel >= 3 ? 2 : 0), labZ + (safeLevel >= 3 ? 4 : 3), 1.9, 1.05));
+  }
+
+  const robotX = safeLevel === 1 ? 4.7 : width / 2 - (safeLevel >= 4 ? 15 : safeLevel >= 3 ? 9 : 3.5);
+  const robotZ = safeLevel === 1 ? -4.7 : safeLevel >= 4 ? 2 : safeLevel >= 3 ? 3 : 0;
+  if (state.roboticsTier > 0) obstacles.push(obstacle(robotX, robotZ, state.roboticsTier >= 2 ? 2.1 : 0.65, state.roboticsTier >= 2 ? 1.7 : 0.65));
+  if (state.roboticsTier >= 2 && safeLevel >= 3) {
+    addField(
+      obstacles,
+      [robotX + (safeLevel >= 5 ? -9 : safeLevel === 4 ? -5 : -2), robotZ + (safeLevel >= 5 ? -5 : safeLevel === 4 ? -4 : -2)],
+      safeLevel >= 5 ? 8 : safeLevel === 4 ? 5 : 3,
+      safeLevel === 4 ? 3 : 3,
+      3.1,
+      3.3,
+      1.35,
+      1.35,
+    );
+    addField(
+      obstacles,
+      [robotX + (safeLevel >= 5 ? -14 : safeLevel === 4 ? -6 : -3), robotZ + (safeLevel >= 5 ? 0 : safeLevel === 4 ? 2 : 4)],
+      safeLevel >= 5 ? 24 : safeLevel === 4 ? 10 : 3,
+      safeLevel >= 4 ? 5 : 3,
+      2.6,
+      2.8,
+      1.05,
+      0.85,
+    );
+  }
+
+  const automationAnchor: [number, number] = safeLevel >= 5 ? [17, 13] : safeLevel === 4 ? [14, 9] : safeLevel === 3 ? [6.5, -2.5] : safeLevel === 2 ? [5.2, -0.5] : [0, 2];
+  if (state.hasAgents) obstacles.push(obstacle(automationAnchor[0], automationAnchor[1], 1.1, 0.8));
+  if (state.hasComputerUse && safeLevel >= 2 && safeLevel < 4) {
+    addField(obstacles, [automationAnchor[0] + 2.1, automationAnchor[1]], 2, 2, 2, 1.3, 0.85, 0.75);
+  }
+  if (state.automationTier >= 1) obstacles.push(obstacle(automationAnchor[0], automationAnchor[1] - 1.8, 1.9, 0.35));
+  if (state.automationTier >= 2 && safeLevel >= 3 && safeLevel < 4) {
+    addField(obstacles, [automationAnchor[0], automationAnchor[1] + 2.5], 3, 3, 2, 2.25, 0.85, 0.75);
+  }
+  if (state.automationTier >= 3) {
+    const local: [number, number] = safeLevel >= 4 ? [0, 8] : safeLevel === 2 ? [-1, 1.8] : [1, 2.5];
+    obstacles.push(obstacle(automationAnchor[0] + local[0], automationAnchor[1] + local[1], 2.1, 1.65));
+  }
+  if (safeLevel >= 4 && state.automationTier >= 2) {
+    const fieldAnchor: [number, number] = safeLevel >= 5 ? [17, 8] : [10, 11];
+    const count = safeLevel >= 5 ? 12 : 8;
+    const columns = Math.min(4, Math.ceil(Math.sqrt(count)));
+    addField(obstacles, fieldAnchor, count, columns, 2.15, 2.25, 0.95, 0.8);
+  }
+
   return obstacles;
 }
 

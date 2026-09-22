@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { locations } from "../../data/locations";
 import { cityThemeFor, cityThemes } from "./cityThemes";
-import { ExteriorEnvironment, exteriorBoundsFor, TRANSIT_CYCLE_SECONDS, transitExchangeAt, transitMotionAt } from "./ExteriorEnvironment";
+import { ExteriorEnvironment, exteriorBoundsFor, frontVegetationPositionFor, TRANSIT_CYCLE_SECONDS, transitExchangeAt, transitLaneZFor, transitMotionAt } from "./ExteriorEnvironment";
 
 describe("city exterior configuration", () => {
   it("covers exactly every purchasable location", () => {
@@ -29,6 +29,20 @@ describe("city exterior configuration", () => {
     }
   });
 
+  it("keeps frontage trees outside the road for every office size", () => {
+    for (let level = 0; level <= 5; level += 1) {
+      const bounds = exteriorBoundsFor(level);
+      for (const side of [-1, 1] as const) {
+        for (let index = 0; index < 6; index += 1) {
+          const [x, y, z] = frontVegetationPositionFor(bounds, side, index);
+          expect(y).toBe(0);
+          expect(Math.abs(x)).toBeGreaterThan(bounds.roadWidth / 2 + bounds.clearance);
+          expect(z).toBeGreaterThan(bounds.officeMaxZ);
+        }
+      }
+    }
+  });
+
   it("can construct every quality and transit tier without throwing", () => {
     for (const quality of ["low", "medium", "high"] as const) {
       for (const transitTier of [-1, 0, 1]) {
@@ -39,12 +53,25 @@ describe("city exterior configuration", () => {
 });
 
 describe("exterior transit", () => {
+  it("uses one fixed drive lane through approach, stop, and departure", () => {
+    for (let level = 0; level <= 5; level += 1) {
+      const bounds = exteriorBoundsFor(level);
+      const lane = transitLaneZFor(bounds);
+      expect(lane).toBe(bounds.roadZ - 4.2 / 2 + 0.85);
+      expect(lane).toBeGreaterThan(bounds.roadZ - 4.2 / 2);
+      expect(lane).toBeLessThan(bounds.roadZ + 4.2 / 2);
+    }
+  });
+
   it("uses a deterministic approach, dwell, depart loop", () => {
     const span = 12;
     expect(transitMotionAt(0, span).state).toBe("APPROACH");
     expect(transitMotionAt(TRANSIT_CYCLE_SECONDS * 0.5, span).state).toBe("DWELL");
     expect(transitMotionAt(TRANSIT_CYCLE_SECONDS - 0.1, span).state).toBe("DEPART");
     expect(transitMotionAt(TRANSIT_CYCLE_SECONDS + 0.1, span)).toEqual(transitMotionAt(0.1, span));
+    for (const time of [0, 7.5, 9.5, 15, 21]) {
+      expect(transitMotionAt(time, span).curb).toBe(1);
+    }
   });
 
   it("parks at the curb under reduced motion", () => {

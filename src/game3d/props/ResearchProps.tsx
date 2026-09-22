@@ -30,7 +30,7 @@ export function ModelTrainingStation({position}:Placed) {
 
 export function CheckpointStack({position}:Placed) {
   return <group position={position}>
-    {[0,1,2].map(i=><group key={i} position={[0,i*.2,0]}>
+    {[0,1,2].map(i=><group key={i} position={[0,.08+i*.2,0]}>
       <Bevel size={[.62,.16,.55]} color="#33373b"/>
       <Bevel position={[-.17,0,.29]} size={[.1,.03,.012]} color="#5599ff" emissive="#5599ff" emissiveIntensity={.15}/>
     </group>)}

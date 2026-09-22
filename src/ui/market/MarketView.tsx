@@ -25,9 +25,9 @@ const TRAIT_INFO: Record<MarketTrait, { icon: string; label: string; desc: strin
 type PlayerTactic = Extract<MarketTactic, "pitch" | "fortify" | "poach">;
 
 const TACTICS: Record<PlayerTactic, { label: string; icon: string; description: string }> = {
-  pitch: { label: "Promote", icon: "↗", description: "Open a connected segment. Distribution 3+ can reach two hops." },
-  fortify: { label: "Reinforce", icon: "◆", description: "Add influence to a foothold and protect it from the rival this round." },
-  poach: { label: "Poach", icon: "⇄", description: "Challenge a rival hold that touches your network or one you already contest." },
+  pitch: { label: "Promote", icon: "↗", description: "Open a connected segment. Adds influence." },
+  fortify: { label: "Reinforce", icon: "◆", description: "Strengthen your segment. The rival cannot attack it this round." },
+  poach: { label: "Poach", icon: "⇄", description: "Attack a rival segment. Costs 2 Ops." },
 };
 
 function tacticForMove(canReinforce: boolean, canContest: boolean): PlayerTactic {
@@ -579,6 +579,26 @@ export function MarketView({ game }: { game: GameState }) {
             </div>
           )}
 
+          <section className="market-guide" aria-label="Battle moves">
+            <div className="market-guide-heading">
+              <span className="eyebrow">Battle moves</span>
+              <small>Build connected share before turns run out.</small>
+            </div>
+            <div className="market-guide-row">
+              <strong><i>{TACTICS.pitch.icon}</i> Promote</strong>
+              <span>Open a connected segment. Adds influence.</span>
+            </div>
+            <div className="market-guide-row">
+              <strong><i>{TACTICS.fortify.icon}</i> Reinforce</strong>
+              <span>Strengthen your segment. Blocks a rival attack this round.</span>
+            </div>
+            <div className="market-guide-row">
+              <strong><i>{TACTICS.poach.icon}</i> Poach</strong>
+              <span>Attack a rival segment. Costs 2 Ops.</span>
+            </div>
+            <p className="market-guide-note"><b>Resistance</b> lowers influence. <b>Load</b> is your deployment limit.</p>
+          </section>
+
           {/* Selected Node Details Card */}
           <div className="order-card">
             <span className="eyebrow">Selected Segment</span>
@@ -628,7 +648,7 @@ export function MarketView({ game }: { game: GameState }) {
                   title={TACTICS.fortify.description}
                 >
                   <span>{TACTICS.fortify.icon} Reinforce</span>
-                  <small>Hold · 1 Ops</small>
+                  <small>Strengthen · 1 Ops</small>
                 </button>
                 <button
                   type="button"
@@ -638,7 +658,7 @@ export function MarketView({ game }: { game: GameState }) {
                   title={TACTICS.poach.description}
                 >
                   <span>{TACTICS.poach.icon} Poach</span>
-                  <small>Take · 2 Ops</small>
+                  <small>Attack · 2 Ops</small>
                 </button>
               </div>
             </div>
@@ -785,7 +805,7 @@ export function MarketView({ game }: { game: GameState }) {
           {/* Market Strategy Rules Compact Help */}
           <details className="market-help">
             <summary>How the market works</summary>
-            <p>Promote opens a connected segment. Reinforce strengthens and protects your foothold. Poach takes on a reachable rival hold. Resistance reduces influence gained.</p>
+            <p>Select a segment next to your network. Distribution 3+ can reach two steps away. End turn gives the rival a move.</p>
           </details>
         </aside>
       </div>

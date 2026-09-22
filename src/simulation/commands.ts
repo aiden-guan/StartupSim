@@ -175,6 +175,7 @@ export function executeDelegatedMarketSession(
 ): void {
   const profile = DELEGATION_PROFILES[strategy];
   const session = startMarketSession(draft, p, r);
+  const nodeById = new Map(session.nodes.map((node) => [node.id, node]));
   session.playerOps = session.playerMaxOps;
   for (let t = 0; t < session.maxTurns; t++) {
     if (shouldEndSession(session)) break;
@@ -188,8 +189,8 @@ export function executeDelegatedMarketSession(
       if (!allPMoves.length) break;
 
       allPMoves.sort((a, b) => {
-        const na = session.nodes.find((n) => n.id === a.nodeId)!;
-        const nb = session.nodes.find((n) => n.id === b.nodeId)!;
+        const na = nodeById.get(a.nodeId)!;
+        const nb = nodeById.get(b.nodeId)!;
         const scoreMove = (node: typeof na, action: DelegatedAction): number => {
           let score = node.value * profile.valueWeight - node.resistance * profile.resistanceWeight;
           score += profile.actionBias[action];
@@ -223,7 +224,7 @@ export function executeDelegatedMarketSession(
       });
       if (!chosen) break;
 
-      const node = session.nodes.find((n) => n.id === chosen.nodeId);
+      const node = nodeById.get(chosen.nodeId);
       const tactic = delegationTactic(strategy, chosen.action);
       const cost = OPS_COST[tactic] ?? 1;
       if (chosen.action === "contest") {
@@ -279,8 +280,9 @@ function applyLaunchAll(
 
   const next = structuredClone(state);
   const r = rng(next);
+  const productById = new Map(next.products.map((product) => [product.id, product]));
   const products = command.productIds
-    .map((productId) => next.products.find((product) => product.id === productId))
+    .map((productId) => productById.get(productId))
     .filter((product): product is Product => Boolean(product && product.status === "ready"));
   if (!products.length) return state;
 

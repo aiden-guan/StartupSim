@@ -4,6 +4,9 @@ import { route } from './path';
 import { navigationObstacles, pointInsideObstacle } from './obstacles';
 import { officeScale } from '../environment/officeScale';
 import { layoutFor } from './layout';
+import { environmentObstacles } from './obstacles';
+import { createEnvironmentPreviewGame } from '../environment/devEnvironmentPreview';
+import { deriveEnvironmentVisualState } from '../environment/environmentVisualState';
 
 describe('Navigation Pathfinding (route)', () => {
   const layouts = [
@@ -84,6 +87,21 @@ describe('Navigation Pathfinding (route)', () => {
     }
   });
 
+  it('routes around meeting tables while keeping the meeting seats reachable', () => {
+    for (const layout of layouts.map(({ layout }) => layout)) {
+      const meeting = layout.points.find((point) => point.kind === 'meet');
+      if (!meeting) continue;
+      const entrance = layout.points.find((point) => point.kind === 'entrance')!;
+      const obstacles = navigationObstacles(layout);
+      const path = route(entrance.position, meeting.position, layout);
+
+      expect(path.at(-1)).toEqual(meeting.position);
+      for (const node of path.slice(1, -1)) {
+        expect(obstacles.some((item) => pointInsideObstacle(node[0], node[2], item, 0.3))).toBe(false);
+      }
+    }
+  });
+
   it('safely falls back when target is unreachable without infinite loops', () => {
     const distantUnreachable: [number, number, number] = [9999, 0, 9999];
     const path = route([0, 0, 0], distantUnreachable, apartmentLayout);
@@ -106,6 +124,22 @@ describe('Navigation Pathfinding (route)', () => {
         const path=route(entrance.position,point.position,layout);
         expect(path.length, `level ${level} ${kind}`).toBeGreaterThan(2);
         expect(path.at(-1)).toEqual(point.position);
+      }
+    }
+  });
+
+  it('keeps routes reachable with a fully dressed progression environment', () => {
+    for (let level = 0; level <= 5; level += 1) {
+      const game = createEnvironmentPreviewGame(level);
+      const base = layoutFor(level);
+      const layout = { ...base, extraObstacles: environmentObstacles(level, deriveEnvironmentVisualState(game)) };
+      const entrance = layout.points.find((point) => point.kind === 'entrance')!;
+
+      for (const kind of ['coffee', 'board', 'meet', 'lab', 'server'] as const) {
+        const point = layout.points.find((candidate) => candidate.kind === kind);
+        if (!point) continue;
+        const path = route(entrance.position, point.position, layout);
+        expect(path.at(-1), `level ${level} ${kind}`).toEqual(point.position);
       }
     }
   });

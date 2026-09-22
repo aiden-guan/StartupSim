@@ -14,7 +14,7 @@ import type { AgentView } from '../selectWorldView';
 const ANIMATION:Record<AgentState,CharacterActivity>={SPAWNING:'walking',WALKING_TO_ACTIVITY:'walking',WORKING:'working',WHITEBOARD:'whiteboard',MEETING:'meeting',COFFEE:'coffee',IDLE:'idle',CHATTING:'talking',BURNED_OUT:'tired',CELEBRATING:'celebrate',DEPARTING:'walking'};
 export function EmployeeAgent({agent,layout,reducedMotion,onSelect,runtime}:{agent:AgentView;layout:OfficeLayout;reducedMotion:boolean;onSelect:(id:string)=>void;runtime:OfficeRuntime}) {
   const selected=useGame(s=>s.selectedEmployeeId===agent.id);
-  const drawer=useGame(s=>s.drawer);
+  const worldBlocked=useGame(s=>s.screen!=='playing'||Boolean(s.drawer)||s.settingsOpen||s.creditsOpen||s.leaderboardOpen||s.achievementsOpen||s.galleryOpen||s.revealPlaying||Boolean(s.eventFrame)||Boolean(s.launchAllSummary));
   const ref=useRef<THREE.Group>(null);
   const home=useRef(runtime.home(agent.id));
   const point=useRef<ActivityPoint>(home.current);
@@ -102,7 +102,7 @@ export function EmployeeAgent({agent,layout,reducedMotion,onSelect,runtime}:{age
   return <group ref={ref} position={start.current} onClick={e=>{e.stopPropagation();onSelect(agent.id);}}>
     <Character look={agent.look} activity={reducedMotion?'idle':ANIMATION[visualBehavior]} exhausted={agent.burnoutDays>0} robot={agent.role==='robot'} seated={atDesk}/>
     {selected&&<mesh position={[0,.015,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.31,.38,24]}/><meshBasicMaterial color="#e59154"/></mesh>}
-    {(selected||agent.burnoutDays>0)&&!drawer&&<Html position={[0,1.8,0]} center distanceFactor={10} occlude><div className="agent-label">{agent.name.split(' ')[0]} · {agent.burnoutDays?'Resting':behavior==='WORKING'?agent.taskType:behavior.toLowerCase().replaceAll('_',' ')}</div></Html>}
+    {(selected||agent.burnoutDays>0)&&!worldBlocked&&<Html position={[0,1.8,0]} center distanceFactor={10} occlude><div className="agent-label">{agent.name.split(' ')[0]} · {agent.burnoutDays?'Resting':behavior==='WORKING'?agent.taskType:behavior.toLowerCase().replaceAll('_',' ')}</div></Html>}
   </group>;
 }
 export function DepartingAgent({id,look,robot,layout,runtime}:{id:string;look:AgentView['look'];robot:boolean;layout:OfficeLayout;runtime:OfficeRuntime}) {

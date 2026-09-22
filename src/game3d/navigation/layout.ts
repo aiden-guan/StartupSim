@@ -15,6 +15,8 @@ export interface OfficeLayout {
   id: string;
   level: number;
   points: ActivityPoint[];
+  /** Extra solid footprints from the live environment layer. */
+  extraObstacles?: { center: [number, number]; halfSize: [number, number] }[];
   hub: Vector3Tuple;
   /** Shared installed geometry, populated by the world selector. */
   facilities?: import("../facilities/facilityZones").InstalledFacility[];

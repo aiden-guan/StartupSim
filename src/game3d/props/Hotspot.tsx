@@ -1,5 +1,5 @@
 import { Html } from "@react-three/drei";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Vector3Tuple } from "three";
 import { useGame } from "../../state/store";
 
@@ -18,7 +18,26 @@ export function Hotspot({
 }) {
   const [hover, setHover] = useState(false);
   const selected = useGame((s) => s.selectedObject === id);
-  const show = hover || selected;
+  const worldBlocked = useGame((s) =>
+    s.screen !== "playing" ||
+    Boolean(s.drawer) ||
+    s.settingsOpen ||
+    s.creditsOpen ||
+    s.leaderboardOpen ||
+    s.achievementsOpen ||
+    s.galleryOpen ||
+    s.revealPlaying ||
+    Boolean(s.eventFrame) ||
+    Boolean(s.launchAllSummary),
+  );
+
+  // Opening a workspace can leave the pointer over the same canvas mesh. Clear
+  // the local hover state so the label cannot reappear when the workspace closes.
+  useEffect(() => {
+    if (worldBlocked) setHover(false);
+  }, [worldBlocked]);
+
+  const show = !worldBlocked && (hover || selected);
   return (
     <group
       position={position}

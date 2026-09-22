@@ -95,10 +95,10 @@ export function VerticalKit({id,position,secondary=false}:Placed&{id:string;seco
     {id==='education'&&<><TabletCart position={[-.6,0,0]}/><DisplayBoard position={[.85,0,-.2]} accent={sage}/><Bevel position={[.7,.15,.8]} size={[.5,.3,.4]} color={navy}/></>}
     {id==='health'&&<><MedicalCart position={[-.7,0,.2]}/><DisplayBoard position={[.7,0,-.3]} accent={sage}/><Cabinet position={[1.4,0,.8]}/></>}
     {id==='finance'&&<><ScreenCluster position={[-.3,0,0]} count={3}/><DisplayBoard position={[1.3,0,-.3]} accent={sage}/><Cabinet position={[1.2,0,1]} secure/></>}
-    {id==='legal'&&<><DocumentScanner position={[-.7,.79,0]}/><Desk position={[-.7,0,0]}/><Cabinet position={[.85,0,-.4]}/><DisplayBoard position={[1.3,0,.9]}/></>}
+    {id==='legal'&&<><DocumentScanner position={[-.7,.78,0]}/><Desk position={[-.7,0,0]}/><Cabinet position={[.85,0,-.4]}/><DisplayBoard position={[1.3,0,.9]}/></>}
     {id==='defense'&&<><ScreenCluster position={[-.5,0,0]}/><RuggedCase position={[1,0,.6]}/><BadgeReader position={[1.3,0,-.5]}/></>}
     {id==='robotics'&&<><RobotTestBay position={[0,0,0]}/><PartsCart position={[2.2,0,.8]}/></>}
-    {id==='biotech'&&<><ResearchBench position={[-.5,0,0]}/><PipetteRack position={[.45,1.05,0]}/><Cabinet position={[1.3,0,-.35]}/></>}
+    {id==='biotech'&&<><ResearchBench position={[-.5,0,0]}/><PipetteRack position={[.45,0,0]}/><Cabinet position={[1.3,0,-.35]}/></>}
     {id==='hardware'&&<><ChipBench position={[-.5,0,0]}/><Cabinet position={[1.3,0,-.4]} secure/></>}
     {id==='science'&&<><ResearchBench position={[-.5,0,0]}/><RobotArm position={[.7,0,-.3]}/><Whiteboard position={[1.4,1.35,.8]}/></>}
   </group>;

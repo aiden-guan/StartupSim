@@ -55,7 +55,7 @@ export function DynamicEnvironment({state,quality}:{state:EnvironmentVisualState
     {hasResearch&&<group position={[labX,0,labZ]}>
       {state.hasResearchLab&&<><ResearchBench position={[0,0,0]}/>{level>=2&&<ResearchBoard position={[2.1,0,-1]}/>}</>}
       {level>=3&&state.hasResearchLab&&quality!=='low'&&Array.from({length:level>=5?5:level===4?3:2},(_,i)=><ResearchBench key={i} position={[3+(i%3)*3.2,0,Math.floor(i/3)*3.2]}/>)}
-      {state.hasFoundationModel&&<><ModelTrainingStation position={[level>=3?3.5:0,0,level>=3?0:2]}/><CheckpointStack position={[level>=3?4.8:1.2,.1,level>=3?1.1:2.4]}/></>}
+      {state.hasFoundationModel&&<><ModelTrainingStation position={[level>=3?3.5:0,0,level>=3?0:2]}/><CheckpointStack position={[level>=3?4.8:1.2,0,level>=3?1.1:2.4]}/></>}
       {state.hasAutonomousLab&&<AutonomousLabCell position={[level>=3?2:0,0,level>=3?4:3]}/>}
     </group>}
 

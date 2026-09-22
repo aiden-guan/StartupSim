@@ -33,6 +33,7 @@ const EXTERIOR_CLEARANCE = 0.5;
 const ROAD_DEPTH = 4.2;
 const ROAD_OFFSET = 5.3;
 const ROAD_WIDTH_EXTRA = 20;
+const FRONT_VEGETATION_CLEARANCE = 1.8;
 
 function levelIndex(level: number) {
   return Math.max(0, Math.min(5, Math.floor(Number.isFinite(level) ? level : 0)));
@@ -60,6 +61,20 @@ export function exteriorBoundsFor(level: number): ExteriorBounds {
   };
 }
 
+/** Keep every vehicle on one longitudinal drive lane. The curb stop is a
+ * separate pedestrian path; cars should never slide across the road to reach it. */
+export function transitLaneZFor(bounds: ExteriorBounds): number {
+  return bounds.roadZ - ROAD_DEPTH / 2 + 0.85;
+}
+
+/** Frontage dressing belongs beside the road, never inside its drivable width. */
+export function frontVegetationPositionFor(bounds: ExteriorBounds, side: -1 | 1, index: number): Vector3Tuple {
+  const safeIndex = Math.max(0, Math.floor(index));
+  const x = side * (bounds.roadWidth / 2 + FRONT_VEGETATION_CLEARANCE + (safeIndex % 2) * 0.5);
+  const z = bounds.frontEdge + 0.95 + (safeIndex % 4) * 2.5;
+  return [x, 0, z];
+}
+
 function qualityDetail(quality: ExteriorQuality) {
   return quality === "high" ? 1 : quality === "medium" ? 0.65 : 0.38;
 }
@@ -79,7 +94,7 @@ export interface TransitMotion {
   state: TransitState;
   progress: number;
   x: number;
-  /** 0 is the road lane, 1 is the curb stop. */
+  /** Retained as phase telemetry; the rendered vehicle stays on one lane. */
   curb: number;
   rotationY: number;
   parked: boolean;
@@ -120,13 +135,13 @@ export function transitMotionAt(seconds: number, span: number, reducedMotion = f
     result.state='DWELL';result.progress=1;result.x=0;result.curb=1;
   } else if(t<TRANSIT_TIMING.approach) {
     result.state='APPROACH';result.progress=smoothStep(t/TRANSIT_TIMING.approach);
-    result.x=-safeSpan+(safeSpan-3)*result.progress;result.curb=0;
+    result.x=-safeSpan+(safeSpan-3)*result.progress;result.curb=1;
   } else if(t<arriveEnd) {
     result.state='ARRIVE';result.progress=smoothStep((t-TRANSIT_TIMING.approach)/TRANSIT_TIMING.arrive);
-    result.x=-3+3*result.progress;result.curb=result.progress;
+    result.x=-3+3*result.progress;result.curb=1;
   } else {
     result.state='DEPART';result.progress=smoothStep((t-dwellEnd)/TRANSIT_TIMING.depart);
-    result.x=safeSpan*result.progress;result.curb=1-smoothStep(Math.min(1,result.progress*4));
+    result.x=safeSpan*result.progress;result.curb=1;
   }
   return result;
 }
@@ -407,9 +422,8 @@ function CityBackdrop({ theme, level, quality, bounds }: { theme: CityTheme; lev
     const count = Math.max(2, Math.round((theme.vegetation === "palm" || theme.vegetation === "lush" ? 6 : 4) * detail));
     for (let i = 0; i < count; i += 1) {
       const side = i % 2 === 0 ? -1 : 1;
-      const x = side * (Math.abs(bounds.officeMaxX) + 1.55 + (i % 3) * 0.62);
-      const z = bounds.frontEdge + 0.95 + (i % 4) * 2.5;
-      vegetation.push({ position: [x, 0, z], scale: theme.vegetation === "palm" ? 1.1+level*.14+(i%3)*.12 : 1+level*.1+(i%2)*.13 });
+      const position = frontVegetationPositionFor(bounds, side, i);
+      vegetation.push({ position, scale: theme.vegetation === "palm" ? 1.1+level*.14+(i%3)*.12 : 1+level*.1+(i%2)*.13 });
     }
     if (theme.vegetation === "evergreen" || theme.vegetation === "broadleaf") {
       vegetation.push({ position: [-officeWidth * 0.32, 0, bounds.backEdge - 0.7], scale: 0.76 });
@@ -520,7 +534,7 @@ function TransitCommuter({bounds,premium,phaseOffset,direction,index,count,reduc
     const m=transitExchangeAt(clock.elapsedTime+phaseOffset,direction,index,count,reducedMotion,motion.current);
     group.visible=m.visible;
     if(!m.visible)return;
-    const curbZ=bounds.frontEdge+3.72,doorZ=bounds.frontEdge+.16;
+    const curbZ=transitLaneZFor(bounds),doorZ=bounds.frontEdge+.16;
     const spread=(index-(count-1)/2)*(premium ? .2 : .38);
     const curbX=stopOffset+(premium ? .28 : .72)+spread,doorX=spread*.7;
     group.position.set(curbX+(doorX-curbX)*m.path,.03+(reducedMotion?0:Math.sin((clock.elapsedTime+phaseOffset)*9+index)*.025),curbZ+(doorZ-curbZ)*m.path);
@@ -547,8 +561,7 @@ function TransitVehicle({ tier, theme, bounds, reducedMotion, phaseOffset=0, ind
   const ref = useRef<Group>(null);
   const premium = tier === 1;
   const vehicleId = premium ? "vehicle_privateTransit" : "vehicle_companyShuttle";
-  const parkZ = bounds.roadZ;
-  const curbZ = bounds.frontEdge + 4.05;
+  const driveLaneZ = transitLaneZFor(bounds);
   const span = bounds.roadSpan;
 
   const motion=useRef<TransitMotion>({state:'DWELL',progress:1,x:0,curb:1,rotationY:0,parked:true});
@@ -557,12 +570,12 @@ function TransitVehicle({ tier, theme, bounds, reducedMotion, phaseOffset=0, ind
     if(!group)return;
     const m=transitMotionAt(clock.elapsedTime+phaseOffset,span,reducedMotion,motion.current);
     const parkedX=reducedMotion&&premium?(index-1)*2.6:m.x;
-    group.position.set(parkedX,.055,parkZ+(curbZ-parkZ)*m.curb);
+    group.position.set(parkedX,.055,driveLaneZ);
     group.rotation.y=m.rotationY;
   });
 
   return (
-    <group ref={ref} position={[0, 0.055, curbZ]}>
+    <group ref={ref} position={[0, 0.055, driveLaneZ]}>
       <KitOrGltf id={vehicleId} path={assetUrl("environments", `${vehicleId}.glb`)} fallback={<TransitVehicleModel premium={premium} theme={theme} index={index} />} />
     </group>
   );

@@ -8,6 +8,7 @@ import { Apartment } from "./environments/Apartment";
 import { OfficeLighting } from "./environments/Lighting";
 import { CampusOffice, GarageOffice, HQOffice, MegaCampus, ResearchLab } from "./environments/Offices";
 import { layoutFor } from "./navigation/layout";
+import { environmentObstacles } from "./navigation/obstacles";
 import { OfficeRuntime } from "./navigation/behavior";
 import { DepartingAgent, EmployeeAgent } from "./navigation/Agent";
 import { selectWorldView } from "./selectWorldView";
@@ -29,7 +30,12 @@ function Scene() {
   const view = useMemo(() => (game ? selectWorldView(game) : null), [game]);
   const level = view?.officeLevel ?? 0;
   const facilityKey = JSON.stringify(view?.perks ?? []);
-  const layout = useMemo(() => ({...layoutFor(level), facilities: installedFacilities(level, JSON.parse(facilityKey))}), [level, facilityKey]);
+  const environment = view?.environment;
+  const layout = useMemo(() => ({
+    ...layoutFor(level),
+    facilities: installedFacilities(level, JSON.parse(facilityKey)),
+    extraObstacles: environment ? environmentObstacles(level, environment) : [],
+  }), [level, facilityKey, environment]);
   const runtime = useMemo(()=>new OfficeRuntime(layout,game?.meta.seed??1),[level,game?.meta.seed]);
   useEffect(()=>{runtime.layout=layout;},[runtime,layout]);
   const reduced = Boolean(game?.settings.reducedMotion);
