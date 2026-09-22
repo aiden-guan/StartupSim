@@ -83,7 +83,9 @@ export interface AutoAssignResult {
   assigned: { taskId: string; workerId: string; name: string; skill: SkillName; reason: string }[];
 }
 
-const MAX_AUTO_ASSIGN_TEAM_SIZE = 4;
+// Five active people fit inside the game's full-efficiency communication band.
+// Great managers and management technology extend that band further.
+const BASE_AUTO_ASSIGN_TEAM_SIZE = 5;
 
 export function planAutoAssign(state: GameState, target?: Task | string): AutoAssignResult {
   const targetTask = typeof target === "string" ? state.tasks.find((t) => t.id === target) : target;
@@ -115,6 +117,7 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
   };
 
   const relief = managementRelief(state);
+  const maxAutoAssignTeamSize = BASE_AUTO_ASSIGN_TEAM_SIZE + relief;
   const bureau = 1 - Math.min(0.45, state.company.culture.bureaucracy / 200);
   const officeProd = 1 + (offices[state.company.officeLevel]?.productivity ?? 0) / 100;
   const bureauOffice = bureau * officeProd;
@@ -204,7 +207,7 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
   }
 
   const projectCandidates = new Map<string, WorkerTaskMeta[]>();
-  const maxNeededPerProject = projects.length * MAX_AUTO_ASSIGN_TEAM_SIZE + 1;
+  const maxNeededPerProject = projects.length * maxAutoAssignTeamSize + 1;
 
   for (const task of projects) {
     const needs = relevantSkillsFor(task);
@@ -249,11 +252,11 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
   );
 
   function addBest(coverageOnly: boolean): boolean {
-    let best: { task: Task; worker: Employee; score: number; skill: SkillName } | null = null;
+    let best: { task: Task; worker: Employee; score: number; marginal: number; skill: SkillName } | null = null;
     for (const task of projects) {
       const current = teams.get(task.id)!;
       const activeCurrent = current.filter((worker) => worker.burnoutDays <= 0);
-      if (activeCurrent.length >= MAX_AUTO_ASSIGN_TEAM_SIZE || (coverageOnly && activeCurrent.length > 0)) continue;
+      if (activeCurrent.length >= maxAutoAssignTeamSize || (coverageOnly && activeCurrent.length > 0)) continue;
 
       const before = fastDailyOutput(task, activeCurrent);
       const candidates = projectCandidates.get(task.id)!;
@@ -264,12 +267,14 @@ export function planAutoAssign(state: GameState, target?: Task | string): AutoAs
         const marginal = after - before;
         const score = marginal * 1.4 + meta.fit * 0.35;
         if (!best || score > best.score) {
-          best = { task, worker: meta.worker, score, skill: meta.skill };
+          best = { task, worker: meta.worker, score, marginal, skill: meta.skill };
         }
       }
     }
 
-    if (!best || (!coverageOnly && best.score <= 0.05)) return false;
+    // Coverage can use a weak fit to keep a project moving, but extra depth
+    // should only be added when it increases actual throughput.
+    if (!best || (!coverageOnly && best.marginal <= 0)) return false;
     taken.add(best.worker.id);
     teams.get(best.task.id)!.push(best.worker);
     const label = best.skill === "productivity" ? "pace" : best.skill;

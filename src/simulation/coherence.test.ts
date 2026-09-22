@@ -341,6 +341,33 @@ describe("assignment", () => {
     expect(after.employees.filter((worker) => worker.taskId === second!.id).length).toBeGreaterThanOrEqual(1);
   });
 
+  it("uses the fifth full-efficiency slot on each project", () => {
+    let g = boot(19);
+    g = startNamedProduct(g, "chat", "writing");
+    g = startNamedProduct(g, "search", "image");
+    const [first, second] = g.tasks;
+    const template = g.employees[0]!;
+    for (let i = 0; i < 10; i++) {
+      g.employees.push({
+        ...structuredClone(template),
+        id: `efficient-worker-${i}`,
+        name: `Efficient Worker ${i}`,
+        taskId: null,
+        skills: { research: 10, engineering: 10, product: 10, growth: 10, productivity: 10 },
+      });
+    }
+
+    const plan = planAutoAssign(g);
+    expect(plan.assigned).toHaveLength(10);
+
+    const assignments = plan.assigned.reduce<Record<string, number>>((counts, row) => {
+      counts[row.taskId] = (counts[row.taskId] ?? 0) + 1;
+      return counts;
+    }, {});
+    expect(assignments[first!.id]).toBe(5);
+    expect(assignments[second!.id]).toBe(5);
+  });
+
   it("scales auto-assign efficiently with 500+ late-game employees without lag", () => {
     let g = boot(20);
     g = startNamedProduct(g, "chat", "writing");
@@ -365,7 +392,7 @@ describe("assignment", () => {
     const t0 = performance.now();
     const plan = planAutoAssign(g);
     const elapsed = performance.now() - t0;
-    expect(plan.assigned.length).toBe(g.tasks.length * 4); // Max capacity filled
+    expect(plan.assigned.length).toBe(g.tasks.length * 5); // Full-efficiency capacity filled
     expect(elapsed).toBeLessThan(100); // Must execute in under 100ms
   });
 });

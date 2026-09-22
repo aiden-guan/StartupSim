@@ -883,20 +883,15 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .rival-phase span { font:700 8px var(--font-mono);letter-spacing:.14em;text-transform:uppercase;color:#9b5d4c; }
 .rival-phase strong { font:17px var(--font-display); }
 .rival-phase small { font-size:9px;color:#7b6258; }
-.market-guide { margin:0 0 14px;padding:12px 13px;background:#e5eadb;border:1px solid #cad5c1;color:#415b4b; }
-.market-guide-heading { display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px; }
-.market-guide-heading small { font-size:9px;color:#70816c;text-align:right; }
-.market-guide-row { display:grid;grid-template-columns:86px 1fr;gap:7px;padding:6px 0;border-top:1px solid #d0d9c8;font-size:10px;line-height:1.35; }
-.market-guide-row strong { white-space:nowrap;font-weight:700; }
-.market-guide-row strong i { color:#a65d3b;font-style:normal;margin-right:3px; }
-.market-guide-row span { color:#667b6c; }
-.market-guide-note { margin:8px 0 0;padding-top:7px;border-top:1px dashed #bdcbb5;font-size:9px;line-height:1.45;color:#71816e; }
 .order-card { background:#e0e5d4;padding:20px; }
 .order-card h2 { font:29px var(--font-display);margin:9px 0 5px; }
-.order-card p { font-size:11px;color:#69816b; }
-.capture-detail { margin:22px 0;font-size:11px; }
-.capture-detail strong { display:block;text-transform:capitalize;margin-bottom:6px; }
-.capture-detail span { color:#7a896b; }
+.market-preview { margin:14px 0 12px;padding:8px 10px;background:#d6e0ce;border-radius:3px;font-size:11px; }
+.market-preview > span { display:block;color:#486350;font-weight:600; }
+.market-preview > div { display:flex;justify-content:space-between;margin-top:4px;gap:12px; }
+.market-preview > div > span { color:#607660; }
+.market-preview strong { display:inline;color:#2d573d;margin:0; }
+.market-preview > div > span:last-child strong { color:#7a4234; }
+.market-preview > small { display:block;margin-top:4px;color:#bd663b;font-weight:700; }
 .primary-action { display:block;width:100%;background:#bd663b;color:#fff9ec;padding:13px 16px;border-radius:3px;font-size:12px; }
 .primary-action:disabled { background:#b5bdab;color:#ecedde; }
 .disabled-reason { font-size:9px;line-height:1.6;display:block;color:#738567;margin-top:9px; }
@@ -1499,8 +1494,6 @@ button:active:not(:disabled) { transform:translateY(1px); }
 .competitor-detail button:disabled { color:#7c887e;cursor:not-allowed;opacity:.62;text-decoration:none; }
 .rival-identity .company-mark { width:43px;height:43px; }
 .rival-identity .character-portrait { width:38px;height:46px; }
-.market-calculation summary { cursor:pointer;color:#9a5e3e;font-size:10px;font-weight:600; }
-.market-calculation-body { margin-top:8px; }
 @media(max-width:1150px) {
   .visual-choice-layout,.model-choice-layout { grid-template-columns:1fr;gap:20px; }
   .culture-catalog { grid-template-columns:repeat(2,minmax(0,1fr)); }

@@ -114,8 +114,6 @@ export function MarketView({ game }: { game: GameState }) {
   const preview = tacticIsLegal
     ? previewSideAction(game, session, "player", selectedAction, selectedNode.id, product.levels, product.combo, selectedTactic)
     : null;
-  const excessLoad = Math.max(0, session.playerScaleUsed - session.playerScaleCapacity);
-
   let disabledReason = "";
   if (!isReachable) {
     disabledReason = selectedNode.playerDominated && !canReinforce
@@ -579,54 +577,11 @@ export function MarketView({ game }: { game: GameState }) {
             </div>
           )}
 
-          <section className="market-guide" aria-label="Battle moves">
-            <div className="market-guide-heading">
-              <span className="eyebrow">Battle moves</span>
-              <small>Build connected share before turns run out.</small>
-            </div>
-            <div className="market-guide-row">
-              <strong><i>{TACTICS.pitch.icon}</i> Promote</strong>
-              <span>Open a connected segment. Adds influence.</span>
-            </div>
-            <div className="market-guide-row">
-              <strong><i>{TACTICS.fortify.icon}</i> Reinforce</strong>
-              <span>Strengthen your segment. Blocks a rival attack this round.</span>
-            </div>
-            <div className="market-guide-row">
-              <strong><i>{TACTICS.poach.icon}</i> Poach</strong>
-              <span>Attack a rival segment. Costs 2 Ops.</span>
-            </div>
-            <p className="market-guide-note"><b>Resistance</b> lowers influence. <b>Load</b> is your deployment limit.</p>
-          </section>
-
           {/* Selected Node Details Card */}
           <div className="order-card">
             <span className="eyebrow">Selected Segment</span>
             <h2>{selectedNode.name}</h2>
-            <p>
-              Value: <strong>{"$".repeat(selectedNode.value)}</strong> · Resistance:{" "}
-              <strong>{selectedNode.resistance}</strong> · Load: <strong>{selectedNode.load}</strong>
-            </p>
 
-            {selectedNode.trait && (
-              <div
-                style={{
-                  fontSize: 10,
-                  background: "#e4ebd8",
-                  padding: "4px 8px",
-                  borderRadius: 3,
-                  margin: "6px 0 10px",
-                  color: "#375043",
-                  display: "block",
-                  lineHeight: 1.4,
-                }}
-              >
-                <strong>{TRAIT_INFO[selectedNode.trait]?.icon} {TRAIT_INFO[selectedNode.trait]?.label}:</strong>{" "}
-                {TRAIT_INFO[selectedNode.trait]?.desc}
-              </div>
-            )}
-
-            {/* Move selector: one short job statement per action. */}
             <div className="market-move-picker">
               <span className="eyebrow" style={{ fontSize: 9 }}>Move</span>
               <div className="tactical-selector">
@@ -638,7 +593,7 @@ export function MarketView({ game }: { game: GameState }) {
                   title={TACTICS.pitch.description}
                 >
                   <span>{TACTICS.pitch.icon} Promote</span>
-                  <small>Open · 1 Ops</small>
+                  <small>1 Ops</small>
                 </button>
                 <button
                   type="button"
@@ -648,7 +603,7 @@ export function MarketView({ game }: { game: GameState }) {
                   title={TACTICS.fortify.description}
                 >
                   <span>{TACTICS.fortify.icon} Reinforce</span>
-                  <small>Strengthen · 1 Ops</small>
+                  <small>1 Ops</small>
                 </button>
                 <button
                   type="button"
@@ -658,97 +613,22 @@ export function MarketView({ game }: { game: GameState }) {
                   title={TACTICS.poach.description}
                 >
                   <span>{TACTICS.poach.icon} Poach</span>
-                  <small>Attack · 2 Ops</small>
+                  <small>2 Ops</small>
                 </button>
               </div>
             </div>
 
-            {/* Current vs Projected Shares */}
-            <div className="capture-detail" style={{ margin: "12px 0 10px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", margin: "4px 0" }}>
-                <span>You: <strong>{selectedNode.playerShare}%</strong></span>
-                <span>Rival: <strong>{selectedNode.rivalShare}%</strong></span>
-                <span>Open: <strong>{selectedNode.neutralShare}%</strong></span>
+            {preview && (
+              <div className="market-preview" aria-label="Projected result">
+                <span>After move</span>
+                <div>
+                  <span>You <strong>{preview.projectedPlayerShare}%</strong></span>
+                  <span>Rival <strong>{preview.projectedRivalShare}%</strong></span>
+                </div>
+                {preview.willDominate && <small>★ Dominance secured</small>}
               </div>
+            )}
 
-              {/* Action Projected Preview */}
-              {preview && (
-                <div
-                  style={{
-                    background: "#d6e0ce",
-                    padding: "8px 10px",
-                    borderRadius: 3,
-                    marginTop: 8,
-                    fontSize: 11,
-                  }}
-                >
-                  <span style={{ display: "block", color: "#486350", fontWeight: 600 }}>After move</span>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-                    <span>
-                      You: {selectedNode.playerShare}% →{" "}
-                      <strong style={{ color: "#2d573d" }}>{preview.projectedPlayerShare}%</strong>
-                    </span>
-                    <span>
-                      Rival: {selectedNode.rivalShare}% →{" "}
-                      <strong style={{ color: "#7a4234" }}>{preview.projectedRivalShare}%</strong>
-                    </span>
-                  </div>
-                  {preview.willDominate && (
-                    <small style={{ color: "#bd663b", fontWeight: 700, display: "block", marginTop: 4 }}>
-                      ★ Dominance secured
-                    </small>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Calculation Breakdown */}
-            {preview && <details className="market-calculation"
-              style={{
-                fontSize: 10,
-                borderTop: "1px solid #c9d6bf",
-                paddingTop: 6,
-                margin: "8px 0",
-                color: "#526a57",
-              }}
-            >
-              <summary>Why this result?</summary>
-              <div className="market-calculation-body">
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Base Conversion</span>
-                  <strong>{preview.breakdown.base}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Product Fit</span>
-                  <strong>{preview.breakdown.fit >= 0 ? `+${preview.breakdown.fit}` : preview.breakdown.fit}</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span>Connected Support</span>
-                  <strong>+{preview.breakdown.support}</strong>
-                </div>
-                {excessLoad > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", color: "#b55333" }}>
-                    <span>Scale Overload</span>
-                    <strong>-{preview.breakdown.overloadPenalty}%</strong>
-                  </div>
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontWeight: 700,
-                    borderTop: "1px dashed #b4c4aa",
-                    paddingTop: 4,
-                    marginTop: 4,
-                  }}
-                >
-                  <span>Total Influence Added</span>
-                  <strong style={{ color: "#244033" }}>+{preview.influenceToAdd}</strong>
-                </div>
-              </div>
-            </details>}
-
-            {/* Main Action Button */}
             <button
               className="primary-action"
               data-tutorial="market-capture"
@@ -758,13 +638,15 @@ export function MarketView({ game }: { game: GameState }) {
             >
               {TACTICS[selectedTactic].label} {selectedNode.name} · {cost} Ops
             </button>
-            <small className="disabled-reason">
-              {isRivalTurn ? "Wait for the rival to finish." : disabledReason || TACTICS[selectedTactic].description}
-            </small>
+            {!isExecutable && (
+              <small className="disabled-reason">
+                {isRivalTurn ? "Wait for the rival to finish." : disabledReason}
+              </small>
+            )}
           </div>
 
           {/* Feedback & Last Action Summary */}
-          <p className="market-feedback" role="status">
+          <p className="market-feedback visually-hidden" role="status">
             {feedback}
           </p>
 
